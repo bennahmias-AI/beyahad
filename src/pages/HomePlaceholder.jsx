@@ -17,6 +17,16 @@ const AVAILABLE_MOCK = [
   { id: 'mock4', name: 'חנה גולדמן', age: 69, city: 'ירושלים',  status: 'available', interests: ['יידיש','בישול'], bio: 'מדברת יידיש ועברית, מבשלת מצוין', waitMin: 1 },
 ]
 
+// Build a deterministic room name from two UIDs so both sides
+// (caller + callee) end up in the SAME LiveKit room regardless
+// of who pressed "התקשרי" first.
+function pairRoomName(uidA, uidB) {
+  const [a, b] = [uidA, uidB].sort()
+  // sanitize - LiveKit room names should be safe ascii
+  const safe = s => String(s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
+  return `kafe-${safe(a)}-${safe(b)}`
+}
+
 export default function HomePlaceholder({ onGoKafe }) {
   const { profile, authUser } = useUserStore()
   const { setCafePartner, setLivekit, setCafeSession } = useSessionStore()
@@ -41,8 +51,8 @@ export default function HomePlaceholder({ onGoKafe }) {
     setLoadingCall(true)
     setCalling(partner)
     try {
-      const uid   = authUser.uid
-      const room  = `kafe-${uid}-${Date.now()}`
+      const uid    = authUser.uid
+      const room   = pairRoomName(uid, partner.id)  // ← deterministic, same for both sides
       const myName = profile?.name || 'משתמש'
 
       // Mark busy
