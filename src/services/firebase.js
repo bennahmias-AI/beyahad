@@ -93,6 +93,20 @@ export async function getAvailableUsers(myUid, blocked = []) {
     .filter(u => u.id !== myUid && !blocked.includes(u.id))
 }
 
+// Real-time listener for available users. Returns unsubscribe function.
+// The callback receives an updated array every time anyone changes status.
+export function watchAvailableUsers(myUid, cb, blocked = []) {
+  const q = query(collection(db, 'users'), where('status', '==', 'available'))
+  return onSnapshot(q, snap => {
+    const users = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.id !== myUid && !blocked.includes(u.id))
+    cb(users)
+  }, err => {
+    console.error('watchAvailableUsers error:', err)
+  })
+}
+
 // ─── Cafe sessions ────────────────────────────────────────────
 
 export async function createCafeSession(myUid, partnerUid, livekitRoom) {

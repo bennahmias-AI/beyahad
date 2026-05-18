@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { useSessionStore } from '../stores/sessionStore.js'
-import { getAvailableUsers, createCafeSession, fetchLiveKitToken, setPresence } from '../services/firebase.js'
+import { watchAvailableUsers, createCafeSession, fetchLiveKitToken, setPresence } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { colors, avatarColor } from '../design-system/index.js'
 
@@ -22,7 +22,6 @@ const AVAILABLE_MOCK = [
 // of who pressed "התקשרי" first.
 function pairRoomName(uidA, uidB) {
   const [a, b] = [uidA, uidB].sort()
-  // sanitize - LiveKit room names should be safe ascii
   const safe = s => String(s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
   return `kafe-${safe(a)}-${safe(b)}`
 }
@@ -31,6 +30,7 @@ export default function HomePlaceholder({ onGoKafe }) {
   const { profile, authUser } = useUserStore()
   const { setCafePartner, setLivekit, setCafeSession } = useSessionStore()
   const [available, setAvailable] = useState(AVAILABLE_MOCK)
+  const [hasRealUsers, setHasRealUsers] = useState(false)
   const [calling, setCalling] = useState(null)
   const [loadingCall, setLoadingCall] = useState(false)
   const [error, setError] = useState('')
@@ -38,12 +38,38 @@ export default function HomePlaceholder({ onGoKafe }) {
   const hour = new Date().getHours()
   const greet = hour < 11 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 20 ? 'ערב טוב' : 'לילה טוב'
 
-  // Try to load real available users (falls back to mock)
+  // Real-time subscription to available users
   useEffect(() => {
     if (!authUser?.uid) return
-    getAvailableUsers(authUser.uid)
-      .then(users => { if (users.length > 0) setAvailable(users) })
-      .catch(() => {}) // silent - mock is fine for dev
+
+    const unsub = watchAvailableUsers(authUser.uid, users => {
+      if (users.length > 0) {
+        setAvailable(users)
+        setHasRealUsers(true)
+      } else {
+        // No real users — fall back to mock list
+        setAvailable(AVAILABLE_MOCK)
+        setHasRealUsers(false)
+      }
+    })
+
+    return () => unsub && unsub()
+  }, [authUser?.uid])
+
+  // Mark me as available when this screen mounts, and away when leaving
+  useEffect(() => {
+    if (!authUser?.uid) return
+    setPresence(authUser.uid, 'available').catch(() => {})
+
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') {
+        setPresence(authUser.uid, 'away').catch(() => {})
+      } else {
+        setPresence(authUser.uid, 'available').catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
   }, [authUser?.uid])
 
   async function startKafeCall(partner) {
@@ -52,19 +78,13 @@ export default function HomePlaceholder({ onGoKafe }) {
     setCalling(partner)
     try {
       const uid    = authUser.uid
-      const room   = pairRoomName(uid, partner.id)  // ← deterministic, same for both sides
+      const room   = pairRoomName(uid, partner.id)
       const myName = profile?.name || 'משתמש'
 
-      // Mark busy
       await setPresence(uid, 'busy')
-
-      // Create Firestore session
       const sessionId = await createCafeSession(uid, partner.id, room)
-
-      // Fetch LiveKit token
       const token = await fetchLiveKitToken(room, myName)
 
-      // Set state → App.jsx will switch to KafePage
       setCafePartner(partner)
       setCafeSession({ id: sessionId })
       setLivekit({ token, room })
