@@ -1,13 +1,12 @@
 // src/pages/KafePage.jsx
 // ─────────────────────────────────────────────────────────────
 // Real 1:1 video call using LiveKit.
-// Design: exact original ביחד aesthetic.
-// Flow: partner info → LiveKit room → call controls → end.
+// Layout: remote partner fills the screen, you're in a small PiP.
+// Controls fixed at the bottom, always visible.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from 'react'
 import {
   LiveKitRoom,
-  GridLayout,
   ParticipantTile,
   useTracks,
   RoomAudioRenderer,
@@ -90,26 +89,23 @@ function ConnectingScreen({ partner, onCancel }) {
 // ─── The actual call UI inside LiveKit room ───────────────────
 function CallUI({ partner, sessionId, onEnd }) {
   const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: true },
-     { source: Track.Source.ScreenShare, withPlaceholder: false }],
+    [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false }
   )
   const { localParticipant } = useLocalParticipant()
   const [muted, setMuted] = useState(false)
   const [videoOff, setVideoOff] = useState(false)
   const [seconds, setSeconds] = useState(0)
-  const [mode, setMode] = useState('invite') // invite | playing | free | chat
+  const [mode, setMode] = useState('invite')
   const [qIndex, setQIndex] = useState(0)
   const [turn, setTurn] = useState('partner')
   const [turnLeft, setTurnLeft] = useState(60)
 
-  // Call timer
   useEffect(() => {
     const t = setInterval(() => setSeconds(s => s + 1), 1000)
     return () => clearInterval(t)
   }, [])
 
-  // Actually toggle the LiveKit mic / camera when the user toggles
   const toggleMute = useCallback(async () => {
     if (!localParticipant) return
     const next = !muted
@@ -139,16 +135,12 @@ function CallUI({ partner, sessionId, onEnd }) {
     }
   }, [turn, qIndex])
 
-  // Per-turn countdown (only when playing)
   useEffect(() => {
     if (mode !== 'playing') return
     setTurnLeft(60)
     const t = setInterval(() => {
       setTurnLeft(prev => {
-        if (prev <= 1) {
-          nextTurn()
-          return 60
-        }
+        if (prev <= 1) { nextTurn(); return 60 }
         return prev - 1
       })
     }, 1000)
@@ -157,6 +149,10 @@ function CallUI({ partner, sessionId, onEnd }) {
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
   const ss = String(seconds % 60).padStart(2, '0')
+
+  // Picture-in-picture layout: remote = full, local = small corner
+  const localTrack  = tracks.find(t => t.participant?.isLocal)
+  const remoteTrack = tracks.find(t => !t.participant?.isLocal)
 
   return (
     <div style={{
@@ -167,11 +163,11 @@ function CallUI({ partner, sessionId, onEnd }) {
       overflow: 'hidden',
       zIndex: 1000,
     }}>
-      {/* Header — fixed height */}
+      {/* Header */}
       <div style={{
         flexShrink: 0,
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '12px 14px',
+        padding: '10px 14px',
         background: 'rgba(0,0,0,.30)',
       }}>
         <div style={{ fontSize: 20 }}>☕</div>
@@ -195,61 +191,104 @@ function CallUI({ partner, sessionId, onEnd }) {
         </div>
       </div>
 
-      {/* Video area - takes ALL remaining space */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0F1730' }}>
-        <GridLayout tracks={tracks} style={{ height: '100%', width: '100%' }}>
-          <ParticipantTile />
-        </GridLayout>
+      {/* Video area — manual picture-in-picture */}
+      <div style={{
+        flex: 1, minHeight: 0, position: 'relative',
+        background: '#0F1730',
+        overflow: 'hidden',
+      }}>
+        {/* Remote (partner) — fills the screen */}
+        {remoteTrack ? (
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <ParticipantTile
+              trackRef={remoteTrack}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+        ) : (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            color: 'rgba(255,255,255,.7)',
+            gap: 14,
+          }}>
+            <Avatar name={partner?.name || '?'} size={120} />
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{partner?.name}</div>
+            <div style={{ fontSize: 14, opacity: 0.7 }}>מחכים לחיבור...</div>
+          </div>
+        )}
+
+        {/* Local (me) — small PiP in the corner */}
+        {localTrack && (
+          <div style={{
+            position: 'absolute',
+            bottom: 12, right: 12,
+            width: 110, height: 150,
+            borderRadius: 14,
+            overflow: 'hidden',
+            border: '2px solid rgba(255,255,255,.6)',
+            boxShadow: '0 4px 16px rgba(0,0,0,.5)',
+            zIndex: 5,
+            background: '#000',
+          }}>
+            <ParticipantTile
+              trackRef={localTrack}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+        )}
+
         <RoomAudioRenderer />
 
-        {/* Question card - playing mode */}
+        {/* Question card */}
         {mode === 'playing' && (
           <div style={{
-            position: 'absolute', bottom: 10, left: 10, right: 10,
+            position: 'absolute', bottom: 10, left: 10, right: 130,
             background: 'white', color: colors.ink,
-            borderRadius: 18, padding: '14px 16px',
+            borderRadius: 18, padding: '12px 14px',
             boxShadow: '0 6px 0 rgba(0,0,0,.3)',
             border: `2px solid ${colors.gold}`,
             zIndex: 10,
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: 8,
+                  width: 24, height: 24, borderRadius: 7,
                   background: colors.mustard, color: 'white',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 800,
+                  fontSize: 13, fontWeight: 800,
                 }}>{qIndex + 1}</div>
-                <div style={{ fontSize: 12, color: colors.ink3, fontWeight: 700 }}>
-                  שאלה {qIndex + 1} מתוך {KAFE_QUESTIONS.length}
+                <div style={{ fontSize: 11, color: colors.ink3, fontWeight: 700 }}>
+                  שאלה {qIndex + 1}/{KAFE_QUESTIONS.length}
                 </div>
               </div>
               <div style={{
                 background: turnLeft <= 10 ? colors.danger : colors.surface2,
                 color: turnLeft <= 10 ? 'white' : colors.ink,
-                borderRadius: 999, padding: '3px 9px',
-                fontSize: 13, fontWeight: 800,
+                borderRadius: 999, padding: '2px 8px',
+                fontSize: 12, fontWeight: 800,
               }}>
                 0:{String(turnLeft).padStart(2, '0')}
               </div>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.3 }}>
               {KAFE_QUESTIONS[qIndex]}
             </div>
             <div style={{
-              marginTop: 8, padding: '6px 10px',
+              marginTop: 6, padding: '5px 8px',
               background: turn === 'me' ? colors.burgundySoft : colors.wineSoft,
               border: `2px solid ${turn === 'me' ? colors.burgundy : colors.wine}`,
-              borderRadius: 10, fontSize: 13, fontWeight: 700,
+              borderRadius: 9, fontSize: 12, fontWeight: 700,
               color: turn === 'me' ? colors.burgundyDeep : colors.wineDeep,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <span>{turn === 'me' ? '🎙️ עכשיו תורך לענות' : `🎙️ ${partner?.name?.split(' ')[0]} עונה`}</span>
+              <span>{turn === 'me' ? '🎙️ תורך' : `🎙️ ${partner?.name?.split(' ')[0]}`}</span>
               {turn === 'me' && (
                 <button onClick={nextTurn} style={{
                   background: colors.burgundy, color: 'white',
-                  borderRadius: 8, padding: '5px 10px',
-                  fontSize: 12, fontWeight: 800,
+                  borderRadius: 7, padding: '4px 8px',
+                  fontSize: 11, fontWeight: 800,
                   border: 'none', cursor: 'pointer',
                 }}>סיימתי</button>
               )}
@@ -257,24 +296,22 @@ function CallUI({ partner, sessionId, onEnd }) {
           </div>
         )}
 
-        {/* Free mode banner */}
         {mode === 'free' && (
           <div style={{
-            position: 'absolute', bottom: 10, left: 10, right: 10,
+            position: 'absolute', bottom: 10, left: 10, right: 130,
             background: 'rgba(255,216,107,.96)', color: colors.ink,
-            borderRadius: 18, padding: '12px 16px',
-            display: 'flex', alignItems: 'center', gap: 12,
+            borderRadius: 16, padding: '10px 14px',
+            display: 'flex', alignItems: 'center', gap: 10,
             zIndex: 10,
           }}>
-            <div style={{ fontSize: 28 }}>💡</div>
+            <div style={{ fontSize: 22 }}>💡</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>סיימתם את השאלות 🎉</div>
-              <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>עכשיו זמן חופשי לדבר</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>סיימתם 🎉</div>
+              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>זמן חופשי לדבר</div>
             </div>
           </div>
         )}
 
-        {/* Questionnaire invite popup */}
         {mode === 'invite' && (
           <div style={{
             position: 'absolute', inset: 0,
@@ -310,15 +347,14 @@ function CallUI({ partner, sessionId, onEnd }) {
         )}
       </div>
 
-      {/* Controls — fixed at bottom, always visible */}
+      {/* Controls — fixed at bottom */}
       <div style={{
         flexShrink: 0,
         padding: '10px 14px calc(10px + env(safe-area-inset-bottom)) 14px',
-        background: 'rgba(0,0,0,.40)',
+        background: 'rgba(0,0,0,.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-around',
         gap: 8,
       }}>
-        {/* Mute */}
         <button
           onClick={toggleMute}
           style={{
@@ -334,7 +370,6 @@ function CallUI({ partner, sessionId, onEnd }) {
           {muted ? '🔇' : '🎙️'}
         </button>
 
-        {/* Video toggle */}
         <button
           onClick={toggleVideo}
           style={{
@@ -350,7 +385,6 @@ function CallUI({ partner, sessionId, onEnd }) {
           {videoOff ? '📵' : '📹'}
         </button>
 
-        {/* Questionnaire button */}
         {mode === 'chat' && (
           <button
             onClick={() => setMode('invite')}
@@ -366,7 +400,6 @@ function CallUI({ partner, sessionId, onEnd }) {
           >💡</button>
         )}
 
-        {/* End call */}
         <button
           onClick={onEnd}
           style={{
