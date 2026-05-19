@@ -1,12 +1,14 @@
 // src/pages/HomePlaceholder.jsx
 // ─────────────────────────────────────────────────────────────
-// The original Home screen from the prototype, ported to a
-// real React component. Wired: קפה בסלון. Others show "בקרוב".
+// The home screen. Wired: קפה בסלון + הפרלמנט (LiveKit).
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { useSessionStore } from '../stores/sessionStore.js'
-import { watchAvailableUsers, createCafeSession, fetchLiveKitToken, setPresence } from '../services/firebase.js'
+import {
+  watchAvailableUsers, createCafeSession, fetchLiveKitToken, setPresence,
+  joinParliamentSession, PARLIAMENT_ROOM,
+} from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { colors, avatarColor } from '../design-system/index.js'
 
@@ -17,28 +19,28 @@ const AVAILABLE_MOCK = [
   { id: 'mock4', name: 'חנה גולדמן', age: 69, city: 'ירושלים',  status: 'available', interests: ['יידיש','בישול'], bio: 'מדברת יידיש ועברית, מבשלת מצוין', waitMin: 1 },
 ]
 
-// Build a deterministic room name from two UIDs so both sides
-// (caller + callee) end up in the SAME LiveKit room regardless
-// of who pressed "התקשרי" first.
 function pairRoomName(uidA, uidB) {
   const [a, b] = [uidA, uidB].sort()
   const safe = s => String(s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
   return `kafe-${safe(a)}-${safe(b)}`
 }
 
-export default function HomePlaceholder({ onGoKafe }) {
+export default function HomePlaceholder({ onGoKafe, onGoParliament }) {
   const { profile, authUser } = useUserStore()
-  const { setCafePartner, setLivekit, setCafeSession } = useSessionStore()
+  const {
+    setCafePartner, setLivekit, setCafeSession,
+    setParliamentLivekit, setParliamentSession,
+  } = useSessionStore()
   const [available, setAvailable] = useState(AVAILABLE_MOCK)
   const [hasRealUsers, setHasRealUsers] = useState(false)
   const [calling, setCalling] = useState(null)
   const [loadingCall, setLoadingCall] = useState(false)
+  const [loadingParliament, setLoadingParliament] = useState(false)
   const [error, setError] = useState('')
 
   const hour = new Date().getHours()
   const greet = hour < 11 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 20 ? 'ערב טוב' : 'לילה טוב'
 
-  // Real-time subscription to available users
   useEffect(() => {
     if (!authUser?.uid) return
 
@@ -47,7 +49,6 @@ export default function HomePlaceholder({ onGoKafe }) {
         setAvailable(users)
         setHasRealUsers(true)
       } else {
-        // No real users — fall back to mock list
         setAvailable(AVAILABLE_MOCK)
         setHasRealUsers(false)
       }
@@ -56,7 +57,6 @@ export default function HomePlaceholder({ onGoKafe }) {
     return () => unsub && unsub()
   }, [authUser?.uid])
 
-  // Mark me as available when this screen mounts, and away when leaving
   useEffect(() => {
     if (!authUser?.uid) return
     setPresence(authUser.uid, 'available').catch(() => {})
@@ -96,6 +96,30 @@ export default function HomePlaceholder({ onGoKafe }) {
     } finally {
       setLoadingCall(false)
       setCalling(null)
+    }
+  }
+
+  async function joinParliament() {
+    setError('')
+    setLoadingParliament(true)
+    try {
+      const uid    = authUser.uid
+      const room   = PARLIAMENT_ROOM
+      const myName = profile?.name || 'משתמש'
+
+      await setPresence(uid, 'busy')
+      const sessionId = await joinParliamentSession(uid, room)
+      const token = await fetchLiveKitToken(room, myName)
+
+      setParliamentSession({ id: sessionId })
+      setParliamentLivekit({ token, room })
+      onGoParliament?.()
+    } catch (e) {
+      console.error(e)
+      setError('לא הצלחנו להתחבר לפרלמנט — נסי שוב')
+      await setPresence(authUser.uid, 'available').catch(() => {})
+    } finally {
+      setLoadingParliament(false)
     }
   }
 
@@ -222,28 +246,57 @@ export default function HomePlaceholder({ onGoKafe }) {
           ))}
         </div>
 
-        {/* Other sections - coming soon */}
+        {/* Other sections */}
         <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          {[
-            { emoji: '🏛', label: 'הפרלמנט', sub: 'בקרוב', color: colors.wine },
-            { emoji: '🎯', label: 'חוגים', sub: 'בקרוב', color: colors.teal },
-          ].map(t => (
-            <div key={t.label} style={{
-              background: t.color, color: 'white',
+          {/* פרלמנט - לחיץ ופעיל */}
+          <button
+            onClick={joinParliament}
+            disabled={loadingParliament}
+            style={{
+              background: colors.wine, color: 'white',
               border: `3px solid ${colors.ink}`,
               borderRadius: 16, padding: '16px 14px',
               boxShadow: '4px 5px 0 #1A2547',
               minHeight: 110,
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              opacity: 0.7,
-            }}>
-              <div style={{ fontSize: 36 }}>{t.emoji}</div>
-              <div>
-                <div style={{ fontFamily: "'Suez One', serif", fontSize: 20 }}>{t.label}</div>
-                <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>{t.sub}</div>
+              cursor: loadingParliament ? 'wait' : 'pointer',
+              textAlign: 'right',
+              fontFamily: 'inherit',
+              opacity: loadingParliament ? 0.7 : 1,
+            }}
+          >
+            <div style={{ fontSize: 36 }}>🏛</div>
+            <div>
+              <div style={{ fontFamily: "'Suez One', serif", fontSize: 20 }}>הפרלמנט</div>
+              <div style={{ fontSize: 13, opacity: 0.95, marginTop: 2, fontWeight: 700 }}>
+                {loadingParliament ? (
+                  <span>⏳ מתחבר...</span>
+                ) : (
+                  <>
+                    <span className="live-dot" style={{ marginInlineEnd: 6, verticalAlign: 'middle', background: '#FFC857' }}/>
+                    דיון קבוצתי
+                  </>
+                )}
               </div>
             </div>
-          ))}
+          </button>
+
+          {/* חוגים - בקרוב */}
+          <div style={{
+            background: colors.teal, color: 'white',
+            border: `3px solid ${colors.ink}`,
+            borderRadius: 16, padding: '16px 14px',
+            boxShadow: '4px 5px 0 #1A2547',
+            minHeight: 110,
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            opacity: 0.7,
+          }}>
+            <div style={{ fontSize: 36 }}>🎯</div>
+            <div>
+              <div style={{ fontFamily: "'Suez One', serif", fontSize: 20 }}>חוגים</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>בקרוב</div>
+            </div>
+          </div>
         </div>
 
         <div style={{ height: 24 }} />

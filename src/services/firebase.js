@@ -42,7 +42,6 @@ export function setupRecaptcha(containerId) {
 }
 
 export async function sendOtp(phone) {
-  // Re-create verifier fresh every time to avoid stale state
   if (window.recaptchaVerifier) {
     try { window.recaptchaVerifier.clear() } catch(e) {}
   }
@@ -93,8 +92,6 @@ export async function getAvailableUsers(myUid, blocked = []) {
     .filter(u => u.id !== myUid && !blocked.includes(u.id))
 }
 
-// Real-time listener for available users. Returns unsubscribe function.
-// The callback receives an updated array every time anyone changes status.
 export function watchAvailableUsers(myUid, cb, blocked = []) {
   const q = query(collection(db, 'users'), where('status', '==', 'available'))
   return onSnapshot(q, snap => {
@@ -131,6 +128,69 @@ export function watchCafeSession(sessionId, cb) {
 
 export async function endCafeSession(sessionId) {
   await updateDoc(doc(db, 'cafeSessions', sessionId), { status: 'ended', endedAt: serverTimestamp() })
+}
+
+// ─── Parliament sessions ──────────────────────────────────────
+
+// Parliament uses ONE shared room per topic so anyone joining the same
+// "parliament-XXX" room will end up together. For now we use a fixed
+// room name "parliament-main" so all users join the same parliament.
+export const PARLIAMENT_ROOM = 'parliament-main'
+
+export async function joinParliamentSession(uid, livekitRoom) {
+  // Find existing active parliament session for this room, or create one
+  const q = query(
+    collection(db, 'parliamentSessions'),
+    where('livekitRoom', '==', livekitRoom),
+    where('status', '==', 'active'),
+  )
+  const snap = await getDocs(q)
+
+  if (!snap.empty) {
+    // Join existing session
+    const existing = snap.docs[0]
+    const data = existing.data()
+    const participants = data.participants || []
+    if (!participants.includes(uid)) {
+      await updateDoc(doc(db, 'parliamentSessions', existing.id), {
+        participants: [...participants, uid],
+        updatedAt: serverTimestamp(),
+      })
+    }
+    return existing.id
+  } else {
+    // Create new session
+    const ref = await addDoc(collection(db, 'parliamentSessions'), {
+      participants: [uid],
+      status: 'active',
+      livekitRoom,
+      startedAt: serverTimestamp(),
+    })
+    return ref.id
+  }
+}
+
+export async function leaveParliamentSession(sessionId, uid) {
+  try {
+    const snap = await getDoc(doc(db, 'parliamentSessions', sessionId))
+    if (!snap.exists()) return
+    const data = snap.data()
+    const participants = (data.participants || []).filter(p => p !== uid)
+
+    if (participants.length === 0) {
+      await updateDoc(doc(db, 'parliamentSessions', sessionId), {
+        status: 'ended',
+        endedAt: serverTimestamp(),
+      })
+    } else {
+      await updateDoc(doc(db, 'parliamentSessions', sessionId), {
+        participants,
+        updatedAt: serverTimestamp(),
+      })
+    }
+  } catch(e) {
+    console.error('leaveParliamentSession error:', e)
+  }
 }
 
 // ─── LiveKit token ────────────────────────────────────────────

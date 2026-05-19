@@ -18,4 +18,18 @@ export const useSessionStore = create((set) => ({
     livekitToken: null,
     livekitRoom: null,
   }),
+
+  // Active parliament session
+  parliamentSession: null,
+  parliamentToken: null,
+  parliamentRoom: null,
+
+  setParliamentSession: (session) => set({ parliamentSession: session }),
+  setParliamentLivekit: ({ token, room }) => set({ parliamentToken: token, parliamentRoom: room }),
+
+  clearParliament: () => set({
+    parliamentSession: null,
+    parliamentToken: null,
+    parliamentRoom: null,
+  }),
 }))
