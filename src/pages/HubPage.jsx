@@ -1,18 +1,17 @@
 // src/pages/HubPage.jsx
 // ─────────────────────────────────────────────────────────────
-// מסך הבית הראשי - כל הכרטיסים של הפיצ'רים.
-// פיצ'רים פעילים: שיחה עם חבר חדש, פרלמנט, קפה בסלון.
-// פיצ'רים "בקרוב": משפחה, סיפורים, חוגים, LIVE.
+// מסך הבית הראשי - HERO מוביל ישירות ל-matchmaking.
+// פעילים: שיחה עם חבר חדש (matchmaking), פרלמנט.
+// "בקרוב": משפחה, סיפורים, חוגים, LIVE.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { watchAvailableUsers, setPresence } from '../services/firebase.js'
+import { setPresence } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { colors } from '../design-system/index.js'
 
-export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
+export default function HubPage({ onGoMatch, onGoParliament }) {
   const { profile, authUser } = useUserStore()
-  const [availableCount, setAvailableCount] = useState(32) // ברירת מחדל לעיצוב
   const [comingSoon, setComingSoon] = useState(null)
 
   const hour = new Date().getHours()
@@ -20,16 +19,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
              : hour < 17 ? 'צהריים טובים'
              : hour < 20 ? 'ערב טוב'
              : 'לילה טוב'
-
-  // Watch available users count
-  useEffect(() => {
-    if (!authUser?.uid) return
-    const unsub = watchAvailableUsers(authUser.uid, users => {
-      // אם יש משתמשים אמיתיים - הצג את המספר. אחרת השאר 32 (mock).
-      setAvailableCount(users.length > 0 ? users.length : 32)
-    })
-    return () => unsub && unsub()
-  }, [authUser?.uid])
 
   // Mark me as available
   useEffect(() => {
@@ -47,17 +36,15 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
     return () => document.removeEventListener('visibilitychange', onHide)
   }, [authUser?.uid])
 
-  // Coming soon popup
   const showComingSoon = (name) => setComingSoon(name)
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
-      {/* ── Header: greeting + bell + avatar ─────────────────── */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div style={{
         padding: '18px 20px 8px',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        {/* Notification bell with badge */}
         <button
           onClick={() => showComingSoon('התראות')}
           style={{
@@ -81,10 +68,8 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
           }}>3</span>
         </button>
 
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Greeting + name */}
         <div style={{ textAlign: 'right' }}>
           <div style={{
             fontSize: 12, color: colors.burgundy, fontWeight: 800,
@@ -104,9 +89,9 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
 
       <div style={{ padding: '12px 20px 28px' }}>
 
-        {/* ── HERO: שיחה עם חבר חדש ────────────────────────── */}
+        {/* ── HERO: שיחה עם חבר חדש - מוביל ל-MATCHMAKING ─── */}
         <button
-          onClick={onGoAvailable}
+          onClick={onGoMatch}
           style={{
             width: '100%', textAlign: 'right',
             background: colors.burgundy,
@@ -143,12 +128,7 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
                 שיחה עם חבר חדש
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, marginBottom: 12 }}>
-                <span className="live-dot" style={{
-                  marginInlineEnd: 8, verticalAlign: 'middle', background: '#FFC857',
-                }}/>
-                <strong style={{ fontFamily: "'Suez One', serif" }}>
-                  {availableCount} אנשים
-                </strong> מחכים לדבר איתך
+                המערכת תחבר אותך אוטומטית למישהו שמחכה לשיחה
               </div>
               <div style={{
                 background: colors.surface, color: colors.ink,
@@ -169,7 +149,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
           display: 'grid', gridTemplateColumns: '1fr 1fr',
           gap: 12, marginBottom: 12,
         }}>
-          {/* פרלמנט - פעיל */}
           <FeatureCard
             color={colors.wine}
             icon="🏛"
@@ -179,13 +158,12 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
             onClick={onGoParliament}
           />
 
-          {/* קפה בסלון - פעיל */}
           <FeatureCard
             color={colors.teal}
             icon="☕"
             title="קפה בסלון"
-            subtitle="אחד על אחד · עם שאלון היכרות"
-            onClick={onGoAvailable}
+            subtitle="אחד על אחד · התאמה אוטומטית"
+            onClick={onGoMatch}
           />
         </div>
 
@@ -194,7 +172,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
           gap: 10, marginBottom: 16,
         }}>
-          {/* משפחה */}
           <FeatureCardSmall
             color={colors.burgundy}
             icon="❤️"
@@ -203,7 +180,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
             onClick={() => showComingSoon('משפחה')}
           />
 
-          {/* סיפורים */}
           <FeatureCardSmall
             color={colors.gold}
             icon="📖"
@@ -213,7 +189,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
             darkText
           />
 
-          {/* חוגים */}
           <FeatureCardSmall
             color={colors.teal}
             icon="👥"
@@ -245,7 +220,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
           </div>
         </div>
 
-        {/* Live event 1 */}
         <LiveEventCard
           title="בינגו עם רחל"
           subtitle="14 משתתפים · התחיל לפני 4 דקות"
@@ -253,7 +227,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
           onClick={() => showComingSoon('בינגו עם רחל')}
         />
 
-        {/* Live event 2 */}
         <LiveEventCard
           title="שירה בציבור — שירי הזמר הישראלי"
           subtitle="בעוד 10 דקות"
@@ -265,7 +238,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
         <div style={{ height: 32 }} />
       </div>
 
-      {/* ── Coming Soon Modal ──────────────────────────────── */}
       {comingSoon && (
         <ComingSoonModal name={comingSoon} onClose={() => setComingSoon(null)} />
       )}
@@ -273,7 +245,6 @@ export default function HubPage({ onGoAvailable, onGoParliament, onGoKafe }) {
   )
 }
 
-// ── Feature Card (large, 2-column) ──────────────────────────
 function FeatureCard({ color, icon, title, subtitle, badge, onClick }) {
   return (
     <button onClick={onClick} style={{
@@ -316,7 +287,6 @@ function FeatureCard({ color, icon, title, subtitle, badge, onClick }) {
   )
 }
 
-// ── Feature Card Small (3-column) ──────────────────────────
 function FeatureCardSmall({ color, icon, title, subtitle, badge, onClick, darkText }) {
   const textColor = darkText ? colors.ink : 'white'
   return (
@@ -346,7 +316,6 @@ function FeatureCardSmall({ color, icon, title, subtitle, badge, onClick, darkTe
   )
 }
 
-// ── Live Event Card ───────────────────────────────────────
 function LiveEventCard({ title, subtitle, buttonText, variant, onClick }) {
   const isUpcoming = variant === 'upcoming'
   return (
@@ -392,7 +361,6 @@ function LiveEventCard({ title, subtitle, buttonText, variant, onClick }) {
   )
 }
 
-// ── Coming Soon Modal ─────────────────────────────────────
 function ComingSoonModal({ name, onClose }) {
   return (
     <div

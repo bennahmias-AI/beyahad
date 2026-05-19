@@ -4,8 +4,8 @@ import { useUserStore } from './stores/userStore.js'
 import { useSessionStore } from './stores/sessionStore.js'
 import AuthPage from './pages/AuthPage.jsx'
 import KafePage from './pages/KafePage.jsx'
+import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
-import AvailablePeoplePage from './pages/AvailablePeoplePage.jsx'
 import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence, PARLIAMENT_ROOM,
@@ -31,7 +31,7 @@ export default function App() {
     if (parliamentToken) setPage('parliament')
   }, [parliamentToken])
 
-  // Join parliament - prepares connection then navigates
+  // Join parliament
   async function joinParliament() {
     if (!authUser?.uid) return
     setLoadingParliament(true)
@@ -40,17 +40,14 @@ export default function App() {
       const room   = PARLIAMENT_ROOM
       const myName = profile?.name || 'משתמש'
 
-      await setPresence(uid, 'busy')
       const sessionId = await joinParliamentSession(uid, room)
       const token = await fetchLiveKitToken(room, myName)
 
       setParliamentSession({ id: sessionId })
       setParliamentLivekit({ token, room })
-      // useEffect above will navigate to 'parliament'
     } catch (e) {
       console.error('joinParliament error:', e)
-      alert('לא הצלחנו להתחבר לפרלמנט. בדוק/י שה-token-server רץ.')
-      await setPresence(authUser.uid, 'available').catch(() => {})
+      alert('לא הצלחנו להתחבר לפרלמנט.')
     } finally {
       setLoadingParliament(false)
     }
@@ -80,17 +77,16 @@ export default function App() {
     <div className="app-shell">
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
-      {page === 'available' && (
-        <AvailablePeoplePage
-          onBack={() => setPage('hub')}
+      {page === 'waiting' && (
+        <KafeWaitingPage
+          onCancel={() => setPage('hub')}
           onGoKafe={() => setPage('kafe')}
         />
       )}
       {page === 'hub' && (
         <HubPage
-          onGoAvailable={() => setPage('available')}
+          onGoMatch={() => setPage('waiting')}
           onGoParliament={joinParliament}
-          onGoKafe={() => setPage('available')}
         />
       )}
     </div>

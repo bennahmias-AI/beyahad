@@ -8,9 +8,9 @@ import {
 } from 'firebase/auth'
 import {
   getFirestore,
-  doc, setDoc, getDoc, updateDoc,
+  doc, setDoc, getDoc, updateDoc, deleteDoc,
   onSnapshot, serverTimestamp,
-  collection, query, where, getDocs,
+  collection, query, where, getDocs, orderBy, limit,
   addDoc,
 } from 'firebase/firestore'
 
@@ -106,6 +106,12 @@ export function watchAvailableUsers(myUid, cb, blocked = []) {
 
 // ─── Cafe sessions ────────────────────────────────────────────
 
+function pairRoomName(uidA, uidB) {
+  const [a, b] = [uidA, uidB].sort()
+  const safe = s => String(s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
+  return `kafe-${safe(a)}-${safe(b)}`
+}
+
 export async function createCafeSession(myUid, partnerUid, livekitRoom) {
   const ref = await addDoc(collection(db, 'cafeSessions'), {
     participants: [myUid, partnerUid],
@@ -130,15 +136,81 @@ export async function endCafeSession(sessionId) {
   await updateDoc(doc(db, 'cafeSessions', sessionId), { status: 'ended', endedAt: serverTimestamp() })
 }
 
+// ─── Cafe Matchmaking Queue ──────────────────────────────────
+// Logic: when a user clicks "קפה בסלון", they join the queue.
+// If there's already someone waiting → match them, both get the same room.
+// If not → wait. The other user's join will match them.
+
+export async function joinCafeQueue(uid, name) {
+  // Step 1: look for someone else waiting (not me)
+  const q = query(
+    collection(db, 'cafeQueue'),
+    where('status', '==', 'waiting'),
+    orderBy('joinedAt', 'asc'),
+    limit(5),
+  )
+  const snap = await getDocs(q)
+
+  const otherUser = snap.docs.find(d => d.id !== uid)
+
+  if (otherUser) {
+    // Match found! Create room and update both queue entries
+    const otherUid = otherUser.id
+    const otherName = otherUser.data().name || 'משתמש'
+    const room = pairRoomName(uid, otherUid)
+
+    // Update the other user's entry with matched status + room
+    await updateDoc(doc(db, 'cafeQueue', otherUid), {
+      status: 'matched',
+      matchedWith: uid,
+      matchedWithName: name,
+      livekitRoom: room,
+      matchedAt: serverTimestamp(),
+    })
+
+    // Create my entry directly as matched
+    await setDoc(doc(db, 'cafeQueue', uid), {
+      name,
+      status: 'matched',
+      matchedWith: otherUid,
+      matchedWithName: otherName,
+      livekitRoom: room,
+      joinedAt: serverTimestamp(),
+      matchedAt: serverTimestamp(),
+    })
+
+    return { matched: true, room, partner: { id: otherUid, name: otherName } }
+  } else {
+    // No one waiting - join the queue
+    await setDoc(doc(db, 'cafeQueue', uid), {
+      name,
+      status: 'waiting',
+      joinedAt: serverTimestamp(),
+    })
+    return { matched: false }
+  }
+}
+
+export function watchCafeQueueEntry(uid, cb) {
+  return onSnapshot(doc(db, 'cafeQueue', uid), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  })
+}
+
+export async function leaveCafeQueue(uid) {
+  try {
+    await deleteDoc(doc(db, 'cafeQueue', uid))
+  } catch(e) {
+    console.error('leaveCafeQueue error:', e)
+  }
+}
+
 // ─── Parliament sessions ──────────────────────────────────────
 
-// Parliament uses ONE shared room per topic so anyone joining the same
-// "parliament-XXX" room will end up together. For now we use a fixed
-// room name "parliament-main" so all users join the same parliament.
 export const PARLIAMENT_ROOM = 'parliament-main'
 
 export async function joinParliamentSession(uid, livekitRoom) {
-  // Find existing active parliament session for this room, or create one
   const q = query(
     collection(db, 'parliamentSessions'),
     where('livekitRoom', '==', livekitRoom),
@@ -147,7 +219,6 @@ export async function joinParliamentSession(uid, livekitRoom) {
   const snap = await getDocs(q)
 
   if (!snap.empty) {
-    // Join existing session
     const existing = snap.docs[0]
     const data = existing.data()
     const participants = data.participants || []
@@ -159,7 +230,6 @@ export async function joinParliamentSession(uid, livekitRoom) {
     }
     return existing.id
   } else {
-    // Create new session
     const ref = await addDoc(collection(db, 'parliamentSessions'), {
       participants: [uid],
       status: 'active',
