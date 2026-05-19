@@ -1,7 +1,7 @@
 // src/pages/KafeWaitingPage.jsx
 // ─────────────────────────────────────────────────────────────
 // מסך "מחפש חבר לשיחה..." - matchmaking לקפה בסלון.
-// המשתמש מצטרף לתור. כשנמצא match - עוברים אוטומטית לוידאו.
+// FIX: מונע connectToRoom כפול ומנקה את ה-queue לפני החיבור.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
@@ -20,16 +20,30 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
   const [elapsed, setElapsed] = useState(0)
   const watcherRef = useRef(null)
   const startedRef = useRef(false)
-  const connectingRef = useRef(false)
+  const connectingRef = useRef(false)  // CRITICAL: prevent double connection
 
-  // Connect to the matched room
+  // Connect to the matched room - ONLY ONCE
   async function connectToRoom(room, partner) {
-    if (connectingRef.current) return
+    // ────── GUARD: only one connection attempt ──────
+    if (connectingRef.current) {
+      console.log('⚠ connectToRoom called twice, ignoring')
+      return
+    }
     connectingRef.current = true
+
+    // ────── Stop the watcher BEFORE doing anything else ──────
+    if (watcherRef.current) {
+      watcherRef.current()
+      watcherRef.current = null
+    }
 
     try {
       const uid = authUser.uid
       const myName = profile?.name || 'משתמש'
+
+      // ────── Clean queue BEFORE creating session ──────
+      // This prevents the listener from re-triggering
+      await leaveCafeQueue(uid).catch(() => {})
 
       await setPresence(uid, 'busy')
       const sessionId = await createCafeSession(uid, partner.id, room)
@@ -40,14 +54,12 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
       setLivekit({ token, room })
       // App.jsx will auto-navigate when livekitToken is set
 
-      // Clean up queue entry
-      await leaveCafeQueue(uid).catch(() => {})
-
       setStatus('matched')
     } catch (e) {
       console.error('connectToRoom error:', e)
       setError('לא הצלחנו לחבר — נסי שוב')
       setStatus('error')
+      connectingRef.current = false
     }
   }
 
@@ -64,11 +76,14 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
         const result = await joinCafeQueue(uid, name)
 
         if (result.matched) {
+          // Instant match - the other user was already waiting
           await connectToRoom(result.room, result.partner)
         } else {
+          // We're in the queue, waiting for someone else
           setStatus('waiting')
           watcherRef.current = watchCafeQueueEntry(uid, async (entry) => {
-            if (entry?.status === 'matched' && entry?.livekitRoom) {
+            // Someone matched with us!
+            if (entry?.status === 'matched' && entry?.livekitRoom && !connectingRef.current) {
               const partner = {
                 id: entry.matchedWith,
                 name: entry.matchedWithName,
@@ -128,7 +143,6 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
       padding: '32px 24px 28px',
       direction: 'rtl', zIndex: 1000,
     }}>
-      {/* Cancel button */}
       <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
         <button onClick={handleCancel} style={{
           width: 52, height: 52, borderRadius: 16,
@@ -138,12 +152,10 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
         }}>←</button>
       </div>
 
-      {/* Main content */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 28,
       }}>
-        {/* Animated pulse */}
         <div style={{ position: 'relative', width: 200, height: 200 }}>
           <div style={{
             position: 'absolute', inset: 0, borderRadius: '50%',
@@ -164,7 +176,6 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
           }}>☕</div>
         </div>
 
-        {/* Status text */}
         <div style={{ textAlign: 'center' }}>
           {status === 'joining' && (
             <>
@@ -221,7 +232,6 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
           )}
         </div>
 
-        {/* Info box */}
         {status === 'waiting' && (
           <div style={{
             background: 'rgba(255,255,255,.10)',
@@ -235,7 +245,6 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
         )}
       </div>
 
-      {/* Cancel button */}
       <button
         onClick={handleCancel}
         className="big-btn big-btn--danger"
