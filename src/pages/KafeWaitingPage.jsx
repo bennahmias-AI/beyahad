@@ -1,7 +1,7 @@
 // src/pages/KafeWaitingPage.jsx
 // ─────────────────────────────────────────────────────────────
 // מסך "מחפש חבר לשיחה..." - matchmaking לקפה בסלון.
-// FIX: מונע connectToRoom כפול ומנקה את ה-queue לפני החיבור.
+// FIX v2: Cleanup proper של queue + race condition guards.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
@@ -20,18 +20,19 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
   const [elapsed, setElapsed] = useState(0)
   const watcherRef = useRef(null)
   const startedRef = useRef(false)
-  const connectingRef = useRef(false)  // CRITICAL: prevent double connection
+  const connectingRef = useRef(false)
+  const successfulMatchRef = useRef(false)  // Don't clean queue if we matched
 
   // Connect to the matched room - ONLY ONCE
   async function connectToRoom(room, partner) {
-    // ────── GUARD: only one connection attempt ──────
     if (connectingRef.current) {
       console.log('⚠ connectToRoom called twice, ignoring')
       return
     }
     connectingRef.current = true
+    successfulMatchRef.current = true
 
-    // ────── Stop the watcher BEFORE doing anything else ──────
+    // Stop watcher immediately
     if (watcherRef.current) {
       watcherRef.current()
       watcherRef.current = null
@@ -41,13 +42,16 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
       const uid = authUser.uid
       const myName = profile?.name || 'משתמש'
 
-      // ────── Clean queue BEFORE creating session ──────
-      // This prevents the listener from re-triggering
+      console.log('🔗 Connecting to room:', room, 'with partner:', partner.name)
+
+      // Clean queue BEFORE creating session (prevents listener re-trigger)
       await leaveCafeQueue(uid).catch(() => {})
 
       await setPresence(uid, 'busy')
       const sessionId = await createCafeSession(uid, partner.id, room)
       const token = await fetchLiveKitToken(room, myName)
+
+      console.log('✓ Got token, connecting to LiveKit')
 
       setCafePartner(partner)
       setCafeSession({ id: sessionId })
@@ -60,6 +64,7 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
       setError('לא הצלחנו לחבר — נסי שוב')
       setStatus('error')
       connectingRef.current = false
+      successfulMatchRef.current = false
     }
   }
 
@@ -73,17 +78,19 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
         const uid = authUser.uid
         const name = profile?.name || 'משתמש'
 
+        console.log('🔍 Joining cafe queue as:', name)
+
         const result = await joinCafeQueue(uid, name)
 
         if (result.matched) {
-          // Instant match - the other user was already waiting
+          console.log('🎯 Instant match!', result.partner.name)
           await connectToRoom(result.room, result.partner)
         } else {
-          // We're in the queue, waiting for someone else
+          console.log('⏳ Waiting in queue...')
           setStatus('waiting')
           watcherRef.current = watchCafeQueueEntry(uid, async (entry) => {
-            // Someone matched with us!
             if (entry?.status === 'matched' && entry?.livekitRoom && !connectingRef.current) {
+              console.log('🎯 Got matched with:', entry.matchedWithName)
               const partner = {
                 id: entry.matchedWith,
                 name: entry.matchedWithName,
@@ -101,10 +108,15 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
 
     join()
 
+    // CLEANUP: stop watcher (but don't leave queue if we matched successfully)
     return () => {
       if (watcherRef.current) {
         watcherRef.current()
         watcherRef.current = null
+      }
+      // If we didn't successfully match, clean up the queue entry
+      if (!successfulMatchRef.current && authUser?.uid) {
+        leaveCafeQueue(authUser.uid).catch(() => {})
       }
     }
     // eslint-disable-next-line
@@ -124,6 +136,7 @@ export default function KafeWaitingPage({ onCancel, onGoKafe }) {
     }
     if (authUser?.uid) {
       await leaveCafeQueue(authUser.uid).catch(() => {})
+      await setPresence(authUser.uid, 'available').catch(() => {})
     }
     onCancel?.()
   }
