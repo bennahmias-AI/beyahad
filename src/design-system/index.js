@@ -1,26 +1,27 @@
 export const colors = {
-  bgPage: '#E5D9BD', bgApp: '#F2E7CB', surface: '#FFFAEC', surface2: '#ECDFBF',
-  ink: '#1A2547', ink2: '#3B4A6B', ink3: '#6B7A92',
-  line: '#D6C5A0', lineStrong: '#B89E70',
-  burgundy: '#A8392A', burgundyDeep: '#6E1F13', burgundySoft: '#F2C2A8',
-  teal: '#1F5A6B', tealDeep: '#0D3D4A',
-  mustard: '#D9A82A', mustardDeep: '#8B6818',
-  forest: '#3B6B43', forestDeep: '#1F4D2A',
-  wine: '#6B2D4A', wineDeep: '#45172F',
-  success: '#2E7D4E', danger: '#A8392A', live: '#C73224', gold: '#FFC857',
+  bgPage: '#EFE8DA', bgApp: '#F6F0E3', surface: '#FBF7EE', surface2: '#EBE4D2',
+  ink: '#1B2540', ink2: '#4A5274', ink3: '#8389A4',
+  line: '#DDD3BE', lineStrong: '#C3B695',
+  burgundy: '#7E2C2E', burgundyDeep: '#5A1D1E', burgundySoft: '#E8D0CF',
+  teal: '#2C5566', tealDeep: '#173846', tealSoft: '#C8D6DC',
+  mustard: '#B89048', mustardDeep: '#8A6A2E', mustardSoft: '#ECDBB6',
+  forest: '#4F6B4A', forestDeep: '#354D31', forestSoft: '#D0DBC9',
+  wine: '#6B3A4F', wineDeep: '#482638', wineSoft: '#DFC9D2',
+  coral: '#B7634A', coralDeep: '#8C4A36',
+  success: '#4F6B4A', danger: '#7E2C2E', live: '#A33B30', gold: '#B89048',
 }
 
 export const fonts = {
-  display: "'Suez One', 'Heebo', system-ui, sans-serif",
-  body: "'Heebo', system-ui, -apple-system, sans-serif",
+  display: "'Assistant', 'Rubik', system-ui, sans-serif",
+  body: "'Assistant', 'Rubik', system-ui, -apple-system, sans-serif",
 }
 
-const AVATAR_POOL = ['#A8392A','#3B6B43','#D9A82A','#6B2D4A','#1F5A6B','#8B4527','#4A3B6B','#806118']
+const AVATAR_POOL = ['#7E2C2E','#4F6B4A','#B89048','#6B3A4F','#2C5566','#7B4A2C','#3D3458','#7A5C18']
 export const avatarColor = (name = '') =>
   AVATAR_POOL[(name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % AVATAR_POOL.length]
 
 export const shadows = {
-  sm: '0 3px 0 #B89E70',
-  md: '0 5px 0 #1A2547',
-  lg: '0 8px 0 #1A2547',
+  sm: '0 1px 2px rgba(20,23,42,.04), 0 2px 6px rgba(20,23,42,.04)',
+  md: '0 4px 14px rgba(20,23,42,.06), 0 2px 4px rgba(20,23,42,.04)',
+  lg: '0 20px 40px -10px rgba(20,23,42,.18), 0 4px 12px rgba(20,23,42,.06)',
 }

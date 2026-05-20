@@ -1,14 +1,17 @@
 // src/pages/HubPage.jsx
 // ─────────────────────────────────────────────────────────────
-// מסך הבית הראשי - HERO מוביל ישירות ל-matchmaking.
-// פעילים: שיחה עם חבר חדש (matchmaking), פרלמנט.
-// "בקרוב": משפחה, סיפורים, חוגים, LIVE.
+// מסך הבית הראשי — עיצוב 2026 מודרני.
+// HERO מוביל ל-matchmaking. פעילים: קפה, פרלמנט.
+// "בקרוב": חוגים, סיפורים, משפחה, אירועי LIVE.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { setPresence } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
-import { colors } from '../design-system/index.js'
+import {
+  IconPhone, IconCoffee, IconPodium, IconUsers,
+  IconBook, IconHeart, IconBell, IconBackRTL,
+} from '../icons/index.jsx'
 
 export default function HubPage({ onGoMatch, onGoParliament }) {
   const { profile, authUser } = useUserStore()
@@ -17,8 +20,8 @@ export default function HubPage({ onGoMatch, onGoParliament }) {
   const hour = new Date().getHours()
   const greet = hour < 11 ? 'בוקר טוב'
              : hour < 17 ? 'צהריים טובים'
-             : hour < 20 ? 'ערב טוב'
-             : 'לילה טוב'
+             : hour < 20 ? 'אחר צהריים טובים'
+             : 'ערב טוב'
 
   // Mark me as available
   useEffect(() => {
@@ -37,205 +40,198 @@ export default function HubPage({ onGoMatch, onGoParliament }) {
   }, [authUser?.uid])
 
   const showComingSoon = (name) => setComingSoon(name)
+  const userName = profile?.name || 'אורח'
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl' }}>
-      {/* ── Header ──────────────────────────────────────────── */}
-      <div style={{
-        padding: '18px 20px 8px',
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <button
-          onClick={() => showComingSoon('התראות')}
-          style={{
-            width: 52, height: 52, borderRadius: 14,
-            background: colors.gold,
-            border: `3px solid ${colors.ink}`,
-            boxShadow: '3px 4px 0 #1A2547',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 24, position: 'relative',
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          🔔
-          <span style={{
-            position: 'absolute', top: -6, right: -6,
-            background: colors.burgundy, color: 'white',
-            borderRadius: '50%', width: 22, height: 22,
-            fontSize: 12, fontWeight: 800,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: `2px solid ${colors.ink}`,
-          }}>3</span>
-        </button>
-
-        <div style={{ flex: 1 }} />
-
-        <div style={{ textAlign: 'right' }}>
+    <div className="scroll-area">
+      {/* ── Top: greeting + bell ───────────────────────────── */}
+      <div style={{ padding: '18px 20px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Avatar name={userName} size={54} color="#6B3A4F" />
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 12, color: colors.burgundy, fontWeight: 800,
+            fontSize: 12, color: 'var(--burgundy)', fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.10em',
-            fontFamily: "'Suez One', serif",
+            fontFamily: 'var(--font-display)',
           }}>{greet}</div>
-          <div style={{
-            fontSize: 26, color: colors.ink, lineHeight: 1, marginTop: 2,
-            fontFamily: "'Suez One', serif",
-          }}>
-            {profile?.name || 'אורח'}
+          <div className="h-display" style={{ fontSize: 26, color: 'var(--ink)', lineHeight: 1, marginTop: 2 }}>
+            {userName}
           </div>
         </div>
-
-        <Avatar name={profile?.name || ''} size={54} />
-      </div>
-
-      <div style={{ padding: '12px 20px 28px' }}>
-
-        {/* ── HERO: שיחה עם חבר חדש - מוביל ל-MATCHMAKING ─── */}
         <button
-          onClick={onGoMatch}
+          aria-label="התראות"
+          onClick={() => showComingSoon('התראות')}
           style={{
-            width: '100%', textAlign: 'right',
-            background: colors.burgundy,
-            border: `3px solid ${colors.ink}`,
-            borderRadius: 18, padding: '20px 20px 16px',
-            color: colors.surface,
-            boxShadow: '6px 7px 0 #1A2547',
-            position: 'relative', overflow: 'hidden',
-            marginBottom: 16,
-            cursor: 'pointer', fontFamily: 'inherit',
+            width: 52, height: 52, borderRadius: 16,
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+            boxShadow: '0 4px 12px -2px rgba(20,23,42,.10), 0 1px 3px rgba(20,23,42,.05)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'relative',
           }}
         >
+          <IconBell size={24} color="#1B2540" />
+          <span style={{
+            position: 'absolute', top: -6, insetInlineStart: -6,
+            width: 22, height: 22, borderRadius: 11,
+            background: 'var(--mustard)', color: 'var(--ink)',
+            fontSize: 12, fontWeight: 800,
+            fontFamily: 'var(--font-display)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid var(--ink)',
+          }}>3</span>
+        </button>
+      </div>
+
+      <div style={{ padding: '12px 20px 20px' }}>
+        {/* ── HERO — שיחה עם חבר חדש ───────────────────────── */}
+        <button onClick={onGoMatch} style={{
+          width: '100%', textAlign: 'right',
+          background: 'linear-gradient(135deg, #2C5566 0%, #1B2540 60%, #0E1730 100%)',
+          border: 'none',
+          borderRadius: 26,
+          padding: '24px 22px 22px',
+          color: '#FBF7EE',
+          boxShadow: '0 16px 36px -10px rgba(126,44,46,.55), 0 4px 12px rgba(20,23,42,.08)',
+          position: 'relative', overflow: 'hidden',
+          display: 'block',
+          fontFamily: 'inherit',
+        }}>
+          {/* soft light bloom top-right */}
           <div style={{
-            position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0,
-            width: 28,
-            backgroundImage: 'repeating-linear-gradient(45deg, #FFC857 0 8px, #1A2547 8px 16px)',
-            opacity: 0.95,
+            position: 'absolute', insetInlineEnd: -60, top: -60,
+            width: 200, height: 200, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)',
+            pointerEvents: 'none',
           }}/>
+          {/* second light bloom bottom-left */}
           <div style={{
-            display: 'flex', gap: 14, alignItems: 'flex-start',
-            marginInlineStart: 22,
-          }}>
+            position: 'absolute', insetInlineStart: -40, bottom: -80,
+            width: 180, height: 180, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,200,87,.18), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', position: 'relative' }}>
             <div style={{
-              width: 58, height: 58, borderRadius: 12,
-              background: colors.gold, border: `3px solid ${colors.ink}`,
+              width: 60, height: 60, borderRadius: 18,
+              background: 'rgba(255,255,255,.18)',
+              backdropFilter: 'blur(8px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, boxShadow: '3px 3px 0 #1A2547', fontSize: 28,
-            }}>📞</div>
+              flexShrink: 0,
+              border: '1px solid rgba(255,255,255,.22)',
+            }}>
+              <IconPhone size={30} color="#FBF7EE" />
+            </div>
             <div style={{ flex: 1 }}>
-              <div style={{
-                fontSize: 24, lineHeight: 1.1, marginBottom: 8,
-                fontFamily: "'Suez One', serif",
-              }}>
+              <div className="h-display" style={{ fontSize: 26, lineHeight: 1.1, marginBottom: 6, color: '#FBF7EE', letterSpacing: '-0.02em' }}>
                 שיחה עם חבר חדש
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, marginBottom: 12 }}>
-                המערכת תחבר אותך אוטומטית למישהו שמחכה לשיחה
-              </div>
-              <div style={{
-                background: colors.surface, color: colors.ink,
-                border: `2px solid ${colors.ink}`,
-                borderRadius: 12, padding: '10px 14px',
-                fontSize: 15, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <span>הקש כדי להתחיל</span>
-                <span>←</span>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,.92)', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="live-dot" style={{ background: '#E8C879', width: 8, height: 8 }} />
+                <span>המערכת תחבר אותך אוטומטית למי שמחכה</span>
               </div>
             </div>
           </div>
+
+          <div style={{
+            marginTop: 18,
+            background: 'rgba(255,255,255,.16)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,.24)',
+            borderRadius: 16,
+            padding: '13px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            fontSize: 17, fontWeight: 700,
+          }}>
+            <span>הקש כדי להתחיל</span>
+            <IconBackRTL size={22} color="#FBF7EE" />
+          </div>
         </button>
 
-        {/* ── Row 1: פרלמנט + קפה בסלון ─────────────────────── */}
+        {/* ── 2 featured rooms — קפה + פרלמנט ──────────────── */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 12, marginBottom: 12,
+          gap: 14, marginTop: 16,
         }}>
-          <FeatureCard
-            color={colors.wine}
-            icon="🏛"
-            title="הפרלמנט"
-            badge="חי"
-            subtitle="חמישה בתור · כל אחד דקה לדבר"
-            onClick={onGoParliament}
-          />
-
-          <FeatureCard
-            color={colors.teal}
-            icon="☕"
-            title="קפה בסלון"
-            subtitle="אחד על אחד · התאמה אוטומטית"
+          <RoomTile
             onClick={onGoMatch}
+            color="#6E8C6A"
+            colorDeep="#4F6B4A"
+            icon={<IconCoffee />}
+            label="קפה בסלון"
+            sub="אחד על אחד"
+            badge="התאמה אוטומטית"
+          />
+          <RoomTile
+            onClick={onGoParliament}
+            color="#8A4D6A"
+            colorDeep="#6B3A4F"
+            icon={<IconPodium />}
+            label="הפרלמנט"
+            sub="חמישה בתור"
+            badge="כל אחד דקה לדבר"
+            live
           />
         </div>
 
-        {/* ── Row 2: משפחה + סיפורים + חוגים ────────────────── */}
+        {/* ── 3 utility tiles ──────────────────────────────── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 10, marginBottom: 16,
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 10, marginTop: 12,
         }}>
-          <FeatureCardSmall
-            color={colors.burgundy}
-            icon="❤️"
-            title="משפחה"
-            subtitle="3 הודעות"
-            onClick={() => showComingSoon('משפחה')}
-          />
-
-          <FeatureCardSmall
-            color={colors.gold}
-            icon="📖"
-            title="סיפורים"
-            subtitle="חדש"
-            onClick={() => showComingSoon('סיפורים')}
-            darkText
-          />
-
-          <FeatureCardSmall
-            color={colors.teal}
-            icon="👥"
-            title="חוגים"
-            subtitle="2 חי"
-            badge="🔴"
+          <HomeTileSmall
             onClick={() => showComingSoon('חוגים')}
+            color="#2C5566"
+            icon={<IconUsers size={24} color="white" />}
+            label="חוגים"
+            badge="בקרוב"
+          />
+          <HomeTileSmall
+            onClick={() => showComingSoon('סיפורים')}
+            color="#B89048"
+            icon={<IconBook size={24} color="white" />}
+            label="סיפורים"
+            badge="בקרוב"
+          />
+          <HomeTileSmall
+            onClick={() => showComingSoon('משפחה')}
+            color="#7E2C2E"
+            icon={<IconHeart size={24} color="white" />}
+            label="משפחה"
+            badge="בקרוב"
           />
         </div>
 
-        {/* ── LIVE Section ──────────────────────────────────── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          marginBottom: 12,
-        }}>
-          <div style={{
-            background: colors.burgundy, color: 'white',
-            padding: '3px 10px', borderRadius: 6,
-            fontSize: 11, fontWeight: 800,
-            letterSpacing: '0.1em',
-          }}>LIVE</div>
-          <div style={{
-            fontFamily: "'Suez One', serif", fontSize: 18, color: colors.ink,
-          }}>
-            <span className="live-dot" style={{
-              marginInlineEnd: 6, verticalAlign: 'middle', background: colors.burgundy,
-            }}/>
-            קורה ממש עכשיו
+        {/* ── Live now strip ───────────────────────────────── */}
+        <div style={{ marginTop: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h2 className="h-display" style={{ fontSize: 22, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="live-dot" />
+              קורה ממש עכשיו
+            </h2>
+            <span style={{
+              fontSize: 11, fontWeight: 800,
+              color: 'var(--burgundy)',
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              fontFamily: 'var(--font-display)',
+            }}>LIVE</span>
           </div>
+          <LiveCard
+            color="#4F6B4A"
+            title="בינגו עם רחל"
+            sub="14 משתתפים · התחיל לפני 4 דקות"
+            onClick={() => showComingSoon('בינגו עם רחל')}
+          />
+          <div style={{ height: 10 }}/>
+          <LiveCard
+            color="#B89048"
+            title="שירה בציבור — שירי לאה גולדברג"
+            sub="9 משתתפים · נשארו 25 דקות"
+            onClick={() => showComingSoon('שירה בציבור')}
+          />
         </div>
 
-        <LiveEventCard
-          title="בינגו עם רחל"
-          subtitle="14 משתתפים · התחיל לפני 4 דקות"
-          buttonText="הצטרף"
-          onClick={() => showComingSoon('בינגו עם רחל')}
-        />
-
-        <LiveEventCard
-          title="שירה בציבור — שירי הזמר הישראלי"
-          subtitle="בעוד 10 דקות"
-          buttonText="הזכר לי"
-          variant="upcoming"
-          onClick={() => showComingSoon('שירה בציבור')}
-        />
-
-        <div style={{ height: 32 }} />
+        <div style={{ height: 24 }}/>
       </div>
 
       {comingSoon && (
@@ -245,163 +241,162 @@ export default function HubPage({ onGoMatch, onGoParliament }) {
   )
 }
 
-function FeatureCard({ color, icon, title, subtitle, badge, onClick }) {
+// ── Room Tile (large, 2-column) ─────────────────────────────
+function RoomTile({ onClick, color, colorDeep, icon, label, sub, badge, live }) {
   return (
     <button onClick={onClick} style={{
-      background: color, color: 'white',
-      border: `3px solid ${colors.ink}`,
-      borderRadius: 16, padding: '14px 12px',
-      boxShadow: '4px 5px 0 #1A2547',
-      minHeight: 130,
+      background: `linear-gradient(135deg, ${color} 0%, ${colorDeep} 100%)`,
+      color: '#FBF7EE',
+      border: 'none',
+      borderRadius: 22, padding: '16px 16px 14px',
+      textAlign: 'right',
+      boxShadow: `0 12px 28px -8px ${color}66, 0 2px 6px rgba(20,23,42,.06)`,
+      minHeight: 168,
       display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      cursor: 'pointer', textAlign: 'right',
-      fontFamily: 'inherit', position: 'relative',
+      position: 'relative', overflow: 'hidden',
+      fontFamily: 'inherit',
     }}>
-      {badge && (
+      {/* soft light bloom */}
+      <div style={{
+        position: 'absolute', insetInlineEnd: -30, top: -30,
+        width: 130, height: 130, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,255,255,.20), transparent 70%)',
+        pointerEvents: 'none',
+      }}/>
+      {live && (
         <div style={{
-          position: 'absolute', top: 8, insetInlineEnd: 8,
-          background: colors.gold, color: colors.ink,
-          padding: '2px 8px', borderRadius: 10,
-          fontSize: 10, fontWeight: 800,
-          border: `2px solid ${colors.ink}`,
+          position: 'absolute', top: 12, insetInlineEnd: 12,
+          background: 'rgba(255,255,255,.20)',
+          backdropFilter: 'blur(8px)',
+          color: '#FBF7EE',
+          border: '1px solid rgba(255,255,255,.28)',
+          fontSize: 11, fontWeight: 700,
+          padding: '4px 10px', borderRadius: 999,
+          display: 'flex', alignItems: 'center', gap: 5,
+          letterSpacing: '0.02em',
         }}>
-          <span style={{ marginInlineEnd: 3, display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: colors.burgundy, verticalAlign: 'middle' }}/>
-          {badge}
+          <span className="live-dot" style={{ background: '#E8C879', boxShadow: 'none', width: 6, height: 6 }}/>
+          חי
         </div>
       )}
-      <div style={{
-        width: 44, height: 44, borderRadius: 10,
-        background: colors.gold, border: `3px solid ${colors.ink}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, boxShadow: '2px 2px 0 #1A2547',
-      }}>{icon}</div>
-      <div>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 20, marginBottom: 4 }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 11, opacity: 0.92, lineHeight: 1.3, fontWeight: 600 }}>
-          {subtitle}
-        </div>
+
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 16,
+          background: 'rgba(255,255,255,.18)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,.22)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{icon && (typeof icon.type === 'function'
+          ? <icon.type size={28} color="#FBF7EE" />
+          : icon)}</div>
+      </div>
+      <div style={{ position: 'relative' }}>
+        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 700, marginBottom: 3, letterSpacing: '0.01em' }}>{sub}</div>
+        <div className="h-display" style={{ fontSize: 22, lineHeight: 1.05, marginBottom: 6, color: '#FBF7EE' }}>{label}</div>
+        <div style={{ fontSize: 13, opacity: 0.9, fontWeight: 600, lineHeight: 1.3 }}>{badge}</div>
       </div>
     </button>
   )
 }
 
-function FeatureCardSmall({ color, icon, title, subtitle, badge, onClick, darkText }) {
-  const textColor = darkText ? colors.ink : 'white'
+// ── Small utility tile (3-column) ───────────────────────────
+function HomeTileSmall({ onClick, color, icon, label, badge, live }) {
   return (
     <button onClick={onClick} style={{
-      background: color, color: textColor,
-      border: `3px solid ${colors.ink}`,
-      borderRadius: 14, padding: '12px 10px',
-      boxShadow: '3px 4px 0 #1A2547',
-      minHeight: 100,
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      cursor: 'pointer', textAlign: 'right',
-      fontFamily: 'inherit', position: 'relative',
+      background: 'var(--surface)',
+      color: 'var(--ink)',
+      border: '1px solid var(--line)',
+      borderRadius: 18, padding: '14px 10px 12px',
+      textAlign: 'center',
+      minHeight: 116,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
+      boxShadow: 'var(--shadow-sm)',
+      gap: 6,
+      fontFamily: 'inherit',
     }}>
-      <div style={{ fontSize: 26 }}>{icon}</div>
-      <div>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 15, marginBottom: 2 }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 10, opacity: 0.92, fontWeight: 600,
-        }}>
-          {badge && <span style={{ marginInlineEnd: 3 }}>{badge}</span>}
-          {subtitle}
-        </div>
+      <div style={{
+        width: 44, height: 44, borderRadius: 14,
+        background: color,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 4px 10px -2px rgba(20,23,42,.18)',
+      }}>{icon}</div>
+      <div className="h-display" style={{ fontSize: 17, lineHeight: 1, color: 'var(--ink)' }}>{label}</div>
+      <div style={{
+        fontSize: 12, color: live ? 'var(--live)' : 'var(--ink-3)',
+        fontWeight: 700,
+        display: 'flex', alignItems: 'center', gap: 4,
+      }}>
+        {live && <span className="live-dot" style={{ width: 7, height: 7 }}/>}
+        {badge}
       </div>
     </button>
   )
 }
 
-function LiveEventCard({ title, subtitle, buttonText, variant, onClick }) {
-  const isUpcoming = variant === 'upcoming'
+// ── Live event card ─────────────────────────────────────────
+function LiveCard({ color, title, sub, onClick }) {
   return (
-    <div style={{
-      background: colors.surface,
-      border: `3px solid ${colors.ink}`,
-      borderRadius: 16, padding: '12px 14px',
-      boxShadow: '0 3px 0 #B89E70',
-      marginBottom: 10,
+    <button onClick={onClick} style={{
+      width: '100%', textAlign: 'right',
+      background: 'var(--surface)',
+      border: '1px solid var(--line)',
+      borderRadius: 18, padding: '14px 14px',
+      boxShadow: 'var(--shadow-sm)',
       display: 'flex', alignItems: 'center', gap: 12,
+      fontFamily: 'inherit',
     }}>
-      <button onClick={onClick} style={{
-        width: 48, height: 48, borderRadius: 12,
-        background: isUpcoming ? colors.gold : colors.teal,
-        color: isUpcoming ? colors.ink : 'white',
-        border: `3px solid ${colors.ink}`,
-        boxShadow: '2px 2px 0 #1A2547',
+      <div style={{
+        width: 48, height: 48, borderRadius: 14,
+        background: color, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20, cursor: 'pointer', fontFamily: 'inherit',
-        flexShrink: 0,
+        boxShadow: '0 4px 10px -2px rgba(20,23,42,.18)',
       }}>
-        {isUpcoming ? '🔔' : '▶'}
-      </button>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: "'Suez One', serif", fontSize: 16, color: colors.ink,
-          lineHeight: 1.2, marginBottom: 4,
-        }}>{title}</div>
-        <div style={{ fontSize: 12, color: colors.ink2 }}>{subtitle}</div>
+        <span className="live-dot" style={{ background: '#E8C879', width: 10, height: 10 }}/>
       </div>
-      <button onClick={onClick} style={{
-        background: isUpcoming ? 'transparent' : colors.burgundy,
-        color: isUpcoming ? colors.burgundy : 'white',
-        border: `2px solid ${colors.burgundy}`,
-        borderRadius: 10, padding: '8px 14px',
-        fontSize: 13, fontWeight: 800,
-        cursor: 'pointer', fontFamily: 'inherit',
-        flexShrink: 0,
-      }}>
-        {buttonText}
-      </button>
-    </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.2, marginBottom: 3 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 500 }}>{sub}</div>
+      </div>
+      <IconBackRTL size={20} color="#8389A4" />
+    </button>
   )
 }
 
+// ── Coming Soon modal ───────────────────────────────────────
 function ComingSoonModal({ name, onClose }) {
   return (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(20,23,42,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: 20,
+        zIndex: 1000, padding: 24,
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'white',
-          border: `3px solid ${colors.ink}`,
-          borderRadius: 22,
-          padding: '24px 24px 20px',
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          borderRadius: 24,
+          padding: '28px 24px 22px',
           maxWidth: 340, width: '100%',
           textAlign: 'center',
-          boxShadow: '6px 7px 0 #1A2547',
+          boxShadow: 'var(--shadow-lg)',
         }}
       >
         <div style={{ fontSize: 52, marginBottom: 12 }}>🚧</div>
-        <div style={{
-          fontFamily: "'Suez One', serif", fontSize: 24,
-          color: colors.ink, marginBottom: 8,
-        }}>
+        <div className="h-display" style={{ fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>
           {name}
         </div>
-        <div style={{
-          fontSize: 16, color: colors.ink2,
-          marginBottom: 20, lineHeight: 1.4,
-        }}>
+        <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 20, lineHeight: 1.4, fontWeight: 500 }}>
           הפיצ'ר הזה בבנייה ויהיה זמין בקרוב!
         </div>
-        <button
-          onClick={onClose}
-          className="big-btn big-btn--primary"
-          style={{ width: '100%' }}
-        >
+        <button onClick={onClose} className="big-btn big-btn--primary" style={{ width: '100%' }}>
           הבנתי
         </button>
       </div>
