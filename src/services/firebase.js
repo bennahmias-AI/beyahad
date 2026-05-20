@@ -240,6 +240,31 @@ export async function joinParliamentSession(uid, livekitRoom) {
   }
 }
 
+// ─── Parliament discussion state sync ────────────────────────
+// The discussion state (whose turn, timer, phase) is stored in the
+// session doc so all participants stay perfectly in sync. The "host"
+// (first participant) is the only one who writes the state forward.
+
+export async function updateParliamentState(sessionId, discussion) {
+  try {
+    await updateDoc(doc(db, 'parliamentSessions', sessionId), {
+      discussion,
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateParliamentState error:', e)
+  }
+}
+
+export function watchParliamentSession(sessionId, cb) {
+  return onSnapshot(doc(db, 'parliamentSessions', sessionId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => {
+    console.error('watchParliamentSession error:', err)
+  })
+}
+
 export async function leaveParliamentSession(sessionId, uid) {
   try {
     const snap = await getDoc(doc(db, 'parliamentSessions', sessionId))
