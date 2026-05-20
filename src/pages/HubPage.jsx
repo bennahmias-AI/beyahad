@@ -1,8 +1,14 @@
 // src/pages/HubPage.jsx
 // ─────────────────────────────────────────────────────────────
 // מסך הבית הראשי — עיצוב 2026 מודרני.
-// HERO מוביל ל-matchmaking. פעילים: קפה, פרלמנט.
-// "בקרוב": חוגים, סיפורים, משפחה, אירועי LIVE.
+//
+// HERO "החברים שלך" — מוצג רק אם יש חברים שדיברת איתם והם
+// מחוברים עכשיו. אם הרשימה ריקה — ה-HERO לא מוצג כלל, והדף
+// מתחיל ישירות מ"קפה בסלון" + "הפרלמנט".
+//
+// כרגע אין עדיין מנגנון אמיתי לחברים אחרונים — לכן יש flag
+// בראש הקובץ. כשנבנה את הפיצ'ר האמיתי, נחליף את onlineFriends
+// בקריאה אמיתית ל-Firebase.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
@@ -13,9 +19,29 @@ import {
   IconBook, IconHeart, IconBell, IconBackRTL,
 } from '../icons/index.jsx'
 
+// ─── DEMO TOGGLE ─────────────────────────────────────────────
+// שנה ל-true כדי לראות את ה-HERO "החברים שלך" עם חברי דמה.
+// כשנבנה את הפיצ'ר האמיתי — נחליף את זה בקריאה ל-Firebase.
+const SHOW_DEMO_FRIENDS = false
+
+const DEMO_FRIENDS = [
+  { id: 'd1', name: 'אסתר כהן',  color: '#6B3A4F' },
+  { id: 'd2', name: 'יעקב לוי',  color: '#4F6B4A' },
+  { id: 'd3', name: 'חנה גולדמן', color: '#2C5566' },
+]
+// ─────────────────────────────────────────────────────────────
+
 export default function HubPage({ onGoMatch, onGoParliament }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
+
+  // חברים מחוברים — כרגע ריק (אין פיצ'ר אמיתי עדיין).
+  // עם ה-flag למעלה אפשר לראות את התצוגה עם חברי דמה.
+  const [onlineFriends, setOnlineFriends] = useState(
+    SHOW_DEMO_FRIENDS ? DEMO_FRIENDS : []
+  )
+
+  const hasFriends = onlineFriends.length > 0
 
   const hour = new Date().getHours()
   const greet = hour < 11 ? 'בוקר טוב'
@@ -83,75 +109,107 @@ export default function HubPage({ onGoMatch, onGoParliament }) {
       </div>
 
       <div style={{ padding: '12px 20px 20px' }}>
-        {/* ── HERO — שיחה עם חבר חדש ───────────────────────── */}
-        <button onClick={onGoMatch} style={{
-          width: '100%', textAlign: 'right',
-          background: 'linear-gradient(135deg, #2C5566 0%, #1B2540 60%, #0E1730 100%)',
-          border: 'none',
-          borderRadius: 26,
-          padding: '24px 22px 22px',
-          color: '#FBF7EE',
-          boxShadow: '0 16px 36px -10px rgba(126,44,46,.55), 0 4px 12px rgba(20,23,42,.08)',
-          position: 'relative', overflow: 'hidden',
-          display: 'block',
-          fontFamily: 'inherit',
-        }}>
-          {/* soft light bloom top-right */}
-          <div style={{
-            position: 'absolute', insetInlineEnd: -60, top: -60,
-            width: 200, height: 200, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)',
-            pointerEvents: 'none',
-          }}/>
-          {/* second light bloom bottom-left */}
-          <div style={{
-            position: 'absolute', insetInlineStart: -40, bottom: -80,
-            width: 180, height: 180, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,200,87,.18), transparent 70%)',
-            pointerEvents: 'none',
-          }}/>
-
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', position: 'relative' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: 18,
-              background: 'rgba(255,255,255,.18)',
-              backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              border: '1px solid rgba(255,255,255,.22)',
-            }}>
-              <IconPhone size={30} color="#FBF7EE" />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className="h-display" style={{ fontSize: 26, lineHeight: 1.1, marginBottom: 6, color: '#FBF7EE', letterSpacing: '-0.02em' }}>
-                שיחה עם חבר חדש
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,.92)', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="live-dot" style={{ background: '#E8C879', width: 8, height: 8 }} />
-                <span>המערכת תחבר אותך אוטומטית למי שמחכה</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            marginTop: 18,
-            background: 'rgba(255,255,255,.16)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,.24)',
-            borderRadius: 16,
-            padding: '13px 16px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 17, fontWeight: 700,
+        {/* ── HERO — החברים שלך (מוצג רק אם יש מחוברים) ────── */}
+        {hasFriends && (
+          <button onClick={onGoMatch} style={{
+            width: '100%', textAlign: 'right',
+            background: 'linear-gradient(135deg, #2C5566 0%, #1B2540 60%, #0E1730 100%)',
+            border: 'none',
+            borderRadius: 26,
+            padding: '24px 22px 20px',
+            color: '#FBF7EE',
+            boxShadow: '0 16px 36px -10px rgba(126,44,46,.55), 0 4px 12px rgba(20,23,42,.08)',
+            position: 'relative', overflow: 'hidden',
+            display: 'block',
+            marginBottom: 16,
+            fontFamily: 'inherit',
           }}>
-            <span>הקש כדי להתחיל</span>
-            <IconBackRTL size={22} color="#FBF7EE" />
-          </div>
-        </button>
+            {/* soft light blooms */}
+            <div style={{
+              position: 'absolute', insetInlineEnd: -60, top: -60,
+              width: 200, height: 200, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)',
+              pointerEvents: 'none',
+            }}/>
+            <div style={{
+              position: 'absolute', insetInlineStart: -40, bottom: -80,
+              width: 180, height: 180, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,200,87,.18), transparent 70%)',
+              pointerEvents: 'none',
+            }}/>
+
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', position: 'relative' }}>
+              <div style={{
+                width: 60, height: 60, borderRadius: 18,
+                background: 'rgba(255,255,255,.18)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                border: '1px solid rgba(255,255,255,.22)',
+              }}>
+                <IconPhone size={30} color="#FBF7EE" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6, color: '#FBF7EE', letterSpacing: '-0.02em' }}>
+                  החברים שלך מחוברים
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,.92)', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="live-dot" style={{ background: '#E8C879', width: 8, height: 8 }} />
+                  <span>
+                    <strong style={{ fontWeight: 800 }}>{onlineFriends.length} </strong>
+                    {onlineFriends.length === 1 ? 'חבר מחובר עכשיו' : 'חברים מחוברים עכשיו'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Friend avatars row */}
+            <div style={{
+              marginTop: 16, display: 'flex', alignItems: 'center', gap: 10,
+              position: 'relative',
+            }}>
+              {onlineFriends.slice(0, 4).map(f => (
+                <div key={f.id} style={{ textAlign: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <Avatar name={f.name} size={48} color={f.color} />
+                    <span style={{
+                      position: 'absolute', insetInlineEnd: 0, bottom: 0,
+                      width: 13, height: 13, borderRadius: '50%',
+                      background: '#4ADE80',
+                      border: '2.5px solid #1B2540',
+                    }}/>
+                  </div>
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, marginTop: 4,
+                    color: 'rgba(255,255,255,.85)',
+                    maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {f.name.split(' ')[0]}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              marginTop: 16,
+              background: 'rgba(255,255,255,.16)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,.24)',
+              borderRadius: 16,
+              padding: '13px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              fontSize: 17, fontWeight: 700,
+            }}>
+              <span>הקש כדי להתחיל שיחה</span>
+              <IconBackRTL size={22} color="#FBF7EE" />
+            </div>
+          </button>
+        )}
 
         {/* ── 2 featured rooms — קפה + פרלמנט ──────────────── */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 14, marginTop: 16,
+          gap: 14,
         }}>
           <RoomTile
             onClick={onGoMatch}

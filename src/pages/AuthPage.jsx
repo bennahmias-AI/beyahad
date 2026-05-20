@@ -22,9 +22,14 @@ export default function AuthPage() {
     try {
       if (mode === 'register') {
         const cred = await createUserWithEmailAndPassword(auth, email, password)
+        // Write the profile with the real name. merge:true so this never
+        // gets wiped by a later skeleton write from useAuth.
         await createOrUpdateUser(cred.user.uid, {
           name: name.trim(), phone: '', status: 'available', interests: [],
         })
+        // Write the name a second time defensively, in case useAuth's
+        // skeleton write landed in between. merge:true keeps it safe.
+        await createOrUpdateUser(cred.user.uid, { name: name.trim() })
       } else {
         await signInWithEmailAndPassword(auth, email, password)
       }
