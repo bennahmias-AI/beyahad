@@ -31,7 +31,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
 
@@ -283,9 +283,9 @@ export default function HubPage({ onGoMatch, onGoParliament }) {
           <div style={{ height: 10 }}/>
           <LiveCard
             color="#B89048"
-            title="שירה בציבור — שירי לאה גולדברג"
-            sub="9 משתתפים · נשארו 25 דקות"
-            onClick={() => showComingSoon('שירה בציבור')}
+            title="שירה בציבור — הבה נגילה"
+            sub="שירה בקריוקי · כולם שרים ביחד"
+            onClick={onGoSinging}
           />
         </div>
 

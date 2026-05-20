@@ -32,4 +32,15 @@ export const useSessionStore = create((set) => ({
     parliamentToken: null,
     parliamentRoom: null,
   }),
+
+  // Active singing room (שירה בציבור)
+  singingToken: null,
+  singingRoom: null,
+
+  setSingingLivekit: ({ token, room }) => set({ singingToken: token, singingRoom: room }),
+
+  clearSinging: () => set({
+    singingToken: null,
+    singingRoom: null,
+  }),
 }))

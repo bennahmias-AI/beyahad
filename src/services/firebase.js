@@ -206,9 +206,16 @@ export async function leaveCafeQueue(uid) {
   }
 }
 
-// ─── Parliament sessions ──────────────────────────────────────
+// ─── Parliament sessions ───────────────────────────────
 
 export const PARLIAMENT_ROOM = 'parliament-main'
+
+// ─── Singing room (שירה בציבור) ─────────────────────
+// A single shared room. Everyone joins freely. No turn logic —
+// the special twist (everyone muted to each other) is handled
+// client-side in the SingingScreen.
+
+export const SINGING_ROOM = 'singing-main'
 
 export async function joinParliamentSession(uid, livekitRoom) {
   const q = query(
