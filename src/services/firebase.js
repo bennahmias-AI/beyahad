@@ -104,6 +104,22 @@ export function watchAvailableUsers(myUid, cb, blocked = []) {
   })
 }
 
+// Watch the LIVE count of everyone currently in the app.
+// Counts statuses 'available' and 'busy' (anyone with the app open),
+// and includes the current user in the total.
+export function watchOnlineCount(cb) {
+  const q = query(
+    collection(db, 'users'),
+    where('status', 'in', ['available', 'busy']),
+  )
+  return onSnapshot(q, snap => {
+    cb(snap.size)
+  }, err => {
+    console.error('watchOnlineCount error:', err)
+    cb(0)
+  })
+}
+
 // ─── Cafe sessions ────────────────────────────────────────────
 
 function pairRoomName(uidA, uidB) {

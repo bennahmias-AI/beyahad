@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { setPresence } from '../services/firebase.js'
+import { setPresence, watchOnlineCount } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconUsers,
@@ -43,6 +43,9 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
 
   const hasFriends = onlineFriends.length > 0
 
+  // מספר המשתמשים המחוברים כרגע — מתעדכן בזמן אמת
+  const [onlineCount, setOnlineCount] = useState(0)
+
   const hour = new Date().getHours()
   const greet = hour < 11 ? 'בוקר טוב'
              : hour < 17 ? 'צהריים טובים'
@@ -64,6 +67,12 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
     document.addEventListener('visibilitychange', onHide)
     return () => document.removeEventListener('visibilitychange', onHide)
   }, [authUser?.uid])
+
+  // Watch the live count of online users
+  useEffect(() => {
+    const unsub = watchOnlineCount(count => setOnlineCount(count))
+    return () => unsub && unsub()
+  }, [])
 
   const showComingSoon = (name) => setComingSoon(name)
   const userName = profile?.name || 'אורח'
@@ -109,6 +118,33 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
       </div>
 
       <div style={{ padding: '12px 20px 20px' }}>
+        {/* ── באנר ירוק — כמה אנשים מחוברים כעת ────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'linear-gradient(135deg, #5B7E54 0%, #4F6B4A 100%)',
+          borderRadius: 16,
+          padding: '12px 16px',
+          marginBottom: 16,
+          boxShadow: '0 6px 16px -6px rgba(79,107,74,.5)',
+        }}>
+          <span style={{
+            width: 12, height: 12, borderRadius: '50%',
+            background: '#9BE89B',
+            boxShadow: '0 0 0 0 rgba(155,232,155,.6)',
+            animation: 'livePulse 1.6s infinite',
+            flexShrink: 0,
+          }}/>
+          <span style={{
+            color: '#FBF7EE', fontSize: 16, fontWeight: 700,
+            fontFamily: 'var(--font-display)',
+          }}>
+            {onlineCount <= 1
+              ? 'אתה מחובר — מחכים שעוד יצטרפו'
+              : <>יש כעת <strong style={{ fontWeight: 800 }}>{onlineCount}</strong> אנשים מחוברים</>
+            }
+          </span>
+        </div>
+
         {/* ── HERO — החברים שלך (מוצג רק אם יש מחוברים) ────── */}
         {hasFriends && (
           <button onClick={onGoMatch} style={{
