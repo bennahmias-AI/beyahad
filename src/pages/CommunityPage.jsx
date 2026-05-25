@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchCommunityPosts, createCommunityPost,
-  incrementPostViews, togglePostLike,
+  incrementPostViews, togglePostLike, seedCommunityContent,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart } from '../icons/index.jsx'
@@ -56,6 +56,7 @@ export default function CommunityPage({ onBack, kind = 'tip' }) {
   const [loading, setLoading] = useState(true)
   const [openPost, setOpenPost] = useState(null)
   const [composing, setComposing] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   // Watch posts of this kind
   useEffect(() => {
@@ -70,6 +71,18 @@ export default function CommunityPage({ onBack, kind = 'tip' }) {
   const openItem = async (post) => {
     setOpenPost(post)
     await incrementPostViews(post.id)
+  }
+
+  // Temporary one-time seed of starter content
+  const handleSeed = async () => {
+    if (seeding) return
+    setSeeding(true)
+    try {
+      await seedCommunityContent(authUser?.uid)
+    } catch (e) {
+      console.error('seed error:', e)
+    }
+    setSeeding(false)
   }
 
   return (
@@ -117,6 +130,23 @@ export default function CommunityPage({ onBack, kind = 'tip' }) {
             <div style={{ fontSize: 15 }}>
               היה הראשון לשתף — לחץ על הכפתור למעלה
             </div>
+
+            {/* כפתור הזרעה זמני — ממלא תוכן פתיחה */}
+            <button
+              onClick={handleSeed}
+              disabled={seeding}
+              style={{
+                marginTop: 24,
+                background: 'var(--surface)',
+                color: 'var(--ink-3)',
+                border: '1px dashed var(--line-strong)',
+                borderRadius: 12, padding: '10px 18px',
+                fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              {seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
