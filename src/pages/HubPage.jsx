@@ -16,7 +16,7 @@ import { setPresence, watchOnlineCount } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconUsers,
-  IconBook, IconHeart, IconBell, IconBackRTL,
+  IconBook, IconHeart, IconBell, IconBackRTL, IconLightbulb,
 } from '../icons/index.jsx'
 
 // ─── DEMO TOGGLE ─────────────────────────────────────────────
@@ -31,7 +31,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
 
@@ -274,22 +274,22 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging }) {
           gap: 10, marginTop: 12,
         }}>
           <HomeTileSmall
-            onClick={() => showComingSoon('חוגים')}
-            color="#2C5566"
-            icon={<IconUsers size={24} color="white" />}
-            label="חוגים"
-            badge="בקרוב"
+            onClick={onGoTips}
+            color="#B89048"
+            icon={<IconLightbulb size={24} color="white" />}
+            label="עצות"
+            badge="טיפים מהחברים"
           />
           <HomeTileSmall
-            onClick={() => showComingSoon('סיפורים')}
-            color="#B89048"
+            onClick={onGoRecipes}
+            color="#7E2C2E"
             icon={<IconBook size={24} color="white" />}
-            label="סיפורים"
-            badge="בקרוב"
+            label="מתכונים"
+            badge="מטבח של חברים"
           />
           <HomeTileSmall
             onClick={() => showComingSoon('משפחה')}
-            color="#7E2C2E"
+            color="#2C5566"
             icon={<IconHeart size={24} color="white" />}
             label="משפחה"
             badge="בקרוב"

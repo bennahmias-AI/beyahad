@@ -8,6 +8,7 @@ import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
 import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
+import CommunityPage from './pages/CommunityPage.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM,
@@ -104,6 +105,8 @@ export default function App() {
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
+      {page === 'tips' && <CommunityPage onBack={() => setPage('hub')} kind="tip" />}
+      {page === 'recipes' && <CommunityPage onBack={() => setPage('hub')} kind="recipe" />}
       {page === 'waiting' && (
         <KafeWaitingPage
           onCancel={() => setPage('hub')}
@@ -115,6 +118,8 @@ export default function App() {
           onGoMatch={() => setPage('waiting')}
           onGoParliament={joinParliament}
           onGoSinging={joinSinging}
+          onGoTips={() => setPage('tips')}
+          onGoRecipes={() => setPage('recipes')}
         />
       )}
     </div>

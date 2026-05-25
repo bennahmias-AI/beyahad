@@ -311,6 +311,68 @@ export async function leaveParliamentSession(sessionId, uid) {
   }
 }
 
+// ─── Community posts — tips & recipes (קהילה) ────────────────
+// Collection 'communityPosts'. Each doc:
+//   { kind: 'tip' | 'recipe', title, body, authorUid, authorName,
+//     views, likes: [uid...], createdAt }
+
+export async function createCommunityPost({ kind, title, body, authorUid, authorName }) {
+  const ref = await addDoc(collection(db, 'communityPosts'), {
+    kind,
+    title: title.trim(),
+    body: body.trim(),
+    authorUid,
+    authorName: authorName || 'משתמש',
+    views: 0,
+    likes: [],
+    createdAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+// Live list of posts of a given kind ('tip' or 'recipe'), newest first.
+export function watchCommunityPosts(kind, cb) {
+  const q = query(
+    collection(db, 'communityPosts'),
+    where('kind', '==', kind),
+    orderBy('createdAt', 'desc'),
+  )
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  }, err => {
+    console.error('watchCommunityPosts error:', err)
+    cb([])
+  })
+}
+
+// Increment the view counter (called when a post is opened).
+export async function incrementPostViews(postId) {
+  try {
+    const ref = doc(db, 'communityPosts', postId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    await updateDoc(ref, { views: (snap.data().views || 0) + 1 })
+  } catch (e) {
+    console.error('incrementPostViews error:', e)
+  }
+}
+
+// Toggle a like on a post for the given user.
+export async function togglePostLike(postId, uid) {
+  try {
+    const ref = doc(db, 'communityPosts', postId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const likes = snap.data().likes || []
+    const next = likes.includes(uid)
+      ? likes.filter(u => u !== uid)
+      : [...likes, uid]
+    await updateDoc(ref, { likes: next })
+  } catch (e) {
+    console.error('togglePostLike error:', e)
+  }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName) {
