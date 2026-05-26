@@ -10,6 +10,7 @@ import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
@@ -111,6 +112,7 @@ export default function App() {
       {page === 'tips' && <CommunityPage onBack={() => setPage('hub')} kind="tip" />}
       {page === 'recipes' && <CommunityPage onBack={() => setPage('hub')} kind="recipe" />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
+      {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
       {page === 'waiting' && (
         <KafeWaitingPage
           onCancel={() => setPage('hub')}
@@ -125,6 +127,7 @@ export default function App() {
           onGoTips={() => setPage('tips')}
           onGoRecipes={() => setPage('recipes')}
           onGoGreeting={() => setPage('greeting')}
+          onGoProfile={() => setPage('profile')}
         />
       )}
       <InstallPrompt />

@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { setPresence, watchOnlineCount } from '../services/firebase.js'
+import { setPresence, watchOnlineCount, signOut } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconUsers,
@@ -31,9 +31,10 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // חברים מחוברים — כרגע ריק (אין פיצ'ר אמיתי עדיין).
   // עם ה-flag למעלה אפשר לראות את התצוגה עם חברי דמה.
@@ -81,7 +82,13 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
     <div className="scroll-area">
       {/* ── Top: greeting + bell ───────────────────────────── */}
       <div style={{ padding: '18px 20px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Avatar name={userName} size={54} color="#6B3A4F" />
+        <button
+          onClick={() => setMenuOpen(true)}
+          style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}
+          aria-label="תפריט פרופיל"
+        >
+          <Avatar name={userName} size={54} color="#6B3A4F" photoURL={profile?.photoURL || null} />
+        </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 12, color: 'var(--burgundy)', fontWeight: 800,
@@ -369,6 +376,101 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
       {comingSoon && (
         <ComingSoonModal name={comingSoon} onClose={() => setComingSoon(null)} />
       )}
+
+      {menuOpen && (
+        <ProfileMenu
+          userName={userName}
+          photoURL={profile?.photoURL || null}
+          onClose={() => setMenuOpen(false)}
+          onEditProfile={() => { setMenuOpen(false); onGoProfile() }}
+          onSignOut={async () => {
+            setMenuOpen(false)
+            try { await signOut() } catch (e) { console.error(e) }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Profile menu (bottom sheet) ───────────────────────────
+function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(20,23,42,0.55)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-app)',
+          borderRadius: '24px 24px 0 0',
+          padding: '22px 20px calc(22px + env(safe-area-inset-bottom))',
+          width: '100%', maxWidth: 430,
+          direction: 'rtl',
+        }}
+      >
+        <div style={{
+          width: 40, height: 4, borderRadius: 2, background: 'var(--line-strong)',
+          margin: '0 auto 18px',
+        }}/>
+
+        {/* user header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <Avatar name={userName} size={56} color="#6B3A4F" photoURL={photoURL} />
+          <div>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>
+              {userName}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>
+              החשבון שלי
+            </div>
+          </div>
+        </div>
+
+        {/* edit profile */}
+        <button
+          onClick={onEditProfile}
+          style={{
+            width: '100%', textAlign: 'right',
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            borderRadius: 14, padding: '16px 16px', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 12,
+            fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>✏️</span>
+          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
+            עריכת פרופיל
+          </span>
+          <IconBackRTL size={20} color="#8389A4" />
+        </button>
+
+        {/* sign out */}
+        <button
+          onClick={onSignOut}
+          style={{
+            width: '100%', textAlign: 'right',
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            borderRadius: 14, padding: '16px 16px', marginBottom: 14,
+            display: 'flex', alignItems: 'center', gap: 12,
+            fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🚪</span>
+          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--danger)' }}>
+            התנתק
+          </span>
+        </button>
+
+        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>
+          סגור
+        </button>
+      </div>
     </div>
   )
 }
