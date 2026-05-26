@@ -105,15 +105,31 @@ export function watchAvailableUsers(myUid, cb, blocked = []) {
 }
 
 // Watch the LIVE count of everyone currently in the app.
-// Counts statuses 'available' and 'busy' (anyone with the app open),
-// and includes the current user in the total.
+// Counts only users whose `lastSeenAt` is fresh (within the last
+// 2 minutes) — this avoids "ghost" users whose status got stuck on
+// 'available' because they closed the browser abruptly.
+const ONLINE_WINDOW_MS = 2 * 60 * 1000   // 2 minutes
+
 export function watchOnlineCount(cb) {
   const q = query(
     collection(db, 'users'),
     where('status', 'in', ['available', 'busy']),
   )
   return onSnapshot(q, snap => {
-    cb(snap.size)
+    const now = Date.now()
+    let live = 0
+    snap.docs.forEach(d => {
+      const data = d.data()
+      const seen = data.lastSeenAt
+      // lastSeenAt is a Firestore Timestamp — convert to millis
+      const seenMs = seen && typeof seen.toMillis === 'function'
+        ? seen.toMillis()
+        : 0
+      if (seenMs && (now - seenMs) < ONLINE_WINDOW_MS) {
+        live++
+      }
+    })
+    cb(live)
   }, err => {
     console.error('watchOnlineCount error:', err)
     cb(0)
@@ -420,12 +436,109 @@ export async function seedCommunityContent(authorUid) {
   return count
 }
 
+// ─── Friendships (חברים קרובים) ──────────────────────────────
+// Collection 'friendships'. Each doc id is a deterministic pair key
+// so the same two users can never create duplicate requests.
+//   { users: [uidA, uidB], requester, status: 'pending'|'accepted',
+//     names: { [uid]: name }, createdAt, acceptedAt }
+
+// deterministic doc id for a pair (sorted so it's identical both ways)
+function friendshipId(uidA, uidB) {
+  return [uidA, uidB].sort().join('__')
+}
+
+// Send a friend request from `me` to `target`.
+export async function sendFriendRequest(me, target) {
+  if (!me?.uid || !target?.uid || me.uid === target.uid) return
+  const id = friendshipId(me.uid, target.uid)
+  const ref = doc(db, 'friendships', id)
+  const snap = await getDoc(ref)
+  if (snap.exists()) return  // already friends or request pending
+
+  await setDoc(ref, {
+    users: [me.uid, target.uid].sort(),
+    requester: me.uid,
+    status: 'pending',
+    names: { [me.uid]: me.name || 'משתמש', [target.uid]: target.name || 'משתמש' },
+    createdAt: serverTimestamp(),
+  })
+}
+
+// Accept a pending friend request.
+export async function acceptFriendRequest(friendshipDocId) {
+  try {
+    await updateDoc(doc(db, 'friendships', friendshipDocId), {
+      status: 'accepted',
+      acceptedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('acceptFriendRequest error:', e)
+  }
+}
+
+// Decline / remove a friend request or friendship.
+export async function removeFriendship(friendshipDocId) {
+  try {
+    await deleteDoc(doc(db, 'friendships', friendshipDocId))
+  } catch (e) {
+    console.error('removeFriendship error:', e)
+  }
+}
+
+// Live watch of all friendship docs that involve me.
+// Calls cb with { friends, incoming, outgoing } arrays.
+export function watchFriendships(myUid, cb) {
+  const q = query(
+    collection(db, 'friendships'),
+    where('users', 'array-contains', myUid),
+  )
+  return onSnapshot(q, snap => {
+    const friends = []   // accepted
+    const incoming = []  // pending, someone else asked me
+    const outgoing = []  // pending, I asked someone else
+    snap.docs.forEach(d => {
+      const data = d.data()
+      const otherUid = (data.users || []).find(u => u !== myUid)
+      const entry = {
+        docId: d.id,
+        otherUid,
+        otherName: (data.names || {})[otherUid] || 'משתמש',
+        status: data.status,
+        requester: data.requester,
+      }
+      if (data.status === 'accepted') friends.push(entry)
+      else if (data.requester === myUid) outgoing.push(entry)
+      else incoming.push(entry)
+    })
+    cb({ friends, incoming, outgoing })
+  }, err => {
+    console.error('watchFriendships error:', err)
+    cb({ friends: [], incoming: [], outgoing: [] })
+  })
+}
+
+// Check the friendship status between me and one other user.
+// Returns 'none' | 'pending' | 'accepted'.
+export async function getFriendshipStatus(myUid, otherUid) {
+  try {
+    const snap = await getDoc(doc(db, 'friendships', friendshipId(myUid, otherUid)))
+    if (!snap.exists()) return 'none'
+    return snap.data().status === 'accepted' ? 'accepted' : 'pending'
+  } catch (e) {
+    return 'none'
+  }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
-export async function fetchLiveKitToken(room, participantName) {
+export async function fetchLiveKitToken(room, participantName, uid = '') {
   const url = import.meta.env.VITE_LIVEKIT_TOKEN_URL
   if (!url) throw new Error('VITE_LIVEKIT_TOKEN_URL not set')
-  const res = await fetch(`${url}?room=${encodeURIComponent(room)}&username=${encodeURIComponent(participantName)}`)
+  const res = await fetch(
+    `${url}?room=${encodeURIComponent(room)}` +
+    `&username=${encodeURIComponent(participantName)}` +
+    `&uid=${encodeURIComponent(uid)}`
+  )
   if (!res.ok) throw new Error('Token fetch failed: ' + res.status)
   const data = await res.json()
   return data.token

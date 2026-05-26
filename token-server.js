@@ -32,6 +32,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/token') {
     const room = url.searchParams.get('room')
     const username = url.searchParams.get('username') || 'anonymous'
+    const uid = url.searchParams.get('uid') || ''
 
     if (!room) {
       res.writeHead(400, { 'Content-Type': 'application/json' })
@@ -40,8 +41,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
+      // identity carries the uid so the app can map participants
+      // back to real user accounts (needed for the friends system).
+      // Format: "<uid>__<random>"  (falls back to username if no uid)
+      const identity = (uid || username) + '__' + Math.random().toString(36).slice(2, 8)
       const at = new AccessToken(API_KEY, API_SECRET, {
-        identity: username + '-' + Math.random().toString(36).slice(2, 8),
+        identity,
         name: username,
       })
       at.addGrant({

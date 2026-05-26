@@ -32,7 +32,14 @@ import {
   watchParliamentSession,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import AddFriendButton from '../components/AddFriendButton.jsx'
 import { colors } from '../design-system/index.js'
+
+// extract the real uid from a LiveKit identity "<uid>__<random>"
+function uidFromIdentity(identity) {
+  if (!identity) return ''
+  return String(identity).split('__')[0]
+}
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-project.livekit.cloud'
 
@@ -97,7 +104,7 @@ function ConnectingScreen({ onCancel }) {
 }
 
 // ─── Parliament UI ───────────────────────────────────────────
-function ParliamentUI({ onEnd, sessionId }) {
+function ParliamentUI({ onEnd, sessionId, me }) {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false }
@@ -328,16 +335,28 @@ function ParliamentUI({ onEnd, sessionId }) {
           display: 'flex', flexWrap: 'wrap', gap: 14,
           justifyContent: 'center', marginBottom: 24,
         }}>
-          {participants.map(p => (
-            <div key={p.identity} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-            }}>
-              <Avatar name={p.name || p.identity} size={56} />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                {p.name || 'משתתף'}
-              </span>
-            </div>
-          ))}
+          {participants.map(p => {
+            const pUid = uidFromIdentity(p.identity)
+            const isMe = p.identity === myIdentity
+            return (
+              <div key={p.identity} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              }}>
+                <Avatar name={p.name || p.identity} size={56} />
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+                  {p.name || 'משתתף'}
+                </span>
+                {/* צרף לחבר — לא מוצג לעצמי */}
+                {!isMe && me?.uid && pUid && (
+                  <AddFriendButton
+                    me={me}
+                    target={{ uid: pUid, name: p.name || 'משתתף' }}
+                    compact
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
 
         <div style={{
@@ -612,7 +631,7 @@ function shuffle(arr) {
 
 // ─── Root component ──────────────────────────────────────────
 export default function ParliamentScreen({ onExit }) {
-  const { authUser } = useUserStore()
+  const { authUser, profile } = useUserStore()
   const {
     parliamentToken, parliamentRoom, parliamentSession,
     clearParliament,
@@ -666,7 +685,11 @@ export default function ParliamentScreen({ onExit }) {
         onError={(e) => setError(e.message)}
         style={{ display: connected ? 'block' : 'none' }}
       >
-        <ParliamentUI onEnd={handleEnd} sessionId={parliamentSession?.id} />
+        <ParliamentUI
+          onEnd={handleEnd}
+          sessionId={parliamentSession?.id}
+          me={{ uid: authUser?.uid, name: profile?.name }}
+        />
       </LiveKitRoom>
     </>
   )

@@ -11,6 +11,7 @@ import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import FriendsPage from './pages/FriendsPage.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
@@ -53,7 +54,7 @@ export default function App() {
       const myName = profile?.name || 'משתמש'
 
       const sessionId = await joinParliamentSession(uid, room)
-      const token = await fetchLiveKitToken(room, myName)
+      const token = await fetchLiveKitToken(room, myName, uid)
 
       setParliamentSession({ id: sessionId })
       setParliamentLivekit({ token, room })
@@ -113,6 +114,12 @@ export default function App() {
       {page === 'recipes' && <CommunityPage onBack={() => setPage('hub')} kind="recipe" />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
+      {page === 'friends' && (
+        <FriendsPage
+          onBack={() => setPage('hub')}
+          onCallFriend={() => setPage('waiting')}
+        />
+      )}
       {page === 'waiting' && (
         <KafeWaitingPage
           onCancel={() => setPage('hub')}
@@ -128,6 +135,7 @@ export default function App() {
           onGoRecipes={() => setPage('recipes')}
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
+          onGoFriends={() => setPage('friends')}
         />
       )}
       <InstallPrompt />

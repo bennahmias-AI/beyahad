@@ -18,6 +18,7 @@ import { useSessionStore } from '../stores/sessionStore.js'
 import { useUserStore } from '../stores/userStore.js'
 import { endCafeSession } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import AddFriendButton from '../components/AddFriendButton.jsx'
 import { colors } from '../design-system/index.js'
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-project.livekit.cloud'
@@ -87,7 +88,7 @@ function ConnectingScreen({ partner, onCancel }) {
 }
 
 // ─── The actual call UI inside LiveKit room ───────────────────
-function CallUI({ partner, sessionId, onEnd }) {
+function CallUI({ partner, sessionId, onEnd, me }) {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false }
@@ -177,6 +178,14 @@ function CallUI({ partner, sessionId, onEnd }) {
             {partner?.name}
           </div>
         </div>
+        {/* צרף לחבר */}
+        {me?.uid && partner?.id && (
+          <AddFriendButton
+            me={me}
+            target={{ uid: partner.id, name: partner.name }}
+            compact
+          />
+        )}
         <div style={{
           background: 'rgba(0,0,0,.30)', borderRadius: 999,
           padding: '5px 10px', fontSize: 13, fontWeight: 700,
@@ -475,6 +484,7 @@ export default function KafePage({ onEnd }) {
           partner={cafePartner}
           sessionId={cafeSession?.id}
           onEnd={handleEnd}
+          me={{ uid: profile?.id || profile?.uid, name: profile?.name }}
         />
       </LiveKitRoom>
     </>

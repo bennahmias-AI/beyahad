@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const { room, username } = req.query
+  const { room, username, uid } = req.query
 
   if (!room || !username) {
     res.status(400).json({ error: 'room and username required' })
@@ -27,8 +27,14 @@ export default async function handler(req, res) {
   }
 
   try {
+    // identity carries the uid so the app can map participants
+    // back to real user accounts (needed for the friends system).
+    // Format: "<uid>__<random>"  (falls back to username if no uid)
+    const identity = (uid || username) + '__' + Math.random().toString(36).slice(2, 8)
+
     const at = new AccessToken(API_KEY, API_SECRET, {
-      identity: username,
+      identity,
+      name: username,
       ttl: '2h',
     })
 

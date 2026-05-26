@@ -31,7 +31,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -53,10 +53,19 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
              : hour < 20 ? 'אחר צהריים טובים'
              : 'ערב טוב'
 
-  // Mark me as available
+  // Mark me as available + keep a fresh "heartbeat" every 60s so the
+  // online counter knows I'm still here. Without the heartbeat, after
+  // 2 minutes I'd drop off the count even though the app is open.
   useEffect(() => {
     if (!authUser?.uid) return
     setPresence(authUser.uid, 'available').catch(() => {})
+
+    // heartbeat — refresh lastSeenAt every minute
+    const beat = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        setPresence(authUser.uid, 'available').catch(() => {})
+      }
+    }, 60 * 1000)
 
     const onHide = () => {
       if (document.visibilityState === 'hidden') {
@@ -66,7 +75,10 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
       }
     }
     document.addEventListener('visibilitychange', onHide)
-    return () => document.removeEventListener('visibilitychange', onHide)
+    return () => {
+      clearInterval(beat)
+      document.removeEventListener('visibilitychange', onHide)
+    }
   }, [authUser?.uid])
 
   // Watch the live count of online users
@@ -333,11 +345,11 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             badge="מטבח של חברים"
           />
           <HomeTileSmall
-            onClick={() => showComingSoon('משפחה')}
+            onClick={onGoFriends}
             color="#2C5566"
             icon={<IconHeart size={24} color="white" />}
-            label="משפחה"
-            badge="בקרוב"
+            label="חברים"
+            badge="החברים שלי"
           />
         </div>
 
