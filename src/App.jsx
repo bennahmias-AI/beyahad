@@ -10,6 +10,7 @@ import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
+import InstallPrompt from './components/InstallPrompt.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM,
@@ -97,6 +98,7 @@ export default function App() {
     return (
       <div className="app-shell">
         <AuthPage />
+        <InstallPrompt />
       </div>
     )
   }
@@ -125,6 +127,7 @@ export default function App() {
           onGoGreeting={() => setPage('greeting')}
         />
       )}
+      <InstallPrompt />
     </div>
   )
 }

@@ -1,0 +1,28 @@
+{
+  "name": "ביחד — אנחנו ביחד",
+  "short_name": "ביחד",
+  "description": "אפליקציה חברתית לגיל השלישי — שיחות, פרלמנט, שירה בציבור, ברכות אישיות וקהילה",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F0E3",
+  "theme_color": "#6B3A4F",
+  "categories": ["social", "lifestyle"],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
