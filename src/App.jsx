@@ -9,6 +9,7 @@ import HubPage from './pages/HubPage.jsx'
 import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
+import GreetingMaker from './pages/GreetingMaker.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM,
@@ -107,6 +108,7 @@ export default function App() {
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
       {page === 'tips' && <CommunityPage onBack={() => setPage('hub')} kind="tip" />}
       {page === 'recipes' && <CommunityPage onBack={() => setPage('hub')} kind="recipe" />}
+      {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
       {page === 'waiting' && (
         <KafeWaitingPage
           onCancel={() => setPage('hub')}
@@ -120,6 +122,7 @@ export default function App() {
           onGoSinging={joinSinging}
           onGoTips={() => setPage('tips')}
           onGoRecipes={() => setPage('recipes')}
+          onGoGreeting={() => setPage('greeting')}
         />
       )}
     </div>

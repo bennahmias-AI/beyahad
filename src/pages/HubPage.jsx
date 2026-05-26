@@ -31,7 +31,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
 
@@ -269,6 +269,44 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
         </div>
 
         {/* ── 3 utility tiles ──────────────────────────────── */}
+        {/* ── כרטיס ברכה אישית — רוחב מלא ── */}
+        <button onClick={onGoGreeting} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #C99B3F 0%, #B89048 45%, #8A6A2E 100%)',
+          border: 'none', borderRadius: 22,
+          padding: '18px 18px',
+          color: '#FFF8E8',
+          boxShadow: '0 12px 28px -8px rgba(184,144,72,.55), 0 2px 6px rgba(20,23,42,.06)',
+          position: 'relative', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+        }}>
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -40,
+            width: 150, height: 150, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,.28), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <div style={{
+            width: 56, height: 56, borderRadius: 16,
+            background: 'rgba(255,255,255,.20)',
+            border: '1px solid rgba(255,255,255,.28)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 30, flexShrink: 0, position: 'relative',
+          }}>✉️</div>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div className="h-display" style={{ fontSize: 21, color: '#FFF8E8', lineHeight: 1.15 }}>
+              צור ברכה אישית
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.92)', marginTop: 3 }}>
+              ברכה יפה למשפחה ולחברים בלחיצה אחת
+            </div>
+          </div>
+          <IconBackRTL size={22} color="#FFF8E8" />
+        </button>
+
+        {/* ── 3 utility tiles ── */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 10, marginTop: 12,
