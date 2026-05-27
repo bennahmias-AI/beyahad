@@ -14,26 +14,40 @@ import { createOrUpdateUser, getUser } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
-// כיווץ תמונה: מקטין ל-256px, מחזיר base64 (JPEG איכות 0.8)
-function compressImage(file, maxSize = 256) {
+// כיווץ תמונה לתמונת פרופיל.
+// חותך לריבוע מהמרכז, מקטין ל-200px, ודוחס ל-JPEG.
+// אם ה-base64 עדיין גדול מ-200KB — דוחס שוב באיכות נמוכה יותר,
+// כדי שתמיד ייכנס בבטחה למסמך Firestore (מגבלה: 1MB למסמך).
+const MAX_DATAURL_BYTES = 200 * 1024   // ~200KB
+
+function compressImage(file, maxSize = 200) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = e => {
       const img = new Image()
       img.onload = () => {
-        let { width, height } = img
-        // scale down keeping aspect ratio
-        if (width > height) {
-          if (width > maxSize) { height = height * maxSize / width; width = maxSize }
-        } else {
-          if (height > maxSize) { width = width * maxSize / height; height = maxSize }
-        }
+        // crop to a centered square
+        const side = Math.min(img.width, img.height)
+        const sx = (img.width - side) / 2
+        const sy = (img.height - side) / 2
+
         const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
+        canvas.width = maxSize
+        canvas.height = maxSize
         const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', 0.8))
+        // fill white first (in case the source has transparency)
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, maxSize, maxSize)
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize)
+
+        // try progressively lower quality until small enough
+        let quality = 0.7
+        let dataURL = canvas.toDataURL('image/jpeg', quality)
+        while (dataURL.length > MAX_DATAURL_BYTES && quality > 0.3) {
+          quality -= 0.15
+          dataURL = canvas.toDataURL('image/jpeg', quality)
+        }
+        resolve(dataURL)
       }
       img.onerror = () => reject(new Error('image load failed'))
       img.src = e.target.result
