@@ -1,148 +1,180 @@
 // src/pages/GreetingMaker.jsx
 // ─────────────────────────────────────────────────────────────
-// עורך ברכה אישית — המשתמש מעצב בעצמו.
+// מחולל ברכה אישית — בסגנון Canva למובייל.
 //
-// שלבים:
-//   1. בחירת/כתיבת טקסט הברכה
-//   2. עיצוב — רקע, קישוטים, פריסה, צבע, מסגרת (תצוגה חיה)
-//   3. שמירה / שיתוף
+// זרימה:
+//   1. כתיבת הברכה (טקסט + מאת)
+//   2. בחירת תבנית + עריכה דרך סרגל תחתון עם לשוניות
 //
-// אין גרירה — הכל בחירות פשוטות, מתאים לקהל 65+.
-// כל כרטיס נושא כיתוב שיווקי בתחתית.
+// מבנה מסך העריכה (DesignStep):
+//   • למעלה: כותרת + כפתורי שמירה/שיתוף
+//   • באמצע: תצוגה מקדימה של הברכה (תופסת רוב המסך)
+//   • למטה: סרגל לשוניות (תבניות, טקסט, מאת, פונט, צבע, גודל)
+//   • לחיצה על לשונית פותחת bottom sheet עם הבחירות
+//
+// כל תבנית יודעת איפה בכרטיס לשבץ את הטקסט (top/center/bottom)
+// כדי שלא יחפוף לאיור.
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { IconBackRTL } from '../icons/index.jsx'
 
-// ─── ברכות מוכנות (לבחירה מהירה) ─────────────────────────────
+const MAX_TEXT = 120
+
+// ═══════════════════════════════════════════════════════════════
+// פונטים
+// ═══════════════════════════════════════════════════════════════
+const FONTS = [
+  { id: 'heebo',    name: 'מודרני',    css: "'Heebo', sans-serif",       weight: 800 },
+  { id: 'frank',    name: 'קלאסי',     css: "'Frank Ruhl Libre', serif", weight: 900 },
+  { id: 'suez',     name: 'חגיגי',     css: "'Suez One', serif",         weight: 400 },
+  { id: 'bellefair',name: 'יוקרתי',    css: "'Bellefair', serif",        weight: 400 },
+  { id: 'amatic',   name: 'מצויר ביד', css: "'Amatic SC', cursive",      weight: 700 },
+  { id: 'secular',  name: 'ידידותי',   css: "'Secular One', sans-serif", weight: 400 },
+]
+
+// ═══════════════════════════════════════════════════════════════
+// פלטות צבע
+// ═══════════════════════════════════════════════════════════════
+const PALETTES = [
+  { id: 'burgundy', name: 'בורדו',  bg: '#7E2C2E', bgDeep: '#5A1D1E', ink: '#FBF7EE', accent: '#E8C879' },
+  { id: 'teal',     name: 'טורקיז', bg: '#2C5566', bgDeep: '#173846', ink: '#FBF7EE', accent: '#E8C879' },
+  { id: 'forest',   name: 'ירוק',   bg: '#4F6B4A', bgDeep: '#354D31', ink: '#FBF7EE', accent: '#D9C89A' },
+  { id: 'wine',     name: 'יין',    bg: '#6B3A4F', bgDeep: '#482638', ink: '#FBF7EE', accent: '#E8C879' },
+  { id: 'cream',    name: 'שמנת',   bg: '#F4EFE6', bgDeep: '#E8DEC8', ink: '#2A2118', accent: '#7E2C2E' },
+  { id: 'navy',     name: 'נייבי',  bg: '#1B2540', bgDeep: '#0E1730', ink: '#FBF7EE', accent: '#B89048' },
+]
+
+// ═══════════════════════════════════════════════════════════════
+// גדלי טקסט
+// ═══════════════════════════════════════════════════════════════
+const TEXT_SIZES = [
+  { id: 'sm', name: 'קטן',   scale: 0.82 },
+  { id: 'md', name: 'בינוני', scale: 1.0  },
+  { id: 'lg', name: 'גדול',  scale: 1.18 },
+]
+
+// ═══════════════════════════════════════════════════════════════
+// תבניות — כל אחת מציינת איפה הטקסט יישב (textZone)
+// ═══════════════════════════════════════════════════════════════
+// textZone:
+//   • 'top'    — איור גדול תופס את האמצע, הטקסט בשליש העליון
+//   • 'center' — איור באזורים שוליים, הטקסט באמצע
+//   • 'bottom' — איור גדול תופס למעלה, הטקסט בשליש התחתון
+//
+const TEMPLATES = [
+  // ── איורים מובנים ─────────────────────────────────────────
+  { id: 't01', type: 'illustration', illust: 'menorah',     textZone: 'bottom',
+    defaultPalette: 'navy',     defaultFont: 'frank',     label: 'חנוכייה' },
+  { id: 't02', type: 'illustration', illust: 'pomegranate', textZone: 'center',
+    defaultPalette: 'burgundy', defaultFont: 'frank',     label: 'רימון' },
+  { id: 't03', type: 'illustration', illust: 'flowers',     textZone: 'center',
+    defaultPalette: 'cream',    defaultFont: 'amatic',    label: 'פרחים' },
+
+  // ── תמונות לאירועים ───────────────────────────────────────
+  { id: 't04', type: 'illustration', illust: 'roses',       textZone: 'top',
+    defaultPalette: 'wine',     defaultFont: 'bellefair',  label: 'זר ורדים' },
+  { id: 't05', type: 'illustration', illust: 'cake',        textZone: 'top',
+    defaultPalette: 'burgundy', defaultFont: 'suez',       label: 'יום הולדת' },
+  { id: 't06', type: 'illustration', illust: 'doves',       textZone: 'bottom',
+    defaultPalette: 'cream',    defaultFont: 'bellefair',  label: 'חתונה' },
+
+  // ── מינימליסטיים ──────────────────────────────────────────
+  { id: 't07', type: 'minimal', shape: 'circle', textZone: 'center',
+    defaultPalette: 'teal',   defaultFont: 'heebo',   label: 'עיגול' },
+  { id: 't08', type: 'minimal', shape: 'arc',    textZone: 'center',
+    defaultPalette: 'forest', defaultFont: 'secular', label: 'קשת' },
+  { id: 't09', type: 'minimal', shape: 'stripe', textZone: 'center',
+    defaultPalette: 'wine',   defaultFont: 'heebo',   label: 'פס' },
+
+  // ── אלגנטיים ──────────────────────────────────────────────
+  { id: 't10', type: 'elegant', frame: 'double',  textZone: 'center',
+    defaultPalette: 'forest', defaultFont: 'bellefair', label: 'בוטיק' },
+  { id: 't11', type: 'elegant', frame: 'corners', textZone: 'center',
+    defaultPalette: 'navy',   defaultFont: 'frank',     label: 'פינות' },
+  { id: 't12', type: 'elegant', frame: 'simple',  textZone: 'center',
+    defaultPalette: 'cream',  defaultFont: 'bellefair', label: 'הזמנה' },
+]
+
+// ═══════════════════════════════════════════════════════════════
+// ברכות מוכנות
+// ═══════════════════════════════════════════════════════════════
 const PRESET_GREETINGS = {
   'ימים': [
-    'שבוע טוב ומבורך', 'יום שני מבורך', 'יום שלישי, פעמיים כי טוב',
-    'יום רביעי מבורך ומלא בבשורות טובות', 'יום חמישי מבורך',
-    'שבת שלום ומבורכת', 'שבת שלום', 'בוקר טוב ומואר', 'ערב טוב ונעים',
+    'שבוע טוב ומבורך', 'יום שני מבורך', 'שבת שלום ומבורכת',
+    'בוקר טוב ומואר', 'ערב טוב ונעים',
   ],
   'חגים': [
-    'שנה טובה ומתוקה', 'גמר חתימה טובה', 'חג סוכות שמח', 'חנוכה שמח ומואר',
-    'ט״ו בשבט שמח', 'פורים שמח', 'חג פסח כשר ושמח', 'ל״ג בעומר שמח',
+    'שנה טובה ומתוקה', 'גמר חתימה טובה', 'חג סוכות שמח',
+    'חנוכה שמח ומואר', 'פורים שמח', 'חג פסח כשר ושמח',
     'חג שבועות שמח',
   ],
   'איחולים': [
     'מזל טוב!', 'יום הולדת שמח', 'רפואה שלמה', 'בהצלחה רבה',
-    'חודש מבורך', 'באהבה רבה', 'תודה רבה לך', 'מתגעגעים אליך',
+    'באהבה רבה', 'תודה רבה לך',
   ],
 }
 
-// ─── רקעים ───────────────────────────────────────────────────
-const BACKGROUNDS = [
-  { id: 'gold',    name: 'זהב',     bg1: '#D4A94E', bg2: '#7A5410', ink: '#FFFDF5' },
-  { id: 'rose',    name: 'ורוד',    bg1: '#D98BA3', bg2: '#6B3147', ink: '#FFF5F8' },
-  { id: 'teal',    name: 'תכלת',    bg1: '#4593A6', bg2: '#10333F', ink: '#F2FBFD' },
-  { id: 'forest',  name: 'ירוק',    bg1: '#6B9560', bg2: '#26381F', ink: '#F4FAEF' },
-  { id: 'sunset',  name: 'שקיעה',   bg1: '#D2734F', bg2: '#5A2014', ink: '#FFF4ED' },
-  { id: 'royal',   name: 'סגול',    bg1: '#7E5AA0', bg2: '#2C1842', ink: '#F8F2FC' },
-  { id: 'sky',     name: 'שמיים',   bg1: '#6FA8D4', bg2: '#1E3A52', ink: '#F2F9FD' },
-  { id: 'cream',   name: 'שמנת',    bg1: '#E8D9B8', bg2: '#A88B४E'.replace('४','4'), ink: '#3A2E18' },
-  { id: 'coral',   name: 'אלמוג',   bg1: '#E08A6E', bg2: '#7A3320', ink: '#FFF4EF' },
-  { id: 'mint',    name: 'מנטה',    bg1: '#7DC4A8', bg2: '#234A3C', ink: '#F0FBF6' },
-  { id: 'wine',    name: 'יין',     bg1: '#A0506A', bg2: '#3A1626', ink: '#FBF0F4' },
-  { id: 'night',   name: 'לילה',    bg1: '#3D4A6B', bg2: '#12182B', ink: '#EEF1FA' },
-]
-
-// ─── מוטיבים של קישוטים ──────────────────────────────────────
-const MOTIFS = [
-  { id: 'roses',   name: 'ורדים',    emoji: '🌹' },
-  { id: 'flowers', name: 'פרחים',    emoji: '🌸' },
-  { id: 'candles', name: 'נרות',     emoji: '🕯️' },
-  { id: 'stars',   name: 'כוכבים',   emoji: '✡️' },
-  { id: 'leaves',  name: 'עלים',     emoji: '🍃' },
-  { id: 'wheat',   name: 'שיבולים',  emoji: '🌾' },
-  { id: 'hearts',  name: 'לבבות',    emoji: '❤️' },
-  { id: 'butterflies', name: 'פרפרים', emoji: '🦋' },
-  { id: 'sparkles',name: 'נצנוצים',  emoji: '✨' },
-  { id: 'none',    name: 'ללא',      emoji: '⬜' },
-]
-
-// ─── צבעי קישוטים ────────────────────────────────────────────
-const ACCENT_COLORS = [
-  { id: 'cream', name: 'שמנת',  c: '#FFF0C8', soft: '#FFE9B0' },
-  { id: 'pink',  name: 'ורוד',  c: '#FFB3CC', soft: '#FF9FBC' },
-  { id: 'gold',  name: 'זהב',   c: '#FFD24A', soft: '#E8B82E' },
-  { id: 'white', name: 'לבן',   c: '#FFFFFF', soft: '#F0F0F0' },
-  { id: 'green', name: 'ירוק',  c: '#AEDFA0', soft: '#8FCF7E' },
-  { id: 'sky',   name: 'תכלת',  c: '#A8DCEC', soft: '#88CCE0' },
-]
-
-// ─── פריסות ──────────────────────────────────────────────────
-const LAYOUTS = [
-  { id: 'corners', name: 'פינות' },
-  { id: 'frame',   name: 'מסגרת' },
-  { id: 'lavish',  name: 'שפע' },
-  { id: 'minimal', name: 'עדין' },
-]
-
-// ─── סגנונות מסגרת ───────────────────────────────────────────
-const FRAMES = [
-  { id: 'double', name: 'כפולה' },
-  { id: 'single', name: 'יחידה' },
-  { id: 'rounded',name: 'מעוגלת' },
-  { id: 'none',   name: 'ללא' },
-]
-
+// ═══════════════════════════════════════════════════════════════
+// המסך הראשי
+// ═══════════════════════════════════════════════════════════════
 export default function GreetingMaker({ onBack }) {
   const { profile } = useUserStore()
-  const [step, setStep] = useState('text')   // text | design
+  const [step, setStep] = useState('text')
 
-  // ── design state ──
   const [text, setText] = useState('')
   const [senderName, setSenderName] = useState(profile?.name || '')
-  const [bgIdx, setBgIdx] = useState(0)
-  const [motif, setMotif] = useState('roses')
-  const [accentIdx, setAccentIdx] = useState(0)
-  const [layout, setLayout] = useState('corners')
-  const [frame, setFrame] = useState('double')
 
-  const goBack = () => {
-    if (step === 'design') setStep('text')
-    else onBack()
+  const [templateId, setTemplateId] = useState('t07')
+  const tpl = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0]
+  const [paletteId, setPaletteId] = useState(tpl.defaultPalette)
+  const [fontId, setFontId] = useState(tpl.defaultFont)
+  const [sizeId, setSizeId] = useState('md')
+
+  const selectTemplate = (id) => {
+    const t = TEMPLATES.find(x => x.id === id)
+    if (!t) return
+    setTemplateId(id)
+    setPaletteId(t.defaultPalette)
+    setFontId(t.defaultFont)
   }
+
+  const goBack = () => step === 'design' ? setStep('text') : onBack()
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
-      <div className="screen-header">
-        <button className="screen-header__back" onClick={goBack} aria-label="חזרה">
-          <IconBackRTL size={24} color="#1B2540" />
-        </button>
-        <div className="screen-header__title">
-          {step === 'text' ? 'ברכה אישית' : 'עצבו את הברכה'}
-        </div>
-      </div>
-
-      <div style={{ padding: '8px 20px 32px' }}>
-        {step === 'text' && (
-          <TextStep
-            text={text}
-            setText={setText}
-            onNext={() => setStep('design')}
-          />
-        )}
-        {step === 'design' && (
-          <DesignStep
-            text={text}
-            senderName={senderName} setSenderName={setSenderName}
-            bgIdx={bgIdx} setBgIdx={setBgIdx}
-            motif={motif} setMotif={setMotif}
-            accentIdx={accentIdx} setAccentIdx={setAccentIdx}
-            layout={layout} setLayout={setLayout}
-            frame={frame} setFrame={setFrame}
-          />
-        )}
-      </div>
+      {step === 'text' ? (
+        <>
+          <div className="screen-header">
+            <button className="screen-header__back" onClick={goBack} aria-label="חזרה">
+              <IconBackRTL size={24} color="#1B2540" />
+            </button>
+            <div className="screen-header__title">ברכה אישית</div>
+          </div>
+          <div style={{ padding: '8px 20px 32px' }}>
+            <TextStep
+              text={text} setText={setText}
+              onNext={() => setStep('design')}
+            />
+          </div>
+        </>
+      ) : (
+        <DesignStep
+          onBack={goBack}
+          text={text} setText={setText}
+          senderName={senderName} setSenderName={setSenderName}
+          templateId={templateId} selectTemplate={selectTemplate}
+          paletteId={paletteId} setPaletteId={setPaletteId}
+          fontId={fontId} setFontId={setFontId}
+          sizeId={sizeId} setSizeId={setSizeId}
+        />
+      )}
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STEP 1 — choose or write the greeting text
+// STEP 1 — כתיבת הטקסט (ללא שינוי מהותי)
 // ═══════════════════════════════════════════════════════════════
 function TextStep({ text, setText, onNext }) {
   const [openCat, setOpenCat] = useState('ימים')
@@ -156,23 +188,30 @@ function TextStep({ text, setText, onNext }) {
         כתבו ברכה משלכם, או בחרו מהמוכנות:
       </p>
 
-      {/* free text input */}
       <textarea
         value={text}
-        onChange={e => setText(e.target.value)}
+        onChange={e => setText(e.target.value.slice(0, MAX_TEXT))}
         rows={3}
+        maxLength={MAX_TEXT}
         placeholder="כתבו כאן את הברכה שלכם..."
         style={{
           width: '100%', fontSize: 18, fontFamily: 'inherit',
           padding: '14px', borderRadius: 14,
           border: '2px solid var(--line-strong)',
           background: 'var(--surface)', color: 'var(--ink)',
-          marginBottom: 18, direction: 'rtl', resize: 'vertical',
+          marginBottom: 6, direction: 'rtl', resize: 'vertical',
           lineHeight: 1.4,
         }}
       />
 
-      {/* preset categories */}
+      <div style={{
+        textAlign: 'left', fontSize: 13, fontWeight: 600,
+        color: text.length >= MAX_TEXT ? 'var(--burgundy)' : 'var(--ink-3)',
+        marginBottom: 18,
+      }}>
+        {text.length} / {MAX_TEXT} תווים
+      </div>
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         {Object.keys(PRESET_GREETINGS).map(cat => (
           <button key={cat} onClick={() => setOpenCat(cat)} style={{
@@ -215,23 +254,35 @@ function TextStep({ text, setText, onNext }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STEP 2 — design the card with live preview
+// STEP 2 — מסך עיצוב בסגנון Canva
 // ═══════════════════════════════════════════════════════════════
 function DesignStep({
-  text, senderName, setSenderName,
-  bgIdx, setBgIdx, motif, setMotif,
-  accentIdx, setAccentIdx, layout, setLayout, frame, setFrame,
+  onBack, text, setText, senderName, setSenderName,
+  templateId, selectTemplate,
+  paletteId, setPaletteId, fontId, setFontId, sizeId, setSizeId,
 }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const [editingName, setEditingName] = useState(false)
+  // איזו לשונית פתוחה ב-bottom sheet (null = סגור)
+  const [activeTab, setActiveTab] = useState(null)
 
-  const bg = BACKGROUNDS[bgIdx]
-  const accent = ACCENT_COLORS[accentIdx]
-  const cardName = senderName.trim() || 'מאחל/ת באהבה'
+  const palette = PALETTES.find(p => p.id === paletteId) || PALETTES[0]
+  const font = FONTS.find(f => f.id === fontId) || FONTS[0]
+  const size = TEXT_SIZES.find(s => s.id === sizeId) || TEXT_SIZES[1]
+  const tpl = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0]
+  // השם אופציונלי — אם ריק, לא מופיע כלל בכרטיס
+  const cardName = senderName.trim()
 
-  const svg = buildSVG({ text, cardName, bg, accent, motif, layout, frame })
+  const svg = buildSVG({ text, cardName, tpl, palette, font, size })
   const previewSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+
+  const buildThumb = (t) => {
+    const p = PALETTES.find(x => x.id === t.defaultPalette) || PALETTES[0]
+    const f = FONTS.find(x => x.id === t.defaultFont) || FONTS[0]
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+      buildSVG({ text: text || 'ברכה', cardName, tpl: t, palette: p, font: f, size: TEXT_SIZES[1] })
+    )
+  }
 
   const renderPNG = () => new Promise((resolve, reject) => {
     try {
@@ -260,9 +311,10 @@ function DesignStep({
       a.href = url; a.download = 'ברכה-אישית.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-      setMsg('✓ התמונה נשמרה!')
+      setMsg('✓ נשמר!')
+      setTimeout(() => setMsg(''), 2000)
     } catch (e) {
-      console.error(e); setMsg('לא הצלחנו לשמור — נסו שוב')
+      console.error(e); setMsg('שגיאה בשמירה')
     }
     setBusy(false)
   }
@@ -274,379 +326,582 @@ function DesignStep({
       const file = new File([blob], 'ברכה-אישית.png', { type: 'image/png' })
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: text, text })
-        setMsg('')
       } else if (navigator.share) {
         await navigator.share({ title: text, text })
       } else {
         const t = encodeURIComponent(text + '\n\nנוצר באמצעות אפליקציית ביחד')
         window.open(`https://wa.me/?text=${t}`, '_blank')
-        setMsg('שיתוף ישיר לא נתמך — נפתח וואטסאפ עם הטקסט')
       }
     } catch (e) {
-      if (e?.name !== 'AbortError') { console.error(e); setMsg('השיתוף בוטל או נכשל') }
+      if (e?.name !== 'AbortError') { console.error(e); setMsg('שיתוף נכשל') }
     }
     setBusy(false)
   }
 
+  // ── הלשוניות של הסרגל התחתון ─────────────────────────────
+  const TABS = [
+    { id: 'templates', label: 'תבניות', emoji: '🎨' },
+    { id: 'text',      label: 'טקסט',   emoji: '✏️' },
+    { id: 'sender',    label: 'שם המאחל', emoji: '👤' },
+    { id: 'font',      label: 'פונט',   emoji: '🔤' },
+    { id: 'color',     label: 'צבע',    emoji: '🎨' },
+    { id: 'size',      label: 'גודל',   emoji: '🔠' },
+  ]
+
   return (
-    <>
-      {/* Live preview */}
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      height: '100vh', maxHeight: '100vh', overflow: 'hidden',
+      position: 'relative',
+    }}>
+      {/* ─── כותרת עליונה: חזרה + שמירה/שיתוף ─── */}
       <div style={{
-        borderRadius: 24, overflow: 'hidden',
-        boxShadow: 'var(--shadow-lg)', marginBottom: 16,
-        aspectRatio: '1', background: bg.bg2,
-      }}>
-        <img src={previewSrc} alt="תצוגה מקדימה"
-             style={{ width: '100%', height: '100%', display: 'block' }} />
-      </div>
-
-      {/* Name editor */}
-      <div style={{
-        background: 'var(--surface)', border: '1px solid var(--line)',
-        borderRadius: 14, padding: '12px 14px', marginBottom: 16,
         display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 16px',
+        background: 'var(--bg-app)',
+        borderBottom: '1px solid var(--line)',
+        flexShrink: 0,
       }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>מאת:</span>
-        {editingName ? (
-          <input
-            value={senderName}
-            onChange={e => setSenderName(e.target.value)}
-            onBlur={() => setEditingName(false)}
-            autoFocus placeholder="השם שלך"
-            style={{
-              flex: 1, fontSize: 16, fontFamily: 'inherit',
-              padding: '6px 10px', borderRadius: 8,
-              border: '1px solid var(--line-strong)',
-              background: 'var(--bg-app)', color: 'var(--ink)', direction: 'rtl',
-            }}
-          />
-        ) : (
-          <button onClick={() => setEditingName(true)} style={{
-            flex: 1, textAlign: 'right', fontSize: 16, fontWeight: 600,
-            color: 'var(--ink)', fontFamily: 'inherit',
-          }}>
-            {cardName} <span style={{ color: 'var(--burgundy)', fontSize: 13 }}>✎ ערוך</span>
-          </button>
-        )}
+        <button onClick={onBack} aria-label="חזרה" style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }}>
+          <IconBackRTL size={20} color="#1B2540" />
+        </button>
+        <div style={{ flex: 1, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+          עצבו את הברכה
+        </div>
+        <button onClick={handleShare} disabled={busy} style={{
+          padding: '10px 16px', borderRadius: 12,
+          background: 'var(--burgundy)', color: 'white',
+          border: 'none', fontSize: 14, fontWeight: 700,
+          fontFamily: 'inherit', cursor: 'pointer',
+          opacity: busy ? 0.6 : 1,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          📲 שתף
+        </button>
+        <button onClick={handleSave} disabled={busy} aria-label="שמור" style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', fontSize: 18,
+          opacity: busy ? 0.6 : 1,
+        }}>
+          📥
+        </button>
       </div>
 
-      {/* ── Background picker ── */}
-      <PickerSection title="🎨 רקע">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {BACKGROUNDS.map((b, i) => (
-            <button key={b.id} onClick={() => setBgIdx(i)} style={{
-              width: 48, height: 48, borderRadius: 11,
-              background: `linear-gradient(135deg, ${b.bg1}, ${b.bg2})`,
-              border: i === bgIdx ? '3px solid var(--ink)' : '2px solid var(--line)',
-              cursor: 'pointer', flexShrink: 0,
-            }} aria-label={b.name} />
-          ))}
-        </div>
-      </PickerSection>
+      {/* הודעת מצב */}
+      {msg && (
+        <div style={{
+          textAlign: 'center', padding: '6px 16px',
+          background: 'var(--burgundy-soft)', color: 'var(--burgundy)',
+          fontSize: 14, fontWeight: 700,
+        }}>{msg}</div>
+      )}
 
-      {/* ── Motif picker ── */}
-      <PickerSection title="🌸 קישוטים">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {MOTIFS.map(m => (
-            <button key={m.id} onClick={() => setMotif(m.id)} style={{
-              padding: '8px 12px', borderRadius: 12,
-              background: motif === m.id ? 'var(--burgundy)' : 'var(--surface)',
-              color: motif === m.id ? 'white' : 'var(--ink)',
-              border: motif === m.id ? 'none' : '1px solid var(--line)',
-              fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 5,
+      {/* ─── תצוגה מקדימה גדולה ─── */}
+      <div style={{
+        flex: 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+        background: 'var(--bg-page)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          width: '100%', maxWidth: 'min(100%, calc(100vh - 280px))',
+          aspectRatio: '1',
+          borderRadius: 20, overflow: 'hidden',
+          boxShadow: 'var(--shadow-lg)',
+          background: palette.bgDeep,
+        }}>
+          <img src={previewSrc} alt="תצוגה מקדימה"
+               style={{ width: '100%', height: '100%', display: 'block' }} />
+        </div>
+      </div>
+
+      {/* ─── סרגל לשוניות תחתון ─── */}
+      <div style={{
+        flexShrink: 0,
+        background: 'var(--surface)',
+        borderTop: '1px solid var(--line)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`,
+          padding: '8px 4px',
+        }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              padding: '8px 4px', border: 'none',
+              background: 'transparent', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 4,
+              fontFamily: 'inherit',
+              color: 'var(--ink)',
             }}>
-              <span style={{ fontSize: 16 }}>{m.emoji}</span>
-              {m.name}
+              <span style={{ fontSize: 22 }}>{t.emoji}</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{t.label}</span>
             </button>
           ))}
         </div>
-      </PickerSection>
-
-      {/* ── Accent color picker ── */}
-      <PickerSection title="✨ צבע הקישוטים">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {ACCENT_COLORS.map((a, i) => (
-            <button key={a.id} onClick={() => setAccentIdx(i)} style={{
-              width: 44, height: 44, borderRadius: 10,
-              background: a.c,
-              border: i === accentIdx ? '3px solid var(--ink)' : '2px solid var(--line)',
-              cursor: 'pointer', flexShrink: 0,
-            }} aria-label={a.name} />
-          ))}
-        </div>
-      </PickerSection>
-
-      {/* ── Layout picker ── */}
-      <PickerSection title="📐 פריסת הקישוטים">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {LAYOUTS.map(l => (
-            <ChipButton key={l.id} active={layout === l.id}
-              onClick={() => setLayout(l.id)} label={l.name} />
-          ))}
-        </div>
-      </PickerSection>
-
-      {/* ── Frame picker ── */}
-      <PickerSection title="🎀 מסגרת">
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {FRAMES.map(f => (
-            <ChipButton key={f.id} active={frame === f.id}
-              onClick={() => setFrame(f.id)} label={f.name} />
-          ))}
-        </div>
-      </PickerSection>
-
-      {/* Action buttons */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 22 }}>
-        <button onClick={handleShare} disabled={busy}
-          className="big-btn big-btn--primary"
-          style={{ width: '100%', opacity: busy ? 0.7 : 1 }}>
-          📲 שתף ברכה
-        </button>
-        <button onClick={handleSave} disabled={busy}
-          className="big-btn big-btn--ghost"
-          style={{ width: '100%', opacity: busy ? 0.7 : 1 }}>
-          📥 שמור תמונה
-        </button>
       </div>
 
-      {msg && (
-        <div style={{
-          textAlign: 'center', marginTop: 12, fontSize: 14,
-          fontWeight: 600, color: 'var(--ink-2)',
-        }}>{msg}</div>
+      {/* ─── רצועת בחירות — נפתחת מעל הסרגל לפי הלשונית הפעילה ─── */}
+      {activeTab && (
+        <EditStrip
+          title={TABS.find(t => t.id === activeTab)?.label}
+          onClose={() => setActiveTab(null)}
+        >
+          {activeTab === 'templates' && (
+            <HScroll>
+              {TEMPLATES.map(t => (
+                <button key={t.id} onClick={() => selectTemplate(t.id)} style={{
+                  padding: 0,
+                  border: t.id === templateId ? '3px solid var(--burgundy)' : '2px solid var(--line)',
+                  borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                  background: 'var(--surface)',
+                  width: 92, height: 92, flexShrink: 0,
+                }}>
+                  <img src={buildThumb(t)} alt={t.label}
+                       style={{ width: '100%', height: '100%', display: 'block' }} />
+                </button>
+              ))}
+            </HScroll>
+          )}
+
+          {activeTab === 'text' && (
+            <div style={{ width: '100%' }}>
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value.slice(0, MAX_TEXT))}
+                rows={2}
+                maxLength={MAX_TEXT}
+                placeholder="כתבו כאן את הברכה..."
+                style={{
+                  width: '100%', fontSize: 16, fontFamily: 'inherit',
+                  padding: '10px 12px', borderRadius: 10,
+                  border: '1.5px solid var(--line-strong)',
+                  background: 'var(--bg-app)', color: 'var(--ink)',
+                  direction: 'rtl', resize: 'none', lineHeight: 1.4,
+                }}
+              />
+              <div style={{
+                textAlign: 'left', fontSize: 12, fontWeight: 600, marginTop: 4,
+                color: text.length >= MAX_TEXT ? 'var(--burgundy)' : 'var(--ink-3)',
+              }}>
+                {text.length} / {MAX_TEXT}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'sender' && (
+            <input
+              value={senderName}
+              onChange={e => setSenderName(e.target.value)}
+              placeholder="השם שלך"
+              style={{
+                width: '100%', fontSize: 16, fontFamily: 'inherit',
+                padding: '12px 14px', borderRadius: 10,
+                border: '1.5px solid var(--line-strong)',
+                background: 'var(--bg-app)', color: 'var(--ink)',
+                direction: 'rtl',
+              }}
+            />
+          )}
+
+          {activeTab === 'font' && (
+            <HScroll>
+              {FONTS.map(f => (
+                <button key={f.id} onClick={() => setFontId(f.id)} style={{
+                  padding: '10px 16px', borderRadius: 12,
+                  background: fontId === f.id ? 'var(--burgundy)' : 'var(--surface)',
+                  color: fontId === f.id ? 'white' : 'var(--ink)',
+                  border: fontId === f.id ? 'none' : '1px solid var(--line)',
+                  fontFamily: f.css, fontWeight: f.weight,
+                  fontSize: 18, flexShrink: 0,
+                  minWidth: 92, height: 56,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {f.name}
+                </button>
+              ))}
+            </HScroll>
+          )}
+
+          {activeTab === 'color' && (
+            <HScroll>
+              {PALETTES.map(p => (
+                <button key={p.id} onClick={() => setPaletteId(p.id)} style={{
+                  padding: 0,
+                  background: p.bg,
+                  border: p.id === paletteId ? '3px solid var(--ink)' : '2px solid var(--line)',
+                  borderRadius: 14, cursor: 'pointer',
+                  width: 56, height: 56, flexShrink: 0,
+                }} aria-label={p.name} />
+              ))}
+            </HScroll>
+          )}
+
+          {activeTab === 'size' && (
+            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              {TEXT_SIZES.map(s => (
+                <button key={s.id} onClick={() => setSizeId(s.id)} style={{
+                  flex: 1, padding: '14px', borderRadius: 12,
+                  background: sizeId === s.id ? 'var(--burgundy)' : 'var(--surface)',
+                  color: sizeId === s.id ? 'white' : 'var(--ink)',
+                  border: sizeId === s.id ? 'none' : '1px solid var(--line)',
+                  fontSize: s.id === 'sm' ? 14 : s.id === 'md' ? 17 : 20,
+                  fontWeight: 700, fontFamily: 'inherit',
+                }}>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </EditStrip>
       )}
-    </>
+    </div>
   )
 }
 
-// ── small UI helpers ────────────────────────────────────────
-function PickerSection({ title, children }) {
+// ═══════════════════════════════════════════════════════════════
+// EditStrip — רצועה קטנה מעל הסרגל, לא מכסה את התצוגה
+// ═══════════════════════════════════════════════════════════════
+function EditStrip({ title, onClose, children }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 8 }}>
-        {title}
+    <div style={{
+      position: 'absolute', bottom: 'calc(82px + env(safe-area-inset-bottom))',
+      left: 0, right: 0,
+      background: 'var(--bg-app)',
+      borderTop: '1px solid var(--line)',
+      boxShadow: '0 -8px 24px -8px rgba(20,23,42,.12)',
+      padding: '10px 14px 14px',
+      zIndex: 5,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 10,
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>
+          {title}
+        </div>
+        <button onClick={onClose} aria-label="סגור" style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', fontSize: 16, color: 'var(--ink-2)', lineHeight: 1,
+        }}>×</button>
       </div>
       {children}
     </div>
   )
 }
 
-function ChipButton({ active, onClick, label }) {
+// רצועה אופקית אופקית — אפשר לגלול שמאלה לראות עוד אפשרויות
+function HScroll({ children }) {
   return (
-    <button onClick={onClick} style={{
-      padding: '9px 16px', borderRadius: 12,
-      background: active ? 'var(--burgundy)' : 'var(--surface)',
-      color: active ? 'white' : 'var(--ink)',
-      border: active ? 'none' : '1px solid var(--line)',
-      fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+    <div style={{
+      display: 'flex', gap: 8,
+      overflowX: 'auto', overflowY: 'hidden',
+      WebkitOverflowScrolling: 'touch',
+      paddingBottom: 4,
+      // מסתיר את פס הגלילה המכוער
+      scrollbarWidth: 'none', msOverflowStyle: 'none',
     }}>
-      {label}
-    </button>
+      {children}
+    </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SVG BUILDERS
+// בוני SVG — איורים מובנים
 // ═══════════════════════════════════════════════════════════════
 
-function svgRose(cx, cy, r, c, soft) {
-  return `<g transform="translate(${cx},${cy})">
-    <g fill="${soft}">
-      <ellipse cx="0" cy="${-r*0.62}" rx="${r*0.5}" ry="${r*0.66}"/>
-      <ellipse cx="${r*0.62}" cy="0" rx="${r*0.66}" ry="${r*0.5}"/>
-      <ellipse cx="0" cy="${r*0.62}" rx="${r*0.5}" ry="${r*0.66}"/>
-      <ellipse cx="${-r*0.62}" cy="0" rx="${r*0.66}" ry="${r*0.5}"/>
-    </g>
-    <circle r="${r*0.52}" fill="${c}"/>
-    <circle r="${r*0.26}" fill="#FFFFFF" opacity="0.4"/>
-  </g>`
-}
-function svgFlower(cx, cy, r, c, soft) {
-  let petals = ''
-  for (let i = 0; i < 6; i++) {
-    const a = i * Math.PI / 3
-    petals += `<ellipse cx="${cx + Math.cos(a)*r*0.6}" cy="${cy + Math.sin(a)*r*0.6}" rx="${r*0.32}" ry="${r*0.5}" fill="${soft}" transform="rotate(${a*180/Math.PI} ${cx + Math.cos(a)*r*0.6} ${cy + Math.sin(a)*r*0.6})"/>`
-  }
-  return `${petals}<circle cx="${cx}" cy="${cy}" r="${r*0.34}" fill="${c}"/>`
-}
-function svgLeaf(cx, cy, r, rot, c) {
-  return `<path d="M ${cx} ${cy-r} Q ${cx+r*0.7} ${cy} ${cx} ${cy+r} Q ${cx-r*0.7} ${cy} ${cx} ${cy-r} Z" fill="${c}" transform="rotate(${rot} ${cx} ${cy})" opacity="0.9"/>`
-}
-function svgCandle(cx, cy, h, c, ink) {
-  return `<g transform="translate(${cx},${cy})">
-    <rect x="${-h*0.16}" y="0" width="${h*0.32}" height="${h}" rx="${h*0.06}" fill="${ink}" opacity="0.9"/>
-    <ellipse cx="0" cy="${-h*0.18}" rx="${h*0.12}" ry="${h*0.22}" fill="${c}"/>
-    <ellipse cx="0" cy="${-h*0.16}" rx="${h*0.06}" ry="${h*0.13}" fill="#FFFFFF" opacity="0.85"/>
-  </g>`
-}
-function svgStar(cx, cy, r, c) {
-  const p1 = [], p2 = []
-  for (let i = 0; i < 3; i++) {
-    const a1 = Math.PI/2 + i*2*Math.PI/3
-    const a2 = -Math.PI/2 + i*2*Math.PI/3
-    p1.push(`${cx+r*Math.cos(a1)},${cy-r*Math.sin(a1)}`)
-    p2.push(`${cx+r*Math.cos(a2)},${cy-r*Math.sin(a2)}`)
-  }
-  return `<polygon points="${p1.join(' ')}" fill="none" stroke="${c}" stroke-width="${r*0.16}"/>
-          <polygon points="${p2.join(' ')}" fill="none" stroke="${c}" stroke-width="${r*0.16}"/>`
-}
-function svgWheat(cx, cy, h, c) {
+function illustMenorah(W, H, accent, ink) {
+  // חנוכייה למעלה (כדי שהטקסט יושב למטה — textZone: 'bottom')
+  const cx = W / 2, cy = H * 0.26
   let g = ''
-  for (let i = 0; i < 6; i++) {
-    const y = cy - h*0.5 + i*h*0.13
-    g += `<ellipse cx="${cx-h*0.10}" cy="${y}" rx="${h*0.07}" ry="${h*0.12}" fill="${c}" transform="rotate(-30 ${cx-h*0.10} ${y})"/>`
-    g += `<ellipse cx="${cx+h*0.10}" cy="${y}" rx="${h*0.07}" ry="${h*0.12}" fill="${c}" transform="rotate(30 ${cx+h*0.10} ${y})"/>`
+  g += `<rect x="${cx - 220}" y="${cy + 150}" width="440" height="30" rx="8" fill="${accent}" opacity="0.92"/>`
+  g += `<rect x="${cx - 140}" y="${cy + 110}" width="280" height="48" rx="6" fill="${accent}" opacity="0.92"/>`
+  g += `<rect x="${cx - 8}" y="${cy - 30}" width="16" height="140" fill="${accent}" opacity="0.92"/>`
+  for (let i = -4; i <= 4; i++) {
+    if (i === 0) continue
+    const x = cx + i * 50
+    g += `<path d="M ${cx} ${cy + 50} Q ${cx + i * 25} ${cy - 30} ${x} ${cy - 30} L ${x} ${cy + 50}" fill="none" stroke="${accent}" stroke-width="6" opacity="0.92"/>`
+    g += `<rect x="${x - 6}" y="${cy - 60}" width="12" height="30" fill="${accent}" opacity="0.9"/>`
+    g += `<ellipse cx="${x}" cy="${cy - 72}" rx="6" ry="14" fill="${ink}" opacity="0.95"/>`
+    g += `<ellipse cx="${x}" cy="${cy - 74}" rx="3" ry="8" fill="${accent}"/>`
   }
-  return `<line x1="${cx}" y1="${cy-h*0.55}" x2="${cx}" y2="${cy+h*0.5}" stroke="${c}" stroke-width="${h*0.05}"/>${g}`
-}
-function svgHeart(cx, cy, r, c) {
-  return `<path d="M ${cx} ${cy+r*0.8}
-    C ${cx-r*1.4} ${cy-r*0.4} ${cx-r*0.6} ${cy-r*1.2} ${cx} ${cy-r*0.3}
-    C ${cx+r*0.6} ${cy-r*1.2} ${cx+r*1.4} ${cy-r*0.4} ${cx} ${cy+r*0.8} Z" fill="${c}"/>`
-}
-function svgButterfly(cx, cy, r, c, soft) {
-  return `<g transform="translate(${cx},${cy})">
-    <ellipse cx="${-r*0.5}" cy="${-r*0.3}" rx="${r*0.5}" ry="${r*0.4}" fill="${soft}"/>
-    <ellipse cx="${r*0.5}" cy="${-r*0.3}" rx="${r*0.5}" ry="${r*0.4}" fill="${soft}"/>
-    <ellipse cx="${-r*0.4}" cy="${r*0.3}" rx="${r*0.38}" ry="${r*0.32}" fill="${c}"/>
-    <ellipse cx="${r*0.4}" cy="${r*0.3}" rx="${r*0.38}" ry="${r*0.32}" fill="${c}"/>
-    <rect x="${-r*0.06}" y="${-r*0.5}" width="${r*0.12}" height="${r}" rx="${r*0.06}" fill="${c}"/>
-  </g>`
-}
-function svgSparkle(cx, cy, r, c) {
-  return `<path d="M ${cx} ${cy-r} L ${cx+r*0.22} ${cy-r*0.22} L ${cx+r} ${cy}
-    L ${cx+r*0.22} ${cy+r*0.22} L ${cx} ${cy+r} L ${cx-r*0.22} ${cy+r*0.22}
-    L ${cx-r} ${cy} L ${cx-r*0.22} ${cy-r*0.22} Z" fill="${c}"/>`
+  g += `<rect x="${cx - 6}" y="${cy - 70}" width="12" height="40" fill="${accent}" opacity="0.92"/>`
+  g += `<ellipse cx="${cx}" cy="${cy - 86}" rx="8" ry="18" fill="${ink}" opacity="0.95"/>`
+  g += `<ellipse cx="${cx}" cy="${cy - 88}" rx="4" ry="11" fill="${accent}"/>`
+  return g
 }
 
-// draw one motif element at a position+size
-function drawOne(motif, x, y, size, rot, c, soft, ink) {
-  switch (motif) {
-    case 'roses':       return svgRose(x, y, size, c, soft)
-    case 'flowers':     return svgFlower(x, y, size, c, soft)
-    case 'candles':     return svgCandle(x, y, size*2, c, ink)
-    case 'stars':       return svgStar(x, y, size, c)
-    case 'leaves':      return svgLeaf(x, y, size, rot, c)
-    case 'wheat':       return svgWheat(x, y, size*2.6, c)
-    case 'hearts':      return svgHeart(x, y, size, c)
-    case 'butterflies': return svgButterfly(x, y, size, c, soft)
-    case 'sparkles':    return svgSparkle(x, y, size, c)
-    default:            return ''
+function illustPomegranate(W, H, accent, ink) {
+  // רימונים בפינות עליונות וימין-תחתון — לא בולעים מרכז
+  return `
+    <g transform="translate(${W * 0.18}, ${H * 0.18})">
+      <ellipse cx="0" cy="0" rx="110" ry="120" fill="${accent}" opacity="0.92"/>
+      <path d="M -10 -105 L 0 -130 L 10 -105 M -20 -100 L -10 -125 L 0 -105 M 0 -105 L 10 -125 L 20 -100"
+            stroke="${accent}" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.92"/>
+      <circle cx="-30" cy="-20" r="9" fill="${ink}" opacity="0.65"/>
+      <circle cx="20" cy="0" r="9" fill="${ink}" opacity="0.65"/>
+      <circle cx="-10" cy="35" r="9" fill="${ink}" opacity="0.65"/>
+      <circle cx="40" cy="40" r="9" fill="${ink}" opacity="0.65"/>
+      <circle cx="-40" cy="50" r="9" fill="${ink}" opacity="0.65"/>
+    </g>
+    <g transform="translate(${W * 0.82}, ${H * 0.82}) scale(0.55)">
+      <ellipse cx="0" cy="0" rx="110" ry="120" fill="${accent}" opacity="0.7"/>
+      <path d="M -10 -105 L 0 -130 L 10 -105 M -20 -100 L -10 -125 L 0 -105 M 0 -105 L 10 -125 L 20 -100"
+            stroke="${accent}" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.7"/>
+    </g>`
+}
+
+function illustFlowers(W, H, accent, ink) {
+  // 4 פרחים רק בפינות — האמצע פנוי לטקסט
+  const flower = (cx, cy, r, color) => {
+    let g = ''
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3
+      g += `<ellipse cx="${cx + Math.cos(a) * r * 0.55}" cy="${cy + Math.sin(a) * r * 0.55}" rx="${r * 0.36}" ry="${r * 0.52}" fill="${color}" opacity="0.85" transform="rotate(${a * 180 / Math.PI} ${cx + Math.cos(a) * r * 0.55} ${cy + Math.sin(a) * r * 0.55})"/>`
+    }
+    g += `<circle cx="${cx}" cy="${cy}" r="${r * 0.32}" fill="${ink}" opacity="0.8"/>`
+    return g
   }
+  return `
+    ${flower(W * 0.14, H * 0.14, 72, accent)}
+    ${flower(W * 0.86, H * 0.16, 60, accent)}
+    ${flower(W * 0.12, H * 0.86, 65, accent)}
+    ${flower(W * 0.86, H * 0.86, 72, accent)}
+  `
 }
 
-// build the full decoration based on layout
-function buildDecoration(motif, layout, W, H, c, soft, ink) {
-  if (motif === 'none' || layout === 'minimal' && motif === 'none') return ''
-
-  const S = 70  // base size
-  let positions = []
-
-  if (layout === 'corners') {
-    positions = [
-      [W*0.16, H*0.16, S], [W*0.84, H*0.16, S],
-      [W*0.16, H*0.84, S], [W*0.84, H*0.84, S],
-    ]
-  } else if (layout === 'frame') {
-    positions = [
-      [W*0.16, H*0.16, S], [W*0.5, H*0.13, S*0.8], [W*0.84, H*0.16, S],
-      [W*0.13, H*0.5, S*0.8], [W*0.87, H*0.5, S*0.8],
-      [W*0.16, H*0.84, S], [W*0.5, H*0.87, S*0.8], [W*0.84, H*0.84, S],
-    ]
-  } else if (layout === 'lavish') {
-    positions = [
-      [W*0.14, H*0.14, S], [W*0.34, H*0.10, S*0.7], [W*0.5, H*0.14, S*0.85],
-      [W*0.66, H*0.10, S*0.7], [W*0.86, H*0.14, S],
-      [W*0.10, H*0.40, S*0.7], [W*0.90, H*0.40, S*0.7],
-      [W*0.10, H*0.62, S*0.7], [W*0.90, H*0.62, S*0.7],
-      [W*0.14, H*0.86, S], [W*0.34, H*0.90, S*0.7], [W*0.5, H*0.86, S*0.85],
-      [W*0.66, H*0.90, S*0.7], [W*0.86, H*0.86, S],
-    ]
-  } else { // minimal
-    positions = [
-      [W*0.5, H*0.16, S*0.9], [W*0.5, H*0.84, S*0.9],
-    ]
-  }
-
-  return positions.map(([x, y, sz], i) =>
-    drawOne(motif, x, y, sz, (i*47) % 360, c, soft, ink)
-  ).join('')
+// זר ורדים — למעלה (כי textZone: 'top' = הטקסט בחלק העליון... רגע, הפוך!)
+// textZone: 'top' אומר שהטקסט בחלק העליון של הכרטיס,
+// אז האיור צריך להיות בחלק התחתון.
+function illustRoseBouquet(W, H, accent, ink) {
+  // הזר בחצי התחתון של הכרטיס
+  const cx = W / 2, cy = H * 0.85
+  const rose = (x, y, r, fill, depth) => `
+    <g transform="translate(${x},${y})">
+      <circle r="${r}" fill="${depth}"/>
+      <path d="M -${r * 0.45} 0 A ${r * 0.45} ${r * 0.45} 0 0 1 ${r * 0.45} 0 A ${r * 0.7} ${r * 0.7} 0 0 0 -${r * 0.45} 0 Z" fill="${fill}"/>
+      <path d="M -${r * 0.25} -${r * 0.15} A ${r * 0.3} ${r * 0.3} 0 0 1 ${r * 0.25} -${r * 0.15} A ${r * 0.4} ${r * 0.4} 0 0 0 -${r * 0.25} -${r * 0.15} Z" fill="${depth}"/>
+      <circle cy="-${r * 0.1}" r="${r * 0.18}" fill="${fill}"/>
+    </g>`
+  let g = ''
+  // גבעולים
+  g += `<path d="M ${cx} ${cy - 20} L ${cx - 100} ${H + 50} L ${cx + 100} ${H + 50} Z" fill="${ink}" opacity="0.5"/>`
+  // סרט
+  g += `<rect x="${cx - 130}" y="${cy - 50}" width="260" height="20" rx="6" fill="${accent}" opacity="0.85"/>`
+  // עלים
+  g += `<ellipse cx="${cx - 150}" cy="${cy - 70}" rx="45" ry="22" fill="${accent}" opacity="0.55" transform="rotate(-30 ${cx - 150} ${cy - 70})"/>`
+  g += `<ellipse cx="${cx + 150}" cy="${cy - 70}" rx="45" ry="22" fill="${accent}" opacity="0.55" transform="rotate(30 ${cx + 150} ${cy - 70})"/>`
+  // ורדים
+  g += rose(cx - 95, cy - 65, 42, accent, ink)
+  g += rose(cx - 30, cy - 80, 45, accent, ink)
+  g += rose(cx + 30, cy - 80, 45, accent, ink)
+  g += rose(cx + 95, cy - 65, 42, accent, ink)
+  g += rose(cx - 60, cy - 130, 40, accent, ink)
+  g += rose(cx,      cy - 145, 46, accent, ink)
+  g += rose(cx + 60, cy - 130, 40, accent, ink)
+  return g
 }
 
-// build frame markup
-function buildFrame(frame, W, H, c) {
-  if (frame === 'none') return ''
-  if (frame === 'single') {
-    return `<rect x="50" y="50" width="${W-100}" height="${H-100}" rx="20" fill="none" stroke="${c}" stroke-width="5" opacity="0.75"/>`
+// עוגת יום הולדת — בחצי התחתון (textZone: 'top' = טקסט למעלה)
+function illustBirthdayCake(W, H, accent, ink) {
+  const cx = W / 2, cy = H * 0.62
+  let g = ''
+  // מגש
+  g += `<rect x="${cx - 200}" y="${cy + 200}" width="400" height="24" rx="6" fill="${ink}" opacity="0.5"/>`
+  // קומה תחתונה
+  g += `<rect x="${cx - 180}" y="${cy + 100}" width="360" height="100" rx="8" fill="${accent}" opacity="0.95"/>`
+  g += `<path d="M ${cx - 180} ${cy + 100} Q ${cx - 160} ${cy + 80} ${cx - 140} ${cy + 100} Q ${cx - 120} ${cy + 80} ${cx - 100} ${cy + 100} Q ${cx - 80} ${cy + 80} ${cx - 60} ${cy + 100} Q ${cx - 40} ${cy + 80} ${cx - 20} ${cy + 100} Q ${cx} ${cy + 80} ${cx + 20} ${cy + 100} Q ${cx + 40} ${cy + 80} ${cx + 60} ${cy + 100} Q ${cx + 80} ${cy + 80} ${cx + 100} ${cy + 100} Q ${cx + 120} ${cy + 80} ${cx + 140} ${cy + 100} Q ${cx + 160} ${cy + 80} ${cx + 180} ${cy + 100} L ${cx + 180} ${cy + 110} L ${cx - 180} ${cy + 110} Z" fill="${ink}" opacity="0.85"/>`
+  // קומה אמצעית
+  g += `<rect x="${cx - 140}" y="${cy + 20}" width="280" height="85" rx="6" fill="${accent}" opacity="0.95"/>`
+  g += `<path d="M ${cx - 140} ${cy + 20} Q ${cx - 120} ${cy + 5} ${cx - 100} ${cy + 20} Q ${cx - 80} ${cy + 5} ${cx - 60} ${cy + 20} Q ${cx - 40} ${cy + 5} ${cx - 20} ${cy + 20} Q ${cx} ${cy + 5} ${cx + 20} ${cy + 20} Q ${cx + 40} ${cy + 5} ${cx + 60} ${cy + 20} Q ${cx + 80} ${cy + 5} ${cx + 100} ${cy + 20} Q ${cx + 120} ${cy + 5} ${cx + 140} ${cy + 20} L ${cx + 140} ${cy + 30} L ${cx - 140} ${cy + 30} Z" fill="${ink}" opacity="0.85"/>`
+  // קומה עליונה
+  g += `<rect x="${cx - 100}" y="${cy - 50}" width="200" height="70" rx="6" fill="${accent}" opacity="0.95"/>`
+  // נרות
+  for (let i = -1; i <= 1; i++) {
+    const x = cx + i * 60
+    g += `<rect x="${x - 5}" y="${cy - 110}" width="10" height="60" fill="${ink}" opacity="0.9"/>`
+    g += `<ellipse cx="${x}" cy="${cy - 122}" rx="7" ry="16" fill="${ink}" opacity="0.7"/>`
+    g += `<ellipse cx="${x}" cy="${cy - 124}" rx="4" ry="11" fill="${accent}"/>`
+    g += `<ellipse cx="${x}" cy="${cy - 126}" rx="2" ry="6" fill="#FFF7C8"/>`
   }
-  if (frame === 'rounded') {
-    return `<rect x="48" y="48" width="${W-96}" height="${H-96}" rx="90" fill="none" stroke="${c}" stroke-width="6" opacity="0.75"/>`
-  }
-  // double
-  return `<rect x="44" y="44" width="${W-88}" height="${H-88}" rx="40" fill="none" stroke="${c}" stroke-width="5" opacity="0.75"/>
-          <rect x="70" y="70" width="${W-140}" height="${H-140}" rx="28" fill="none" stroke="${c}" stroke-width="2" opacity="0.5"/>`
+  // סוכריות
+  const sprinkles = [
+    [cx - 80, cy + 60], [cx - 30, cy + 75], [cx + 50, cy + 65], [cx + 95, cy + 80],
+    [cx - 60, cy + 145], [cx + 20, cy + 155], [cx + 90, cy + 140], [cx - 110, cy + 160],
+  ]
+  sprinkles.forEach(([x, y]) => {
+    g += `<circle cx="${x}" cy="${y}" r="4" fill="${ink}" opacity="0.7"/>`
+  })
+  return g
 }
 
-// main SVG builder
-function buildSVG({ text, cardName, bg, accent, motif, layout, frame }) {
+// יונים — למעלה (textZone: 'bottom' = הטקסט בחלק התחתון)
+function illustDovesWithFlowers(W, H, accent, ink) {
+  let g = ''
+  const tinyFlower = (cx, cy, r, color) => {
+    let f = ''
+    for (let i = 0; i < 5; i++) {
+      const a = i * 2 * Math.PI / 5 - Math.PI / 2
+      f += `<circle cx="${cx + Math.cos(a) * r * 0.55}" cy="${cy + Math.sin(a) * r * 0.55}" r="${r * 0.42}" fill="${color}" opacity="0.85"/>`
+    }
+    f += `<circle cx="${cx}" cy="${cy}" r="${r * 0.28}" fill="${ink}" opacity="0.7"/>`
+    return f
+  }
+  // יונים בחצי העליון
+  const cx1 = W * 0.32, cy1 = H * 0.22
+  g += `<ellipse cx="${cx1}" cy="${cy1}" rx="55" ry="40" fill="${accent}" opacity="0.95"/>`
+  g += `<circle cx="${cx1 - 45}" cy="${cy1 - 16}" r="20" fill="${accent}" opacity="0.95"/>`
+  g += `<path d="M ${cx1 - 65} ${cy1 - 16} L ${cx1 - 82} ${cy1 - 13} L ${cx1 - 65} ${cy1 - 8} Z" fill="#E8A93B"/>`
+  g += `<circle cx="${cx1 - 50}" cy="${cy1 - 20}" r="2.5" fill="${ink}"/>`
+  g += `<path d="M ${cx1 + 8} ${cy1 - 8} Q ${cx1 + 28} ${cy1 - 36} ${cx1 + 50} ${cy1 - 3} Q ${cx1 + 32} ${cy1 + 4} ${cx1 + 8} ${cy1 - 8} Z" fill="${ink}" opacity="0.25"/>`
+  g += `<path d="M ${cx1 + 50} ${cy1 + 3} L ${cx1 + 85} ${cy1 + 16} L ${cx1 + 80} ${cy1 + 20} L ${cx1 + 50} ${cy1 + 10} Z" fill="${accent}" opacity="0.95"/>`
+
+  const cx2 = W * 0.68, cy2 = H * 0.22
+  g += `<ellipse cx="${cx2}" cy="${cy2}" rx="55" ry="40" fill="${accent}" opacity="0.95"/>`
+  g += `<circle cx="${cx2 + 45}" cy="${cy2 - 16}" r="20" fill="${accent}" opacity="0.95"/>`
+  g += `<path d="M ${cx2 + 65} ${cy2 - 16} L ${cx2 + 82} ${cy2 - 13} L ${cx2 + 65} ${cy2 - 8} Z" fill="#E8A93B"/>`
+  g += `<circle cx="${cx2 + 50}" cy="${cy2 - 20}" r="2.5" fill="${ink}"/>`
+  g += `<path d="M ${cx2 - 8} ${cy2 - 8} Q ${cx2 - 28} ${cy2 - 36} ${cx2 - 50} ${cy2 - 3} Q ${cx2 - 32} ${cy2 + 4} ${cx2 - 8} ${cy2 - 8} Z" fill="${ink}" opacity="0.25"/>`
+  g += `<path d="M ${cx2 - 50} ${cy2 + 3} L ${cx2 - 85} ${cy2 + 16} L ${cx2 - 80} ${cy2 + 20} L ${cx2 - 50} ${cy2 + 10} Z" fill="${accent}" opacity="0.95"/>`
+
+  // זר פרחים בין היונים (חלק עליון)
+  g += tinyFlower(W * 0.5, H * 0.16, 38, accent)
+  g += tinyFlower(W * 0.5 - 50, H * 0.13, 28, accent)
+  g += tinyFlower(W * 0.5 + 50, H * 0.13, 28, accent)
+  return g
+}
+
+// ═══════════════════════════════════════════════════════════════
+// בונה SVG ראשי
+// ═══════════════════════════════════════════════════════════════
+function buildSVG({ text, cardName, tpl, palette, font, size }) {
   const W = 1080, H = 1080
-  const bigFont = text.length > 26 ? 68 : text.length > 16 ? 84 : 104
+
+  // גלישת טקסט + גודל
+  const len = text.trim().length
+  let bigFont = len > 80 ? 50 : len > 50 ? 60 : len > 26 ? 72 : len > 16 ? 88 : 104
+  bigFont = Math.round(bigFont * size.scale)
+  const maxCharsPerLine = Math.floor(760 / (bigFont * 0.56))
+  const lines = wrapText(text.trim(), maxCharsPerLine)
+  if (lines.length > 4) bigFont = Math.max(40, bigFont - (lines.length - 4) * 8)
+  const lineHeight = bigFont * 1.32
+
+  const blockHeight = lines.length * lineHeight
+
+  // ── מרכז אנכי של הטקסט לפי textZone ─────────────────────
+  // top    = 25% (איור בחצי התחתון)
+  // center = 50% (איור בפינות / לא חופף)
+  // bottom = 72% (איור בחצי העליון)
+  const zone = tpl.textZone || 'center'
+  const centerY = zone === 'top'    ? H * 0.27
+                : zone === 'bottom' ? H * 0.72
+                : H * 0.50
+
+  const firstLineY = centerY - blockHeight / 2 + lineHeight / 2
+  const textLines = lines.map((ln, i) =>
+    `<tspan x="${W / 2}" y="${firstLineY + i * lineHeight}">${escapeXML(ln)}</tspan>`
+  ).join('')
+
+  const dividerY = firstLineY + (lines.length - 1) * lineHeight + bigFont * 0.85
+  const senderY = dividerY + 70
+
+  // ── רקע + דקורציה ─────────────────────────────────────────
+  let background = ''
+  let decoration = ''
+  let topLine = ''
+
+  if (tpl.type === 'illustration') {
+    background = `<rect width="${W}" height="${H}" fill="${palette.bg}"/>`
+    if (tpl.illust === 'menorah')          decoration = illustMenorah(W, H, palette.accent, palette.ink)
+    else if (tpl.illust === 'pomegranate') decoration = illustPomegranate(W, H, palette.accent, palette.ink)
+    else if (tpl.illust === 'flowers')     decoration = illustFlowers(W, H, palette.accent, palette.ink)
+    else if (tpl.illust === 'roses')       decoration = illustRoseBouquet(W, H, palette.accent, palette.ink)
+    else if (tpl.illust === 'cake')        decoration = illustBirthdayCake(W, H, palette.accent, palette.ink)
+    else if (tpl.illust === 'doves')       decoration = illustDovesWithFlowers(W, H, palette.accent, palette.ink)
+  }
+  else if (tpl.type === 'minimal') {
+    background = `<rect width="${W}" height="${H}" fill="${palette.bg}"/>`
+    if (tpl.shape === 'circle') {
+      decoration = `<circle cx="${W * 0.18}" cy="${H * 0.18}" r="180" fill="${palette.accent}" opacity="0.35"/>
+                    <circle cx="${W * 0.85}" cy="${H * 0.85}" r="120" fill="${palette.accent}" opacity="0.25"/>`
+    } else if (tpl.shape === 'arc') {
+      decoration = `<path d="M 0 0 Q ${W * 0.3} ${H * 0.18} 0 ${H * 0.32} Z" fill="${palette.accent}" opacity="0.3"/>
+                    <path d="M ${W} ${H} Q ${W * 0.7} ${H * 0.82} ${W} ${H * 0.68} Z" fill="${palette.accent}" opacity="0.3"/>`
+    } else {
+      decoration = `<rect x="0" y="${H * 0.12}" width="${W}" height="14" fill="${palette.accent}"/>
+                    <rect x="0" y="${H * 0.86}" width="${W}" height="14" fill="${palette.accent}"/>`
+    }
+  }
+  else if (tpl.type === 'elegant') {
+    background = `<rect width="${W}" height="${H}" fill="${palette.bg}"/>`
+    if (tpl.frame === 'double') {
+      decoration = `<rect x="44" y="44" width="${W - 88}" height="${H - 88}" rx="0" fill="none" stroke="${palette.accent}" stroke-width="2" opacity="0.85"/>
+                    <rect x="68" y="68" width="${W - 136}" height="${H - 136}" rx="0" fill="none" stroke="${palette.accent}" stroke-width="0.7" opacity="0.6"/>`
+    } else if (tpl.frame === 'corners') {
+      const cl = 90
+      decoration = `
+        <path d="M 60 ${60 + cl} L 60 60 L ${60 + cl} 60" fill="none" stroke="${palette.accent}" stroke-width="3"/>
+        <path d="M ${W - 60 - cl} 60 L ${W - 60} 60 L ${W - 60} ${60 + cl}" fill="none" stroke="${palette.accent}" stroke-width="3"/>
+        <path d="M 60 ${H - 60 - cl} L 60 ${H - 60} L ${60 + cl} ${H - 60}" fill="none" stroke="${palette.accent}" stroke-width="3"/>
+        <path d="M ${W - 60 - cl} ${H - 60} L ${W - 60} ${H - 60} L ${W - 60} ${H - 60 - cl}" fill="none" stroke="${palette.accent}" stroke-width="3"/>`
+    } else {
+      decoration = `<rect x="50" y="50" width="${W - 100}" height="${H - 100}" rx="0" fill="none" stroke="${palette.accent}" stroke-width="1.5" opacity="0.7"/>`
+    }
+    topLine = `<text x="${W / 2}" y="${firstLineY - bigFont * 1.2}" font-family="${font.css}" font-size="22" fill="${palette.accent}" text-anchor="middle" letter-spacing="6" direction="rtl">בּ ר כ ה</text>`
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${bg.bg1}"/>
-      <stop offset="1" stop-color="${bg.bg2}"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.62">
-      <stop offset="0" stop-color="${accent.c}" stop-opacity="0.5"/>
-      <stop offset="1" stop-color="${accent.c}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+  ${background}
+  ${decoration}
+  ${topLine}
 
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <rect width="${W}" height="${H}" fill="url(#glow)"/>
+  <text font-family="${font.css}" font-size="${bigFont}" font-weight="${font.weight}"
+        fill="${palette.ink}" text-anchor="middle" direction="rtl">${textLines}</text>
 
-  <!-- decorations -->
-  <g opacity="0.94">${buildDecoration(motif, layout, W, H, accent.c, accent.soft, bg.ink)}</g>
+  <line x1="${W / 2 - 120}" y1="${dividerY}" x2="${W / 2 + 120}" y2="${dividerY}"
+        stroke="${palette.accent}" stroke-width="2" opacity="${cardName ? 0.8 : 0}"/>
 
-  <!-- frame -->
-  ${buildFrame(frame, W, H, accent.c)}
+  ${cardName ? `<text x="${W / 2}" y="${senderY}" font-family="${font.css}"
+        font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${palette.ink}" text-anchor="middle"
+        direction="rtl" opacity="0.92">${escapeXML(cardName)}</text>` : ''}
 
-  <!-- readability plate -->
-  <rect x="${W*0.5 - 440}" y="${H*0.5 - 215}" width="880" height="400" rx="40"
-        fill="${bg.bg2}" opacity="0.32"/>
-
-  <!-- top ornament -->
-  <text x="${W/2}" y="${H*0.5 - 130}" font-size="64" text-anchor="middle" fill="${accent.c}">✦ ❀ ✦</text>
-
-  <!-- greeting text -->
-  <text x="${W/2}" y="${H/2 + 10}" font-family="Arial, sans-serif"
-        font-size="${bigFont}" font-weight="800" fill="${bg.ink}"
-        text-anchor="middle" direction="rtl">${escapeXML(text)}</text>
-
-  <!-- divider -->
-  <line x1="${W/2 - 150}" y1="${H/2 + 80}" x2="${W/2 + 150}" y2="${H/2 + 80}"
-        stroke="${accent.c}" stroke-width="3" opacity="0.8"/>
-
-  <!-- sender -->
-  <text x="${W/2}" y="${H/2 + 152}" font-family="Arial, sans-serif"
-        font-size="50" font-weight="700" fill="${bg.ink}" text-anchor="middle"
-        direction="rtl">${escapeXML('מאת ' + cardName)}</text>
-
-  <!-- footer branding -->
-  <text x="${W/2}" y="${H - 156}" font-family="Arial, sans-serif"
-        font-size="32" font-weight="700" fill="${bg.ink}" text-anchor="middle"
-        opacity="0.95" direction="rtl">נוצר באמצעות אפליקציית ביחד</text>
-  <text x="${W/2}" y="${H - 112}" font-family="Arial, sans-serif"
-        font-size="25" fill="${bg.ink}" text-anchor="middle"
-        opacity="0.78" direction="rtl">רוצים ליצור ברכה אישית עם השם שלכם?</text>
-  <text x="${W/2}" y="${H - 78}" font-family="Arial, sans-serif"
-        font-size="25" fill="${bg.ink}" text-anchor="middle"
-        opacity="0.78" direction="rtl">חפשו בחנות האפליקציות "ביחד"</text>
+  <!-- כיתוב שיווקי — מיקום קבוע גם אם אין שם מאחל -->
+  <text x="${W / 2}" y="${cardName ? senderY + 56 : dividerY + 30}"
+        font-family="'Heebo', sans-serif" font-size="22" font-weight="500"
+        fill="${palette.ink}" text-anchor="middle"
+        opacity="0.5" direction="rtl" letter-spacing="0.5">ברכה זו נוצרה באמצעות אפליקציית ביחד</text>
 </svg>`
+}
+
+// ── עזר ──────────────────────────────────────────────────────
+function wrapText(text, maxChars) {
+  const rawWords = text.split(/\s+/).filter(Boolean)
+  if (rawWords.length === 0) return ['']
+  const words = []
+  for (const w of rawWords) {
+    if (w.length <= maxChars) words.push(w)
+    else for (let i = 0; i < w.length; i += maxChars) words.push(w.slice(i, i + maxChars))
+  }
+  const lines = []
+  let current = ''
+  for (const word of words) {
+    const candidate = current ? current + ' ' + word : word
+    if (candidate.length > maxChars && current) { lines.push(current); current = word }
+    else current = candidate
+  }
+  if (current) lines.push(current)
+  return lines
 }
 
 function escapeXML(s) {

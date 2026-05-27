@@ -1,27 +1,18 @@
 // src/pages/HubPage.jsx
 // ─────────────────────────────────────────────────────────────
-// מסך הבית הראשי — עיצוב 2026 מודרני.
-//
-// HERO "החברים שלך" — מוצג רק אם יש חברים שדיברת איתם והם
-// מחוברים עכשיו. אם הרשימה ריקה — ה-HERO לא מוצג כלל, והדף
-// מתחיל ישירות מ"קפה בסלון" + "הפרלמנט".
-//
-// כרגע אין עדיין מנגנון אמיתי לחברים אחרונים — לכן יש flag
-// בראש הקובץ. כשנבנה את הפיצ'ר האמיתי, נחליף את onlineFriends
-// בקריאה אמיתית ל-Firebase.
+// מסך הבית הראשי — עיצוב 2026.
+// כרטיסים בהירים (רקע קרם) עם אייקוני תג-עיגול צבעוניים.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { setPresence, watchOnlineCount, signOut } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import {
-  IconPhone, IconCoffee, IconPodium, IconUsers,
-  IconBook, IconHeart, IconBell, IconBackRTL, IconLightbulb,
+  IconPhone, IconCoffee, IconPodium, IconFriends,
+  IconKitchen, IconGreeting, IconBell, IconBackRTL, IconLightbulb,
 } from '../icons/index.jsx'
 
 // ─── DEMO TOGGLE ─────────────────────────────────────────────
-// שנה ל-true כדי לראות את ה-HERO "החברים שלך" עם חברי דמה.
-// כשנבנה את הפיצ'ר האמיתי — נחליף את זה בקריאה ל-Firebase.
 const SHOW_DEMO_FRIENDS = false
 
 const DEMO_FRIENDS = [
@@ -36,15 +27,11 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // חברים מחוברים — כרגע ריק (אין פיצ'ר אמיתי עדיין).
-  // עם ה-flag למעלה אפשר לראות את התצוגה עם חברי דמה.
   const [onlineFriends, setOnlineFriends] = useState(
     SHOW_DEMO_FRIENDS ? DEMO_FRIENDS : []
   )
-
   const hasFriends = onlineFriends.length > 0
 
-  // מספר המשתמשים המחוברים כרגע — מתעדכן בזמן אמת
   const [onlineCount, setOnlineCount] = useState(0)
 
   const hour = new Date().getHours()
@@ -53,14 +40,10 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
              : hour < 20 ? 'אחר צהריים טובים'
              : 'ערב טוב'
 
-  // Mark me as available + keep a fresh "heartbeat" every 60s so the
-  // online counter knows I'm still here. Without the heartbeat, after
-  // 2 minutes I'd drop off the count even though the app is open.
   useEffect(() => {
     if (!authUser?.uid) return
     setPresence(authUser.uid, 'available').catch(() => {})
 
-    // heartbeat — refresh lastSeenAt every minute
     const beat = setInterval(() => {
       if (document.visibilityState !== 'hidden') {
         setPresence(authUser.uid, 'available').catch(() => {})
@@ -81,7 +64,6 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
     }
   }, [authUser?.uid])
 
-  // Watch the live count of online users
   useEffect(() => {
     const unsub = watchOnlineCount(count => setOnlineCount(count))
     return () => unsub && unsub()
@@ -115,17 +97,15 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
           aria-label="התראות"
           onClick={() => showComingSoon('התראות')}
           style={{
-            width: 52, height: 52, borderRadius: 16,
-            background: 'var(--surface)',
-            border: '1px solid var(--line)',
-            boxShadow: '0 4px 12px -2px rgba(20,23,42,.10), 0 1px 3px rgba(20,23,42,.05)',
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'none', border: 'none', padding: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            position: 'relative',
+            position: 'relative', cursor: 'pointer',
           }}
         >
-          <IconBell size={24} color="#1B2540" />
+          <IconBell size={52} />
           <span style={{
-            position: 'absolute', top: -6, insetInlineStart: -6,
+            position: 'absolute', top: -2, insetInlineStart: -2,
             width: 22, height: 22, borderRadius: 11,
             background: 'var(--mustard)', color: 'var(--ink)',
             fontSize: 12, fontWeight: 800,
@@ -179,7 +159,6 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             marginBottom: 16,
             fontFamily: 'inherit',
           }}>
-            {/* soft light blooms */}
             <div style={{
               position: 'absolute', insetInlineEnd: -60, top: -60,
               width: 200, height: 200, borderRadius: '50%',
@@ -218,7 +197,6 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
               </div>
             </div>
 
-            {/* Friend avatars row */}
             <div style={{
               marginTop: 16, display: 'flex', alignItems: 'center', gap: 10,
               position: 'relative',
@@ -268,18 +246,14 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
         }}>
           <RoomTile
             onClick={onGoMatch}
-            color="#6E8C6A"
-            colorDeep="#4F6B4A"
-            icon={<IconCoffee />}
+            icon={<IconCoffee size={60} />}
             label="קפה בסלון"
             sub="אחד על אחד"
             badge="התאמה אוטומטית"
           />
           <RoomTile
             onClick={onGoParliament}
-            color="#8A4D6A"
-            colorDeep="#6B3A4F"
-            icon={<IconPodium />}
+            icon={<IconPodium size={60} />}
             label="הפרלמנט"
             sub="חמישה בתור"
             badge="כל אחד דקה לדבר"
@@ -287,42 +261,30 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
           />
         </div>
 
-        {/* ── 3 utility tiles ──────────────────────────────── */}
         {/* ── כרטיס ברכה אישית — רוחב מלא ── */}
         <button onClick={onGoGreeting} style={{
           width: '100%', textAlign: 'right',
           marginTop: 12,
-          background: 'linear-gradient(135deg, #C99B3F 0%, #B89048 45%, #8A6A2E 100%)',
-          border: 'none', borderRadius: 22,
-          padding: '18px 18px',
-          color: '#FFF8E8',
-          boxShadow: '0 12px 28px -8px rgba(184,144,72,.55), 0 2px 6px rgba(20,23,42,.06)',
-          position: 'relative', overflow: 'hidden',
-          display: 'flex', alignItems: 'center', gap: 14,
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          borderRadius: 20,
+          padding: '16px 16px',
+          color: 'var(--ink)',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
           fontFamily: 'inherit',
         }}>
-          <div style={{
-            position: 'absolute', insetInlineEnd: -30, top: -40,
-            width: 150, height: 150, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,.28), transparent 70%)',
-            pointerEvents: 'none',
-          }}/>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16,
-            background: 'rgba(255,255,255,.20)',
-            border: '1px solid rgba(255,255,255,.28)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 30, flexShrink: 0, position: 'relative',
-          }}>✉️</div>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <div className="h-display" style={{ fontSize: 21, color: '#FFF8E8', lineHeight: 1.15 }}>
+          <IconBackRTL size={22} color="#8389A4" />
+          <div style={{ flex: 1 }}>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.15 }}>
               צור ברכה אישית
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.92)', marginTop: 3 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 3 }}>
               ברכה יפה למשפחה ולחברים בלחיצה אחת
             </div>
           </div>
-          <IconBackRTL size={22} color="#FFF8E8" />
+          <IconGreeting size={56} />
         </button>
 
         {/* ── 3 utility tiles ── */}
@@ -332,22 +294,19 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
         }}>
           <HomeTileSmall
             onClick={onGoTips}
-            color="#B89048"
-            icon={<IconLightbulb size={24} color="white" />}
+            icon={<IconLightbulb size={48} />}
             label="עצות"
             badge="טיפים מהחברים"
           />
           <HomeTileSmall
             onClick={onGoRecipes}
-            color="#7E2C2E"
-            icon={<IconBook size={24} color="white" />}
+            icon={<IconKitchen size={48} />}
             label="מתכונים"
             badge="מטבח של חברים"
           />
           <HomeTileSmall
             onClick={onGoFriends}
-            color="#2C5566"
-            icon={<IconHeart size={24} color="white" />}
+            icon={<IconFriends size={48} />}
             label="חברים"
             badge="החברים שלי"
           />
@@ -431,7 +390,6 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) 
           margin: '0 auto 18px',
         }}/>
 
-        {/* user header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <Avatar name={userName} size={56} color="#6B3A4F" photoURL={photoURL} />
           <div>
@@ -444,7 +402,6 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) 
           </div>
         </div>
 
-        {/* edit profile */}
         <button
           onClick={onEditProfile}
           style={{
@@ -462,7 +419,6 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) 
           <IconBackRTL size={20} color="#8389A4" />
         </button>
 
-        {/* sign out */}
         <button
           onClick={onSignOut}
           style={{
@@ -487,86 +443,63 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) 
   )
 }
 
-// ── Room Tile (large, 2-column) ─────────────────────────────
-function RoomTile({ onClick, color, colorDeep, icon, label, sub, badge, live }) {
-  return (
-    <button onClick={onClick} style={{
-      background: `linear-gradient(135deg, ${color} 0%, ${colorDeep} 100%)`,
-      color: '#FBF7EE',
-      border: 'none',
-      borderRadius: 22, padding: '16px 16px 14px',
-      textAlign: 'right',
-      boxShadow: `0 12px 28px -8px ${color}66, 0 2px 6px rgba(20,23,42,.06)`,
-      minHeight: 168,
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      position: 'relative', overflow: 'hidden',
-      fontFamily: 'inherit',
-    }}>
-      {/* soft light bloom */}
-      <div style={{
-        position: 'absolute', insetInlineEnd: -30, top: -30,
-        width: 130, height: 130, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,255,255,.20), transparent 70%)',
-        pointerEvents: 'none',
-      }}/>
-      {live && (
-        <div style={{
-          position: 'absolute', top: 12, insetInlineEnd: 12,
-          background: 'rgba(255,255,255,.20)',
-          backdropFilter: 'blur(8px)',
-          color: '#FBF7EE',
-          border: '1px solid rgba(255,255,255,.28)',
-          fontSize: 11, fontWeight: 700,
-          padding: '4px 10px', borderRadius: 999,
-          display: 'flex', alignItems: 'center', gap: 5,
-          letterSpacing: '0.02em',
-        }}>
-          <span className="live-dot" style={{ background: '#E8C879', boxShadow: 'none', width: 6, height: 6 }}/>
-          חי
-        </div>
-      )}
-
-      <div style={{ position: 'relative' }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: 16,
-          background: 'rgba(255,255,255,.18)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,.22)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>{icon && (typeof icon.type === 'function'
-          ? <icon.type size={28} color="#FBF7EE" />
-          : icon)}</div>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 700, marginBottom: 3, letterSpacing: '0.01em' }}>{sub}</div>
-        <div className="h-display" style={{ fontSize: 22, lineHeight: 1.05, marginBottom: 6, color: '#FBF7EE' }}>{label}</div>
-        <div style={{ fontSize: 13, opacity: 0.9, fontWeight: 600, lineHeight: 1.3 }}>{badge}</div>
-      </div>
-    </button>
-  )
-}
-
-// ── Small utility tile (3-column) ───────────────────────────
-function HomeTileSmall({ onClick, color, icon, label, badge, live }) {
+// ── Room Tile (large, 2-column) — כרטיס בהיר ─────────────────
+function RoomTile({ onClick, icon, label, sub, badge, live }) {
   return (
     <button onClick={onClick} style={{
       background: 'var(--surface)',
       color: 'var(--ink)',
       border: '1px solid var(--line)',
-      borderRadius: 18, padding: '14px 10px 12px',
-      textAlign: 'center',
-      minHeight: 116,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
+      borderRadius: 20, padding: '16px 16px 14px',
+      textAlign: 'right',
       boxShadow: 'var(--shadow-sm)',
-      gap: 6,
+      minHeight: 168,
+      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+      position: 'relative', overflow: 'hidden',
       fontFamily: 'inherit',
     }}>
-      <div style={{
-        width: 44, height: 44, borderRadius: 14,
-        background: color,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 10px -2px rgba(20,23,42,.18)',
-      }}>{icon}</div>
+      {live && (
+        <div style={{
+          position: 'absolute', top: 12, insetInlineEnd: 12,
+          background: 'var(--burgundy-soft)',
+          color: 'var(--burgundy)',
+          fontSize: 11, fontWeight: 800,
+          padding: '4px 10px', borderRadius: 999,
+          display: 'flex', alignItems: 'center', gap: 5,
+          letterSpacing: '0.02em',
+        }}>
+          <span className="live-dot" style={{ width: 6, height: 6 }}/>
+          חי
+        </div>
+      )}
+
+      <div>{icon}</div>
+
+      <div>
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginBottom: 3, letterSpacing: '0.01em' }}>{sub}</div>
+        <div className="h-display" style={{ fontSize: 22, lineHeight: 1.05, marginBottom: 6, color: 'var(--ink)' }}>{label}</div>
+        <div style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.3 }}>{badge}</div>
+      </div>
+    </button>
+  )
+}
+
+// ── Small utility tile (3-column) — כרטיס בהיר ───────────────
+function HomeTileSmall({ onClick, icon, label, badge, live }) {
+  return (
+    <button onClick={onClick} style={{
+      background: 'var(--surface)',
+      color: 'var(--ink)',
+      border: '1px solid var(--line)',
+      borderRadius: 18, padding: '18px 10px 14px',
+      textAlign: 'center',
+      minHeight: 132,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
+      boxShadow: 'var(--shadow-sm)',
+      gap: 8,
+      fontFamily: 'inherit',
+    }}>
+      <div>{icon}</div>
       <div className="h-display" style={{ fontSize: 17, lineHeight: 1, color: 'var(--ink)' }}>{label}</div>
       <div style={{
         fontSize: 12, color: live ? 'var(--live)' : 'var(--ink-3)',
