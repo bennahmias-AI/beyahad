@@ -220,3 +220,79 @@ export const IconHourglass = (p) => (
     <path d="M6 21v-3c0-2 2-3 3-4l3-2 3 2c1 1 3 2 3 4v3" />
   </LineIcon>
 )
+
+// ══ אייקוני סרגל העריכה (מחולל הברכה) ═══════════════════════
+// קו אחיד, נקי ומודרני — תואמים לשאר אייקוני ה-UI.
+
+// תבניות — ריבועים בפריסת רשת
+export const IconTemplates = (p) => (
+  <LineIcon {...p}>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </LineIcon>
+)
+
+// רקע — תמונה עם שמש והרים
+export const IconBackground = (p) => (
+  <LineIcon {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <circle cx="8.5" cy="8.5" r="1.8" />
+    <path d="M3 17l5-5 4 4 3-3 6 6" />
+  </LineIcon>
+)
+
+// טקסט — סימן הקלדה "A" עם מחוון
+export const IconText = (p) => (
+  <LineIcon {...p}>
+    <path d="M5 19 11 5l6 14" />
+    <path d="M7.5 14h7" />
+    <path d="M20 5v14" />
+  </LineIcon>
+)
+
+// שם המאחל — אדם בעיגול
+export const IconSender = (p) => (
+  <LineIcon {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+  </LineIcon>
+)
+
+// פונט — האות "א" העברית בקו
+export const IconFont = (p) => (
+  <LineIcon {...p}>
+    <path d="M17 5 8.5 19" />
+    <path d="M7 8c1.8 1.2 2.8 3 2.8 5.2 0 1.6-.6 3-1.6 4.2" />
+    <path d="M14.5 11c-1.4 1.2-2 2.8-2 4.6 0 1.4.5 2.6 1.3 3.6" />
+  </LineIcon>
+)
+
+// אפקטים — כוכב נצנוץ (ניצוצות)
+export const IconEffects = (p) => (
+  <LineIcon {...p}>
+    <path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z" />
+    <path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z" />
+  </LineIcon>
+)
+
+// צבע — טיפת/לוח צבעים
+export const IconColor = (p) => (
+  <LineIcon {...p}>
+    <path d="M12 3a9 9 0 0 0 0 18c1.7 0 2.5-1.3 2.5-2.5 0-.7-.3-1.2-.3-1.8 0-.8.6-1.4 1.5-1.4H18a3 3 0 0 0 3-3c0-5-4-9.3-9-9.3Z" />
+    <circle cx="7.5" cy="11" r="1" fill={p.color || 'currentColor'} stroke="none" />
+    <circle cx="11" cy="7.5" r="1" fill={p.color || 'currentColor'} stroke="none" />
+    <circle cx="15" cy="8.5" r="1" fill={p.color || 'currentColor'} stroke="none" />
+  </LineIcon>
+)
+
+// גודל — שתי אותיות בגדלים שונים + חצים
+export const IconSize = (p) => (
+  <LineIcon {...p}>
+    <path d="M3 17 7 7l4 10" />
+    <path d="M4.5 13.5h5" />
+    <path d="M14 17 17 9l3 8" />
+    <path d="M15 14.5h4" />
+  </LineIcon>
+)
