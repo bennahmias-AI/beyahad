@@ -15,9 +15,36 @@
 // כל תבנית יודעת איפה בכרטיס לשבץ את הטקסט (top/center/bottom)
 // כדי שלא יחפוף לאיור.
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { IconBackRTL } from '../icons/index.jsx'
+
+// מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
+const bgDataCache = {}
+
+// טוען תמונה וממיר אותה ל-data URL (base64).
+// זה הכרחי כדי שהתמונה תופיע בתוך SVG שמוטמע ב-data URL,
+// וגם כדי ששמירת ה-PNG תעבוד (canvas לא מזדהם).
+function loadBgAsDataURL(url) {
+  return new Promise((resolve, reject) => {
+    if (bgDataCache[url]) { resolve(bgDataCache[url]); return }
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d').drawImage(img, 0, 0)
+      try {
+        const dataUrl = canvas.toDataURL('image/png')
+        bgDataCache[url] = dataUrl
+        resolve(dataUrl)
+      } catch (e) { reject(e) }
+    }
+    img.onerror = () => reject(new Error('bg image load failed: ' + url))
+    img.src = url
+  })
+}
 
 const MAX_TEXT = 120
 
@@ -52,6 +79,25 @@ const TEXT_SIZES = [
   { id: 'sm', name: 'קטן',   scale: 0.82 },
   { id: 'md', name: 'בינוני', scale: 1.0  },
   { id: 'lg', name: 'גדול',  scale: 1.18 },
+]
+
+// ═══════════════════════════════════════════════════════════
+// רקעי תמונה — תמונות מאוירות שמונחות ב-public/backgrounds/
+// ═══════════════════════════════════════════════════════════
+// כל רקע מגדיר:
+//   url      — נתיב הקובץ (מתוך public, מתחיל ב-/)
+//   textZone — איפה הטקסט ישב: top / center / bottom
+//   ink      — צבע הטקסט (כהה לרקע בהיר, בהיר לרקע כהה)
+//   accent   — צבע הקו המפריד והעיטורים
+//   label    — השם שמופיע למשתמש
+//
+// להוספת רקע חדש: שמור תמונה ב-public/backgrounds/ והוסף שורה כאן.
+//
+const BACKGROUNDS = [
+  { id: 'bg-shabbat', url: '/backgrounds/Gemini_Generated_Image_sph265sph265sph2.png', textZone: 'top',
+    ink: '#5A3D2B', accent: '#B89048', label: 'שבת שלום' },
+  { id: 'bg-2', url: '/backgrounds/Gemini_Generated_Image_h9770jh9770jh977.png', textZone: 'top',
+    ink: '#5A3D2B', accent: '#B89048', label: 'ברכה' },
 ]
 
 // ═══════════════════════════════════════════════════════════════
@@ -265,6 +311,24 @@ function DesignStep({
   const [msg, setMsg] = useState('')
   // איזו לשונית פתוחה ב-bottom sheet (null = סגור)
   const [activeTab, setActiveTab] = useState(null)
+  // רקע תמונה נבחר (null = משתמשים בצבע/תבנית רגילה)
+  const [bgId, setBgId] = useState(null)
+  const bgMeta = BACKGROUNDS.find(b => b.id === bgId) || null
+  // ה-base64 של תמונת הרקע (נטען אסינכרונית)
+  const [bgData, setBgData] = useState(null)
+
+  // כשבוחרים רקע — טוענים את התמונה וממירים ל-base64
+  useEffect(() => {
+    if (!bgMeta) { setBgData(null); return }
+    let cancelled = false
+    loadBgAsDataURL(bgMeta.url)
+      .then(d => { if (!cancelled) setBgData(d) })
+      .catch(() => { if (!cancelled) setBgData(null) })
+    return () => { cancelled = true }
+  }, [bgMeta])
+
+  // אובייקט הרקע שמועבר ל-buildSVG: משלב מטה-data עם ה-base64
+  const bg = (bgMeta && bgData) ? { ...bgMeta, dataUrl: bgData } : null
 
   const palette = PALETTES.find(p => p.id === paletteId) || PALETTES[0]
   const font = FONTS.find(f => f.id === fontId) || FONTS[0]
@@ -273,7 +337,7 @@ function DesignStep({
   // השם אופציונלי — אם ריק, לא מופיע כלל בכרטיס
   const cardName = senderName.trim()
 
-  const svg = buildSVG({ text, cardName, tpl, palette, font, size })
+  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg })
   const previewSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 
   const buildThumb = (t) => {
@@ -341,6 +405,7 @@ function DesignStep({
   // ── הלשוניות של הסרגל התחתון ─────────────────────────────
   const TABS = [
     { id: 'templates', label: 'תבניות', emoji: '🎨' },
+    { id: 'backgrounds', label: 'רקע', emoji: '🖼️' },
     { id: 'text',      label: 'טקסט',   emoji: '✏️' },
     { id: 'sender',    label: 'שם המאחל', emoji: '👤' },
     { id: 'font',      label: 'פונט',   emoji: '🔤' },
@@ -459,15 +524,47 @@ function DesignStep({
           {activeTab === 'templates' && (
             <HScroll>
               {TEMPLATES.map(t => (
-                <button key={t.id} onClick={() => selectTemplate(t.id)} style={{
+                <button key={t.id} onClick={() => { setBgId(null); selectTemplate(t.id) }} style={{
                   padding: 0,
-                  border: t.id === templateId ? '3px solid var(--burgundy)' : '2px solid var(--line)',
+                  border: (t.id === templateId && !bg) ? '3px solid var(--burgundy)' : '2px solid var(--line)',
                   borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
                   background: 'var(--surface)',
                   width: 92, height: 92, flexShrink: 0,
                 }}>
                   <img src={buildThumb(t)} alt={t.label}
                        style={{ width: '100%', height: '100%', display: 'block' }} />
+                </button>
+              ))}
+            </HScroll>
+          )}
+
+          {activeTab === 'backgrounds' && (
+            <HScroll>
+              {/* אפשרות "ללא רקע" — חוזרים לצבע/תבנית */}
+              <button onClick={() => setBgId(null)} style={{
+                padding: 0,
+                border: !bg ? '3px solid var(--burgundy)' : '2px solid var(--line)',
+                borderRadius: 12, cursor: 'pointer',
+                background: 'var(--surface)',
+                width: 92, height: 92, flexShrink: 0,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 4,
+                color: 'var(--ink-2)', fontFamily: 'inherit',
+              }}>
+                <span style={{ fontSize: 22 }}>✕</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>ללא רקע</span>
+              </button>
+              {BACKGROUNDS.map(b => (
+                <button key={b.id} onClick={() => setBgId(b.id)} style={{
+                  padding: 0,
+                  border: bg?.id === b.id ? '3px solid var(--burgundy)' : '2px solid var(--line)',
+                  borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
+                  background: 'var(--surface)',
+                  width: 92, height: 92, flexShrink: 0,
+                  position: 'relative',
+                }}>
+                  <img src={b.url} alt={b.label}
+                       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 </button>
               ))}
             </HScroll>
@@ -785,8 +882,12 @@ function illustDovesWithFlowers(W, H, accent, ink) {
 // ═══════════════════════════════════════════════════════════════
 // בונה SVG ראשי
 // ═══════════════════════════════════════════════════════════════
-function buildSVG({ text, cardName, tpl, palette, font, size }) {
+function buildSVG({ text, cardName, tpl, palette, font, size, bg }) {
   const W = 1080, H = 1080
+
+  // כשיש רקע תמונה — הוא גובר על הצבע/תבנית.
+  const ink = bg ? bg.ink : palette.ink
+  const accent = bg ? bg.accent : palette.accent
 
   // גלישת טקסט + גודל
   const len = text.trim().length
@@ -803,7 +904,7 @@ function buildSVG({ text, cardName, tpl, palette, font, size }) {
   // top    = 25% (איור בחצי התחתון)
   // center = 50% (איור בפינות / לא חופף)
   // bottom = 72% (איור בחצי העליון)
-  const zone = tpl.textZone || 'center'
+  const zone = (bg ? bg.textZone : tpl.textZone) || 'center'
   const centerY = zone === 'top'    ? H * 0.27
                 : zone === 'bottom' ? H * 0.72
                 : H * 0.50
@@ -821,7 +922,11 @@ function buildSVG({ text, cardName, tpl, palette, font, size }) {
   let decoration = ''
   let topLine = ''
 
-  if (tpl.type === 'illustration') {
+  // רקע תמונה גובר על הכל — ללא שכבת הצללה, ללא איורים
+  if (bg) {
+    background = `<image href="${bg.dataUrl}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`
+  }
+  else if (tpl.type === 'illustration') {
     background = `<rect width="${W}" height="${H}" fill="${palette.bg}"/>`
     if (tpl.illust === 'menorah')          decoration = illustMenorah(W, H, palette.accent, palette.ink)
     else if (tpl.illust === 'pomegranate') decoration = illustPomegranate(W, H, palette.accent, palette.ink)
@@ -867,19 +972,19 @@ function buildSVG({ text, cardName, tpl, palette, font, size }) {
   ${topLine}
 
   <text font-family="${font.css}" font-size="${bigFont}" font-weight="${font.weight}"
-        fill="${palette.ink}" text-anchor="middle" direction="rtl">${textLines}</text>
+        fill="${ink}" text-anchor="middle" direction="rtl">${textLines}</text>
 
   <line x1="${W / 2 - 120}" y1="${dividerY}" x2="${W / 2 + 120}" y2="${dividerY}"
-        stroke="${palette.accent}" stroke-width="2" opacity="${cardName ? 0.8 : 0}"/>
+        stroke="${accent}" stroke-width="2" opacity="${cardName ? 0.8 : 0}"/>
 
   ${cardName ? `<text x="${W / 2}" y="${senderY}" font-family="${font.css}"
-        font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${palette.ink}" text-anchor="middle"
+        font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${ink}" text-anchor="middle"
         direction="rtl" opacity="0.92">${escapeXML(cardName)}</text>` : ''}
 
   <!-- כיתוב שיווקי — מיקום קבוע גם אם אין שם מאחל -->
   <text x="${W / 2}" y="${cardName ? senderY + 56 : dividerY + 30}"
         font-family="'Heebo', sans-serif" font-size="22" font-weight="500"
-        fill="${palette.ink}" text-anchor="middle"
+        fill="${ink}" text-anchor="middle"
         opacity="0.5" direction="rtl" letter-spacing="0.5">ברכה זו נוצרה באמצעות אפליקציית ביחד</text>
 </svg>`
 }
