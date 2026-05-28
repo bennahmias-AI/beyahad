@@ -15,7 +15,7 @@
 // כל תבנית יודעת איפה בכרטיס לשבץ את הטקסט (top/center/bottom)
 // כדי שלא יחפוף לאיור.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { IconBackRTL } from '../icons/index.jsx'
 
@@ -93,12 +93,83 @@ const TEXT_SIZES = [
 //
 // להוספת רקע חדש: שמור תמונה ב-public/backgrounds/ והוסף שורה כאן.
 //
-const BACKGROUNDS = [
-  { id: 'bg-shabbat', url: '/backgrounds/Gemini_Generated_Image_sph265sph265sph2.png', textZone: 'top',
-    ink: '#5A3D2B', accent: '#B89048', label: 'שבת שלום' },
-  { id: 'bg-2', url: '/backgrounds/Gemini_Generated_Image_h9770jh9770jh977.png', textZone: 'top',
-    ink: '#5A3D2B', accent: '#B89048', label: 'ברכה' },
+// הגדרת הקטגוריות — לכל אחת: מזהה תיקיה, שם עברי, מספר קבצים, צבעי טקסט.
+// count = כמה תמונות יש בתיקיה (הקבצים חייבים להיקרא 1.png, 2.png, ...).
+// match = מילות מפתח בטקסט הברכה שמקשרות אליה — אם הטקסט מכיל אחת מהן,
+//         הקטגוריה תוצג ראשונה בלשונית הרקע.
+// להוספת קטגוריה: צור תיקיה תחת backgrounds/, שמור בה 1.png…2.png..., והוסף שורה כאן.
+const BG_CATEGORIES = [
+  // ── קיימות (נוצרו ידנית — לא לגעת) ──
+  { dir: 'SHABAT', label: 'שבת שלום', count: 10, ext: 'png', match: ['שבת'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'SHAVUA TOV', label: 'שבוע טוב', count: 5, ext: 'png', match: ['שבוע טוב', 'יום ראשון'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+
+  // ── ימים ──
+  { dir: 'YOM_RISHON', label: 'יום ראשון', count: 10, ext: 'png', match: ['יום ראשון'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_SHENI', label: 'יום שני', count: 10, ext: 'png', match: ['יום שני'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_SHLISHI', label: 'יום שלישי', count: 10, ext: 'png', match: ['יום שלישי'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_RVII', label: 'יום רביעי', count: 10, ext: 'png', match: ['יום רביעי'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_CHAMISHI', label: 'יום חמישי', count: 10, ext: 'png', match: ['יום חמישי'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+
+  // ── חגים ──
+  { dir: 'ROSH_HASHANA', label: 'ראש השנה', count: 10, ext: 'png', match: ['שנה טובה', 'ראש השנה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_KIPUR', label: 'יום כיפור', count: 10, ext: 'png', match: ['גמר חתימה', 'כיפור'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'SUKOT', label: 'סוכות', count: 10, ext: 'png', match: ['סוכות'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'CHANUKA', label: 'חנוכה', count: 10, ext: 'png', match: ['חנוכה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'PURIM', label: 'פורים', count: 10, ext: 'png', match: ['פורים'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'PESACH', label: 'פסח', count: 10, ext: 'png', match: ['פסח'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'SHAVUOT', label: 'שבועות', count: 10, ext: 'png', match: ['שבועות'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+
+  // ── איחולים ──
+  { dir: 'MAZAL_TOV', label: 'מזל טוב', count: 10, ext: 'png', match: ['מזל טוב'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'YOM_HULEDET', label: 'יום הולדת', count: 10, ext: 'png', match: ['יום הולדת'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'REFUA_SHLEMA', label: 'רפואה שלמה', count: 10, ext: 'png', match: ['רפואה שלמה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'BEHATZLACHA', label: 'בהצלחה', count: 10, ext: 'png', match: ['בהצלחה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'BEAHAVA', label: 'באהבה', count: 10, ext: 'png', match: ['באהבה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
+  { dir: 'TODA', label: 'תודה רבה', count: 10, ext: 'png', match: ['תודה'],
+    textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
 ]
+
+// בונה את רשימת הרקעים. קבצי public נגישים ישירות דרך /backgrounds/<dir>/<n>.<ext>
+function buildBackgrounds() {
+  const list = []
+  for (const cat of BG_CATEGORIES) {
+    for (let n = 1; n <= cat.count; n++) {
+      list.push({
+        id: `${cat.dir}-${n}`,
+        category: cat.dir,
+        categoryLabel: cat.label,
+        match: cat.match || [],
+        url: `/backgrounds/${encodeURIComponent(cat.dir)}/${n}.${cat.ext}`,
+        textZone: cat.textZone,
+        ink: cat.ink,
+        accent: cat.accent,
+        label: cat.label,
+      })
+    }
+  }
+  return list
+}
+
+const BACKGROUNDS = buildBackgrounds()
 
 // ═══════════════════════════════════════════════════════════════
 // תבניות — כל אחת מציינת איפה הטקסט יישב (textZone)
@@ -147,8 +218,9 @@ const TEMPLATES = [
 // ═══════════════════════════════════════════════════════════════
 const PRESET_GREETINGS = {
   'ימים': [
-    'שבוע טוב ומבורך', 'יום שני מבורך', 'שבת שלום ומבורכת',
-    'בוקר טוב ומואר', 'ערב טוב ונעים',
+    'שבוע טוב ומבורך', 'יום ראשון מבורך', 'יום שני מבורך',
+    'יום שלישי מבורך', 'יום רביעי מבורך', 'יום חמישי מבורך',
+    'שבת שלום ומבורכת',
   ],
   'חגים': [
     'שנה טובה ומתוקה', 'גמר חתימה טובה', 'חג סוכות שמח',
@@ -337,7 +409,62 @@ function DesignStep({
   // השם אופציונלי — אם ריק, לא מופיע כלל בכרטיס
   const cardName = senderName.trim()
 
-  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg })
+  // מיון הרקעים: קטגוריה שמילת מפתח שלה מופיעה בטקסט — מוצגת ראשונה.
+  // כך בוחר 'יום ראשון, שבוע טוב...' רואה קודם את רקעי 'שבוע טוב'.
+  const sortedBackgrounds = (() => {
+    const t = text || ''
+    const isMatch = (b) => (b.match || []).some(kw => t.includes(kw))
+    return [...BACKGROUNDS].sort((a, b) => (isMatch(b) ? 1 : 0) - (isMatch(a) ? 1 : 0))
+  })()
+
+  // ברירת מחדל = רקע מותאם לברכה.
+  // כשנכנסים למסך, אם הברכה תואמת קטגוריה (לפי match) — בוחרים אוטומטית
+  // את הרקע הראשון שלה. אם זו ברכה חופשית בלי התאמה — נשארים על תבנית.
+  // רץ פעם אחת בכניסה למסך (מסומן ב-ref כדי לא לדרוס בחירה ידנית של המשתמש).
+  const didSetDefaultBg = useRef(false)
+  useEffect(() => {
+    if (didSetDefaultBg.current) return
+    didSetDefaultBg.current = true
+    const t = text || ''
+    const firstMatch = BACKGROUNDS.find(b => (b.match || []).some(kw => t.includes(kw)))
+    if (firstMatch) setBgId(firstMatch.id)
+  }, [])
+
+  // היסט אנכי נפרד לטקסט הראשי ולשם (בפיקסלי SVG, טווח 1080)
+  const [offsetYText, setOffsetYText] = useState(0)
+  const [offsetYName, setOffsetYName] = useState(0)
+  const [dragTarget, setDragTarget] = useState('text')
+
+  // כשמחליפים תבנית/רקע — מאפסים את שני ההיסטים
+  useEffect(() => { setOffsetYText(0); setOffsetYName(0) }, [templateId, bgId])
+
+  // ── גרירה ──────────────────────────────────────
+  // שתי ידיות נפרדות: אחת לטקסט הראשי, אחת לשם.
+  // לחיצה בחצי העליון של הכרטיס = גוררים את הטקסט,
+  // בחצי התחתון = גוררים את השם.
+  const previewRef = useRef(null)
+  const dragRef = useRef(null)
+
+  const clampOffset = (v) => Math.max(-380, Math.min(380, v))
+
+  const onDragStart = (clientY) => {
+    dragRef.current = {
+      startY: clientY,
+      startOffset: dragTarget === 'name' ? offsetYName : offsetYText,
+    }
+  }
+  const onDragMove = (clientY) => {
+    if (!dragRef.current || !previewRef.current) return
+    const rect = previewRef.current.getBoundingClientRect()
+    const scale = 1080 / rect.height
+    const deltaPx = (clientY - dragRef.current.startY) * scale
+    const next = clampOffset(dragRef.current.startOffset + deltaPx)
+    if (dragTarget === 'name') setOffsetYName(next)
+    else setOffsetYText(next)
+  }
+  const onDragEnd = () => { dragRef.current = null }
+
+  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText, offsetYName })
   const previewSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 
   const buildThumb = (t) => {
@@ -476,16 +603,53 @@ function DesignStep({
         background: 'var(--bg-page)',
         overflow: 'hidden',
       }}>
-        <div style={{
+        <div ref={previewRef} style={{
           width: '100%', maxWidth: 'min(100%, calc(100vh - 280px))',
           aspectRatio: '1',
           borderRadius: 20, overflow: 'hidden',
           boxShadow: 'var(--shadow-lg)',
           background: palette.bgDeep,
-        }}>
-          <img src={previewSrc} alt="תצוגה מקדימה"
-               style={{ width: '100%', height: '100%', display: 'block' }} />
+          position: 'relative',
+          touchAction: 'none', cursor: 'grab',
+        }}
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientY) }}
+          onPointerMove={e => onDragMove(e.clientY)}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+        >
+          <img src={previewSrc} alt="תצוגה מקדימה" draggable={false}
+               style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }} />
         </div>
+      </div>
+
+      {/* בורר — מה גוררים: הברכה או השם */}
+      <div style={{
+        flexShrink: 0, display: 'flex', gap: 8, justifyContent: 'center',
+        alignItems: 'center', padding: '0 16px 8px',
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
+          גרורו למיקום:
+        </span>
+        <button onClick={() => setDragTarget('text')} style={{
+          padding: '7px 16px', borderRadius: 10,
+          background: dragTarget === 'text' ? 'var(--burgundy)' : 'var(--surface)',
+          color: dragTarget === 'text' ? 'white' : 'var(--ink)',
+          border: dragTarget === 'text' ? 'none' : '1px solid var(--line)',
+          fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+        }}>
+          📝 הברכה
+        </button>
+        {cardName && (
+          <button onClick={() => setDragTarget('name')} style={{
+            padding: '7px 16px', borderRadius: 10,
+            background: dragTarget === 'name' ? 'var(--burgundy)' : 'var(--surface)',
+            color: dragTarget === 'name' ? 'white' : 'var(--ink)',
+            border: dragTarget === 'name' ? 'none' : '1px solid var(--line)',
+            fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+          }}>
+            👤 השם
+          </button>
+        )}
       </div>
 
       {/* ─── סרגל לשוניות תחתון ─── */}
@@ -554,7 +718,7 @@ function DesignStep({
                 <span style={{ fontSize: 22 }}>✕</span>
                 <span style={{ fontSize: 12, fontWeight: 600 }}>ללא רקע</span>
               </button>
-              {BACKGROUNDS.map(b => (
+              {sortedBackgrounds.map(b => (
                 <button key={b.id} onClick={() => setBgId(b.id)} style={{
                   padding: 0,
                   border: bg?.id === b.id ? '3px solid var(--burgundy)' : '2px solid var(--line)',
@@ -882,7 +1046,7 @@ function illustDovesWithFlowers(W, H, accent, ink) {
 // ═══════════════════════════════════════════════════════════════
 // בונה SVG ראשי
 // ═══════════════════════════════════════════════════════════════
-function buildSVG({ text, cardName, tpl, palette, font, size, bg }) {
+function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 0, offsetYName = 0 }) {
   const W = 1080, H = 1080
 
   // כשיש רקע תמונה — הוא גובר על הצבע/תבנית.
@@ -969,21 +1133,26 @@ function buildSVG({ text, cardName, tpl, palette, font, size, bg }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${background}
   ${decoration}
-  ${topLine}
 
-  <text font-family="${font.css}" font-size="${bigFont}" font-weight="${font.weight}"
-        fill="${ink}" text-anchor="middle" direction="rtl">${textLines}</text>
+  <!-- בלוק הטקסט הראשי הנגרר -->
+  <g transform="translate(0, ${offsetYText})">
+    ${topLine}
+    <text font-family="${font.css}" font-size="${bigFont}" font-weight="${font.weight}"
+          fill="${ink}" text-anchor="middle" direction="rtl">${textLines}</text>
+  </g>
 
-  <line x1="${W / 2 - 120}" y1="${dividerY}" x2="${W / 2 + 120}" y2="${dividerY}"
-        stroke="${accent}" stroke-width="2" opacity="${cardName ? 0.8 : 0}"/>
+  <!-- בלוק השם הנגרר (קו מפריד + שם) — נגרר בנפרד -->
+  ${cardName ? `<g transform="translate(0, ${offsetYName})">
+    <line x1="${W / 2 - 120}" y1="${dividerY}" x2="${W / 2 + 120}" y2="${dividerY}"
+          stroke="${accent}" stroke-width="2" opacity="0.8"/>
+    <text x="${W / 2}" y="${senderY}" font-family="${font.css}"
+          font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${ink}" text-anchor="middle"
+          direction="rtl" opacity="0.92">${escapeXML(cardName)}</text>
+  </g>` : ''}
 
-  ${cardName ? `<text x="${W / 2}" y="${senderY}" font-family="${font.css}"
-        font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${ink}" text-anchor="middle"
-        direction="rtl" opacity="0.92">${escapeXML(cardName)}</text>` : ''}
-
-  <!-- כיתוב שיווקי — מיקום קבוע גם אם אין שם מאחל -->
-  <text x="${W / 2}" y="${cardName ? senderY + 56 : dividerY + 30}"
-        font-family="'Heebo', sans-serif" font-size="22" font-weight="500"
+  <!-- כיתוב שיווקי — קבוע בתחתית, לא זז עם הגרירה -->
+  <text x="${W / 2}" y="${H - 48}"
+        font-family="'Heebo', sans-serif" font-size="21" font-weight="500"
         fill="${ink}" text-anchor="middle"
         opacity="0.5" direction="rtl" letter-spacing="0.5">ברכה זו נוצרה באמצעות אפליקציית ביחד</text>
 </svg>`
