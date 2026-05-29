@@ -783,6 +783,8 @@ function SheshLayout({
           canRoll={canRoll} onRoll={onRoll}
         />
 
+        {isOnline && me?.uid && <ChatToast inline msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
+
         {/* שורה תחתונה: שחקן + כפתורי זהב */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginTop: 14 }}>
           <PlayerCard name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />
@@ -798,7 +800,6 @@ function SheshLayout({
         </div>
       </div>
 
-      {isOnline && me?.uid && <ChatToast msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
       {chatOpen && isOnline && me?.uid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>

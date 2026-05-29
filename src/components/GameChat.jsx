@@ -22,12 +22,12 @@ function barBtnStyle(dark) {
     : { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)' }
 }
 
-export default function GameSocialBar({ roomId, me, opponent, chat = [], dark = false }) {
+export default function GameSocialBar({ roomId, me, opponent, chat = [], dark = false, suppressToast = false }) {
   if (!me?.uid) return null
   return (
     <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
       <AddFriendButton me={me} opponent={opponent} dark={dark} />
-      <ChatButton roomId={roomId} me={me} chat={chat} dark={dark} />
+      <ChatButton roomId={roomId} me={me} chat={chat} dark={dark} suppressToast={suppressToast} />
     </div>
   )
 }
@@ -100,7 +100,7 @@ export function AddFriendButton({ me, opponent, dark, compact = false }) {
 // ═══════════════════════════════════════════════════════════
 // כפתור צ'אט + חלון
 // ═══════════════════════════════════════════════════════════
-function ChatButton({ roomId, me, chat, dark }) {
+function ChatButton({ roomId, me, chat, dark, suppressToast = false }) {
   const [open, setOpen] = useState(false)
   const msgs = chat || []
   const [seen, setSeen] = useState(msgs.length)
@@ -130,7 +130,7 @@ function ChatButton({ roomId, me, chat, dark }) {
           </span>
         )}
       </button>
-      <ChatToast msgs={msgs} meUid={me.uid} suppressed={open} onOpen={() => setOpen(true)} />
+      {!suppressToast && <ChatToast msgs={msgs} meUid={me.uid} suppressed={open} onOpen={() => setOpen(true)} />}
       {open && (
         <ChatPanel roomId={roomId} me={me} msgs={msgs} onClose={() => setOpen(false)} />
       )}
@@ -263,7 +263,7 @@ export function ChatPanel({ roomId, me, msgs, onClose }) {
 // ═══════════════════════════════════════════════════════════════
 // בועת התראה — קופצת כשמגיעה הודעה חדשה מהיריב (כשהצ'אט סגור)
 // ═══════════════════════════════════════════════════════════════
-export function ChatToast({ msgs = [], meUid, suppressed = false, onOpen }) {
+export function ChatToast({ msgs = [], meUid, suppressed = false, onOpen, inline = false }) {
   const [toast, setToast] = useState(null)
   const lastTsRef = useRef(msgs.length ? (msgs[msgs.length - 1].ts || 0) : 0)
 
@@ -281,25 +281,32 @@ export function ChatToast({ msgs = [], meUid, suppressed = false, onOpen }) {
   }, [msgs.length]) // eslint-disable-line
 
   if (!toast) return null
-  return (
-    <div
-      onClick={() => { setToast(null); onOpen && onOpen() }}
-      style={{
-        position: 'fixed', insetInlineStart: '50%', transform: 'translateX(-50%)',
-        bottom: 92, zIndex: 1100, maxWidth: 340, width: 'calc(100% - 32px)',
-        background: 'linear-gradient(180deg,#3a2a18,#241608)',
-        border: '1.5px solid #C9A24A', borderRadius: 16, padding: '11px 14px',
-        boxShadow: '0 10px 28px -6px rgba(0,0,0,.55)', cursor: 'pointer', direction: 'rtl',
-        display: 'flex', alignItems: 'center', gap: 10, animation: 'chatToastIn .28s ease',
-      }}
-    >
-      <div style={{ fontSize: 22, flexShrink: 0 }}>💬</div>
+
+  const inner = (
+    <>
+      <div style={{ fontSize: 20, flexShrink: 0 }}>💬</div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#E8C879', marginBottom: 1 }}>{toast.name || 'הודעה חדשה'}</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: '#F3E2BE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.text}</div>
+        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#E8C879', marginBottom: 1 }}>{toast.name || 'הודעה חדשה'}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#F3E2BE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.text}</div>
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#C9A24A', flexShrink: 0 }}>פתח ›</div>
-      <style>{`@keyframes chatToastIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#C9A24A', flexShrink: 0 }}>פתח ›</div>
+      <style>{`@keyframes chatToastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+    </>
+  )
+
+  const baseStyle = {
+    background: 'linear-gradient(180deg,#3a2a18,#241608)',
+    border: '1.5px solid #C9A24A', borderRadius: 14, padding: '10px 13px',
+    cursor: 'pointer', direction: 'rtl', display: 'flex', alignItems: 'center', gap: 9,
+    boxShadow: '0 6px 18px -4px rgba(0,0,0,.5)', animation: 'chatToastIn .26s ease',
+  }
+  const style = inline
+    ? { ...baseStyle, position: 'relative', width: '100%', margin: '10px 0 2px' }
+    : { ...baseStyle, position: 'fixed', insetInlineEnd: 12, bottom: 86, zIndex: 1100, maxWidth: 'min(290px, calc(100vw - 24px))' }
+
+  return (
+    <div onClick={() => { setToast(null); onOpen && onOpen() }} style={style}>
+      {inner}
     </div>
   )
 }

@@ -30,7 +30,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import GameSocialBar from '../components/GameChat.jsx'
+import GameSocialBar, { ChatToast } from '../components/GameChat.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const SIZE = 8
@@ -1105,7 +1105,8 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
-      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark />}
+      chat={room.chat || []} meUid={myUid}
+      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark suppressToast />}
     >
       {winner && (
         <OnlineEndModal
@@ -1129,7 +1130,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameLayout({
   onBack, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
-  onReset, onChangeMode, isOnline, socialBar, children,
+  onReset, onChangeMode, isOnline, socialBar, children, chat = [], meUid,
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
@@ -1143,8 +1144,8 @@ function GameLayout({
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #3A2818 0%, #2A1C10 100%)' }}>
       <div className="screen-header" style={{ background: 'transparent' }}>
-        <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
-          <IconBackRTL size={24} color="#FBF7EE" />
+        <button className="screen-header__back" onClick={onBack} aria-label="חזרה" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
+          <IconBackRTL size={24} color="#E8C879" />
         </button>
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה {isOnline ? 'אונליין' : ''}</div>
       </div>
@@ -1189,6 +1190,7 @@ function GameLayout({
           }}>{muted ? '🔇' : '🔊'}</button>
         </div>
 
+        {isOnline && meUid && <ChatToast inline msgs={chat} meUid={meUid} />}
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
           <button onClick={onReset} style={{
             flex: 1, background: '#C9A85E', color: '#2A1C10',
@@ -1441,8 +1443,8 @@ function OpponentLeftScreen({ onFindOther, onExit }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #3A2818 0%, #2A1C10 100%)' }}>
       <div className="screen-header" style={{ background: 'transparent' }}>
-        <button className="screen-header__back" onClick={onExit} aria-label="חזרה">
-          <IconBackRTL size={24} color="#FBF7EE" />
+        <button className="screen-header__back" onClick={onExit} aria-label="חזרה" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
+          <IconBackRTL size={24} color="#E8C879" />
         </button>
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה</div>
       </div>
