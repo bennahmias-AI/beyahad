@@ -53,9 +53,9 @@ const GAMES = [
     name: 'דמקה',
     description: 'פשוט וכייפי',
     emoji: '⚫',
-    players: '2 שחקנים',
+    players: 'AI / 2 שחקנים',
     color: '#2C5566', // teal
-    status: 'coming-soon',
+    status: 'available',
   },
   {
     id: 'connect4',
@@ -95,7 +95,7 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4 }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   const handleGameClick = (game) => {
@@ -106,6 +106,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4 }) {
     }
     if (game.id === 'connect4' && onGoConnect4) {
       onGoConnect4()
+      return
+    }
+    if (game.id === 'checkers' && onGoCheckers) {
+      onGoCheckers()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

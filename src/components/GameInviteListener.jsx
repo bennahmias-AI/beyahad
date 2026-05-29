@@ -21,6 +21,7 @@ import Avatar from './Avatar.jsx'
 // שמות המשחקים לתצוגה בחלונית
 const GAME_NAMES = {
   connect4: '4 בשורה',
+  checkers: 'דמקה',
 }
 
 export default function GameInviteListener({ onAccept }) {

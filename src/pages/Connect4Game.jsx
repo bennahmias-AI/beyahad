@@ -1393,14 +1393,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   }, [iRequested, oppRequested, myColor, roomId])
 
   if (error) {
-    return (
-      <ErrorScreen
-        emoji="😕"
-        title="היריב עזב"
-        description={error}
-        onBack={onBack}
-      />
-    )
+    return <OpponentLeftScreen onFindOther={onFindOther} onExit={onExit} />
   }
 
   if (!room) {
@@ -1469,6 +1462,12 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     onExit && onExit()
   }
 
+  // עזיבה רגילה (חזרה / עזוב משחק) — מוחק את החדר כדי שהיריב יקבל התראה
+  const handleLeave = async () => {
+    await leaveGameRoom(roomId).catch(() => {})
+    onBack && onBack()
+  }
+
   // טקסט סטטוס
   const statusText = (() => {
     if (winner === 'draw') return 'תיקו! 🤝'
@@ -1488,7 +1487,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 
   return (
     <GameScreenLayout
-      onBack={onBack}
+      onBack={handleLeave}
       statusText={statusText}
       statusColor={statusColor}
       p1Name={myColor === 'P1' ? (me?.name || 'אתה') : (opponent?.name || 'יריב')}
@@ -1501,7 +1500,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onColumnClick={handleColumnClick}
       disabled={!isMyTurn || !!winner}
       onReset={requestRematch}
-      onChangeMode={onBack}
+      onChangeMode={handleLeave}
       isOnline={true}
     >
       {winner && (
@@ -1911,6 +1910,41 @@ function RematchPrompt({ opponentName, iRequested, onConfirm, onCancel }) {
             </button>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+// מסך "היריב עזב" — עם אפשרות לחפש יריב חדש או לצאת
+function OpponentLeftScreen({ onFindOther, onExit }) {
+  return (
+    <div className="scroll-area" style={{ direction: 'rtl' }}>
+      <div className="screen-header">
+        <button className="screen-header__back" onClick={onExit} aria-label="חזרה">
+          <IconBackRTL size={24} color="#1B2540" />
+        </button>
+        <div className="screen-header__title">4 בשורה</div>
+      </div>
+      <div style={{ padding: 24 }}>
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          borderRadius: 20, padding: '32px 24px', textAlign: 'center',
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          <div style={{ fontSize: 56, marginBottom: 14 }}>👋</div>
+          <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 6 }}>
+            היריב עזב את המשחק
+          </div>
+          <div style={{ fontSize: 15, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.4, marginBottom: 20 }}>
+            המשחק הופסק. אפשר לחפש יריב חדש או לצאת.
+          </div>
+          <button onClick={onFindOther} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}>
+            🔎 חפש שחקן אחר
+          </button>
+          <button onClick={onExit} className="big-btn big-btn--ghost" style={{ width: '100%' }}>
+            יציאה
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -15,6 +15,7 @@ import FriendsPage from './pages/FriendsPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
 import Connect4Game from './pages/Connect4Game.jsx'
+import CheckersGame from './pages/CheckersGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import {
@@ -36,12 +37,16 @@ export default function App() {
   const [loadingSinging, setLoadingSinging] = useState(false)
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
   const [connect4Room, setConnect4Room] = useState(null)
+  const [checkersRoom, setCheckersRoom] = useState(null)
 
   // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
   function handleInviteAccept({ roomId, gameType }) {
     if (gameType === 'connect4') {
       setConnect4Room(roomId)
       setPage('connect4-game')
+    } else if (gameType === 'checkers') {
+      setCheckersRoom(roomId)
+      setPage('checkers-game')
     }
   }
 
@@ -139,6 +144,7 @@ export default function App() {
           onBack={() => setPage('hub')}
           onGoMemory={() => setPage('memory-game')}
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
+          onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
@@ -146,6 +152,12 @@ export default function App() {
         <Connect4Game
           initialRoomId={connect4Room}
           onBack={() => { setConnect4Room(null); setPage('games') }}
+        />
+      )}
+      {page === 'checkers-game' && (
+        <CheckersGame
+          initialRoomId={checkersRoom}
+          onBack={() => { setCheckersRoom(null); setPage('games') }}
         />
       )}
       {page === 'waiting' && (
