@@ -23,6 +23,7 @@ import {
 } from '../services/firebase.js'
 import {
   initGame, isBoardValid, drawTile, commitTurn, MELD_MIN,
+  drawOrResolve, sortRack,
 } from '../utils/rummikubEngine.js'
 import {
   RummiHeaderShared, BoardArea, PlayerRack, RummiButton,
@@ -324,6 +325,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
 // מסך המשחק המסונכרן
 // ════════════════════════════════════════════════════════
 function OnlineGame({ room, roomId, me, onBack }) {
+  const { profile } = useUserStore()
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
   const [draftBoard, setDraftBoard] = useState([])
   const [draftRack, setDraftRack] = useState([])
@@ -418,9 +420,10 @@ function OnlineGame({ room, roomId, me, onBack }) {
     if (!isMyTurn || winner) return
     const drawn = state.pool.length > 0 ? state.pool[0] : null
     playSound('drop')
-    const ns = drawTile(state)
+    // שליפה חכמה: אם הקופה ריקה — המשחק נגמר ומוכרע לפי נקודות
+    const { state: ns, ended } = drawOrResolve(state)
     await updateRummikubState(roomId, ns)
-    if (drawn) setLastDrawn({ tile: drawn, forIdx: myIndex })
+    if (drawn && !ended) setLastDrawn({ tile: drawn, forIdx: myIndex })
   }
 
   const handleResetDraft = () => {
@@ -431,6 +434,11 @@ function OnlineGame({ room, roomId, me, onBack }) {
     playSound('tap')
   }
 
+  const handleSortRack = (mode) => {
+    setDraftRack(prev => sortRack(prev, mode))
+    playSound('tap')
+  }
+
   const handleLeave = async () => { await leaveRummikubRoom(roomId); onBack() }
 
   const statusText = winner
@@ -438,30 +446,45 @@ function OnlineGame({ room, roomId, me, onBack }) {
     : isMyTurn ? 'תורך' : `תור ${state.players[turnIdx].name}`
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', minHeight: '100%' }}>
+    <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} />
 
-      <div style={{ padding: '12px 12px 24px' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, justifyContent: 'center' }}>
-          {state.players.map((p, i) => (
-            <div key={p.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: i === turnIdx && !winner ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
-              border: i === turnIdx && !winner ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-              borderRadius: 12, padding: '7px 12px',
-            }}>
-              <div style={{ fontSize: 16 }}>{p.id === me.uid ? '⭐' : '👤'}</div>
-              <div>
-                <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
-                <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{p.rack.length} אריחים</div>
-              </div>
-              {i === turnIdx && !winner && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
+      {/* פס שחקנים — קבוע למעלה */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
+        {state.players.map((p, i) => (
+          <div key={p.id} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: i === turnIdx && !winner ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
+            border: i === turnIdx && !winner ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
+            borderRadius: 12, padding: '7px 12px',
+          }}>
+            <Avatar name={p.name} size={34} photoURL={p.id === me.uid ? profile?.photoURL : null} />
+            <div>
+              <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
+              <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{p.rack.length} אריחים</div>
             </div>
-          ))}
-        </div>
+            {i === turnIdx && !winner && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
+          </div>
+        ))}
+      </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>השולחן</div>
+      {/* מונה אריחים בקופה */}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: 'rgba(0,0,0,.25)', border: `1px solid ${state.pool.length <= 5 ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
+          borderRadius: 999, padding: '5px 14px',
+        }}>
+          <span style={{ fontSize: 15 }}>🎴</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: state.pool.length <= 5 ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{state.pool.length}</span>
+        </div>
+      </div>
+
+      {/* השולחן — גמיש, גולל בפנים אם צריך */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
+        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <BoardArea
             board={draftBoard}
             onSetClick={placeOnSet}
@@ -469,12 +492,15 @@ function OnlineGame({ room, roomId, me, onBack }) {
             placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
           />
         </div>
+      </div>
 
-        <div style={{ textAlign: 'center', minHeight: 22, margin: '8px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
+      {/* אזור תחתון קבוע */}
+      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
+        <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
           {message || statusText}
         </div>
 
-        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} />
+        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} />
 
         {lastDrawn && lastDrawn.forIdx === myIndex && <NewTileBanner tile={lastDrawn.tile} />}
 
@@ -489,7 +515,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
         )}
 
         {isMyTurn && !winner && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <RummiButton ghost label="↩ אפס" onClick={handleResetDraft} />
             <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
             <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />

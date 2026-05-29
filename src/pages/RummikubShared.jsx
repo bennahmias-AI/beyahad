@@ -8,7 +8,7 @@
 // כך שני המסכים נראים זהים לחלוטין ואין כפילות קוד.
 // ─────────────────────────────────────────────────────────────
 import { IconBackRTL } from '../icons/index.jsx'
-import { isValidSet } from '../utils/rummikubEngine.js'
+import { isValidSet, sortSetForDisplay, sortRack } from '../utils/rummikubEngine.js'
 
 // ── פלטת צבעים (תואמת לדמו שאושר) ──────────────────────
 export const WOOD_DEEP   = 'linear-gradient(155deg,#5c3c22 0%,#43290f 55%,#321d0b 100%)'
@@ -22,11 +22,23 @@ export const JOKER_COLOR = '#b8332f'
 // ════════════════════════════════════════════════════════
 // אריח תלת-ממדי — אבן הבניין הויזואלית
 // ════════════════════════════════════════════════════════
+// סמיילי קורץ — צורת הג'וקר (ציור מקורי, ללא זכויות יוצרים)
+export function JokerFace({ size = 24, color = JOKER_COLOR }) {
+  const sw = size >= 24 ? 3 : 2.6
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" style={{ display: 'block' }} aria-hidden="true">
+      <circle cx="32" cy="32" r="26" fill="none" stroke={color} strokeWidth={sw} />
+      <circle cx="23" cy="27" r="3.6" fill={color} />
+      <path d="M38 26 Q42 27 46 26" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+      <path d="M21 40 Q32 51 43 40" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function Tile({ tile, size = 'normal', selected, onClick, dim }) {
   const isBig = size === 'big'
   const w = isBig ? 40 : 34, h = isBig ? 56 : 48
   const color = tile.joker ? JOKER_COLOR : TILE_COLORS[tile.color]
-  const label = tile.joker ? 'J' : tile.num
 
   return (
     <span
@@ -35,7 +47,7 @@ export function Tile({ tile, size = 'normal', selected, onClick, dim }) {
         width: w, height: h, borderRadius: isBig ? 7 : 6, flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         fontSize: isBig ? 23 : 20, fontWeight: 700, fontFamily: "'Suez One', serif",
-        color, fontStyle: tile.joker ? 'italic' : 'normal',
+        color,
         background: 'linear-gradient(180deg,#fffdf6 0%,#f4ead2 60%,#e3d4b0 100%)',
         boxShadow: selected
           ? `inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 3px ${GOLD}, 0 5px 0 #b09a72, 0 8px 10px rgba(0,0,0,.55)`
@@ -48,7 +60,7 @@ export function Tile({ tile, size = 'normal', selected, onClick, dim }) {
         userSelect: 'none',
       }}
     >
-      {label}
+      {tile.joker ? <JokerFace size={isBig ? 30 : 26} /> : tile.num}
     </span>
   )
 }
@@ -112,14 +124,18 @@ export function BoardArea({ board, onSetClick, onTileClick, placing }) {
       )}
       {board.map((set, i) => {
         const valid = isValidSet(set)
+        // מסדרים את הסט לתצוגה (רצף — לפי מספר; קבוצה — כרגיל)
+        const ordered = sortSetForDisplay(set)
         return (
           <div key={i} onClick={() => placing && onSetClick(i)} style={{
-            display: 'flex', gap: 4, padding: 6, borderRadius: 8,
+            display: 'flex', flexWrap: 'wrap', gap: 4, padding: 6, borderRadius: 8,
+            direction: 'ltr',
             background: 'rgba(0,0,0,.18)',
             border: valid ? '1px solid rgba(232,200,121,.25)' : '2px solid #e0746a',
             cursor: placing ? 'pointer' : 'default',
+            maxWidth: '100%',
           }}>
-            {set.map(tile => (
+            {ordered.map(tile => (
               <Tile key={tile.id} tile={tile} onClick={() => onTileClick(i, tile.id)} />
             ))}
           </div>
@@ -140,19 +156,36 @@ export function BoardArea({ board, onSetClick, onTileClick, placing }) {
 // ════════════════════════════════════════════════════════
 // מדף האריחים של השחקן
 // ════════════════════════════════════════════════════════
-export function PlayerRack({ rack, selectedTileId, onTileClick }) {
+export function PlayerRack({ rack, selectedTileId, onTileClick, onSort }) {
   return (
-    <div style={{
-      background: WOOD_RACK, borderRadius: 14, padding: '16px 12px 14px',
-      borderTop: '2px solid #e0bd82', borderInline: '2px solid #8a5e2e', borderBottom: '6px solid #2a1808',
-      boxShadow: 'inset 0 3px 8px rgba(0,0,0,.45), 0 6px 16px -4px rgba(0,0,0,.6)',
-      display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center',
-    }}>
-      {rack.map(tile => (
-        <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} onClick={() => onTileClick(tile.id)} />
-      ))}
+    <div>
+      {onSort && (
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 8 }}>
+          <button onClick={() => onSort('number')} style={sortBtnStyle}>🔢 סדר לפי מספר</button>
+          <button onClick={() => onSort('color')} style={sortBtnStyle}>🎨 סדר לפי צבע</button>
+        </div>
+      )}
+      <div style={{
+        background: WOOD_RACK, borderRadius: 14, padding: '16px 12px 14px',
+        borderTop: '2px solid #e0bd82', borderInline: '2px solid #8a5e2e', borderBottom: '6px solid #2a1808',
+        boxShadow: 'inset 0 3px 8px rgba(0,0,0,.45), 0 6px 16px -4px rgba(0,0,0,.6)',
+        display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center',
+        direction: 'ltr',
+      }}>
+        {rack.map(tile => (
+          <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} onClick={() => onTileClick(tile.id)} />
+        ))}
+      </div>
     </div>
   )
+}
+
+const sortBtnStyle = {
+  background: 'linear-gradient(180deg,#5e3f22,#3a2410)', color: '#e6cd90',
+  border: 'none', borderTop: '1px solid #a07d3e', borderBottom: '3px solid #1c1008',
+  borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 800,
+  fontFamily: 'inherit', cursor: 'pointer',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.4)',
 }
 
 // ════════════════════════════════════════════════════════
@@ -180,7 +213,7 @@ export function RummiButton({ label, onClick, gold, ghost }) {
 // banner — האריח החדש שהשחקן שלף בתור הקודם
 // ════════════════════════════════════════════════════════
 export function NewTileBanner({ tile }) {
-  const label = tile.joker ? 'גוקר (J)' : `${tile.num}`
+  const label = tile.joker ? 'ג׳וקר 😉' : `${tile.num}`
   const colorName = tile.joker ? '' : ({ red: 'אדום', blue: 'כחול', orange: 'כתום', green: 'ירוק' }[tile.color] || '')
   return (
     <div style={{

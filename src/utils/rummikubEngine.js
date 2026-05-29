@@ -151,6 +151,77 @@ export function isBoardValid(board) {
   return board.every(set => isValidSet(set))
 }
 
+// ── מסדר סט לתצוגה ──────────────────────────────
+// רצף → ממוין לפי מספר עולה, והג'וקרים מושבצים במקום
+// החסר הנכון (למשל 5-J-7 או J-6-7). קבוצה → נשארת כמו
+// שהיא. כך כשמוסיפים אריח לרצף, הוא מתמקם מיד במקום הנכון.
+export function sortSetForDisplay(set) {
+  if (!Array.isArray(set) || set.length === 0) return set
+  // רק לרצף חוקי — ממיינים. אחרת (קבוצה / לא חוקי) משאירים כמו שהוא
+  if (!isValidRun(set)) return set
+
+  const reals = set.filter(t => !t.joker).sort((a, b) => a.num - b.num)
+  const jokers = set.filter(t => t.joker)
+  if (reals.length === 0) return set
+
+  // מוצאים את נקודת ההתחלה האמיתית של הרצף (כולל ג'וקרים לפני הראשון)
+  const span = set.length
+  const minReal = reals[0].num
+  const maxReal = reals[reals.length - 1].num
+  let startNum = minReal
+  for (let s = Math.max(1, minReal - jokers.length); s <= minReal; s++) {
+    const e = s + span - 1
+    if (e > 13) continue
+    if (minReal < s || maxReal > e) continue
+    const realSet = new Set(reals.map(t => t.num))
+    let need = 0
+    for (let n = s; n <= e; n++) if (!realSet.has(n)) need++
+    if (need === jokers.length) { startNum = s; break }
+  }
+
+  // בונים את הרצף לפי סדר: בכל משבצת — אריח אמיתי אם יש, אחרת ג'וקר
+  const realByNum = {}
+  for (const t of reals) realByNum[t.num] = t
+  const jokerQueue = [...jokers]
+  const ordered = []
+  for (let n = startNum; n < startNum + span; n++) {
+    if (realByNum[n]) ordered.push(realByNum[n])
+    else if (jokerQueue.length) ordered.push(jokerQueue.shift())
+  }
+  // גיבוי — אם משהו השתבש, מחזירים את המקורי
+  return ordered.length === set.length ? ordered : set
+}
+
+// האם הקופה ריקה?
+export function isPoolEmpty(state) {
+  return !state.pool || state.pool.length === 0
+}
+
+// ── מיון היד של השחקן ──────────────────────────────
+// שתי שיטות מיון נוחות לסידור האריחים ביד:
+//   'color' — קודם לפי צבע, ואז לפי מספר (עוזר לבנות רצפים)
+//   'number' — קודם לפי מספר, ואז לפי צבע (עוזר לבנות קבוצות)
+// הג'וקרים תמיד בסוף.
+const COLOR_ORDER = { red: 0, blue: 1, orange: 2, green: 3 }
+
+export function sortRack(rack, mode = 'color') {
+  const tiles = [...rack]
+  return tiles.sort((a, b) => {
+    // ג'וקרים תמיד בסוף
+    if (a.joker && b.joker) return 0
+    if (a.joker) return 1
+    if (b.joker) return -1
+    if (mode === 'number') {
+      // לפי מספר ואז צבע
+      if (a.num !== b.num) return a.num - b.num
+      return COLOR_ORDER[a.color] - COLOR_ORDER[b.color]
+    }
+    // ברירת מחדל — לפי צבע ואז מספר
+    if (a.color !== b.color) return COLOR_ORDER[a.color] - COLOR_ORDER[b.color]
+    return a.num - b.num
+  })
+}
+
 // ════════════════════════════════════════════════════════
 // חישוב ערכי נקודות
 // ════════════════════════════════════════════════════════
@@ -270,6 +341,27 @@ export function resolveByPoints(state) {
     if (v < bestVal) { bestVal = v; best = i }
   })
   return { ...cloneState(state), phase: 'ended', winner: best, lastAction: Date.now() }
+}
+
+// שליפה חכמה: אם יש אריחים בקופה — שולפת ומעבירה תור.
+// אם הקופה ריקה — המשחק נגמר והמנצח נקבע לפי מי שנותרו
+// לו הכי פחות נקודות ביד (הכלל הרשמי של רמיקוב).
+// מחזיר: { state, ended: bool } — כך ה-UI יודע אם להציג מסך סיום.
+export function drawOrResolve(state) {
+  if (state.pool && state.pool.length > 0) {
+    return { state: drawTile(state), ended: false }
+  }
+  // הקופה ריקה — אין מה לשלוף, המשחק מוכרע לפי נקודות
+  return { state: resolveByPoints(state), ended: true }
+}
+
+// דירוג סופי לתצוגה במסך הסיום — מיון השחקנים לפי נקודות (נמוך=טוב).
+// מחזיר [{ name, points, isWinner }]
+export function finalStandings(state) {
+  return state.players
+    .map((p, i) => ({ name: p.name, id: p.id, points: rackValue(p.rack), index: i }))
+    .sort((a, b) => a.points - b.points)
+    .map((row, rank) => ({ ...row, isWinner: rank === 0 }))
 }
 
 // ════════════════════════════════════════════════════════
