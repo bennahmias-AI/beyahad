@@ -176,7 +176,7 @@ const TEXT_EFFECTS = [
 // להוספת קטגוריה: צור תיקיה תחת backgrounds/, שמור בה 1.png…2.png..., והוסף שורה כאן.
 const BG_CATEGORIES = [
   // ── קיימות (נוצרו ידנית — לא לגעת) ──
-  { dir: 'SHABAT', label: 'שבת שלום', count: 10, ext: 'png', match: ['שבת'],
+  { dir: 'SHABAT', label: 'שבת שלום', count: 30, ext: 'png', match: ['שבת'],
     textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
   { dir: 'SHAVUA TOV', label: 'שבוע טוב', count: 5, ext: 'png', match: ['שבוע טוב', 'יום ראשון'],
     textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
@@ -474,7 +474,8 @@ function TextStep({ text, setText, onNext }) {
 // STEP 2 — מסך עיצוב בסגנון Canva
 // ═══════════════════════════════════════════════════════════════
 function DesignStep({
-  onBack, text, setText, senderName, setSenderName,
+  onBack, text, setText, senderName,
+  showSender, setShowSender,
   templateId, setTemplateId,
   paletteId, setPaletteId, fontId, setFontId, sizeId, setSizeId,
   effectId, setEffectId, textColorId, setTextColorId,
@@ -551,8 +552,8 @@ function DesignStep({
   const effect = TEXT_EFFECTS.find(e => e.id === effectId) || TEXT_EFFECTS[0]
   const textColor = TEXT_COLORS.find(c => c.id === textColorId) || TEXT_COLORS[0]
   const tpl = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0]
-  // השם אופציונלי — אם ריק, לא מופיע כלל בכרטיס
-  const cardName = senderName.trim()
+  // השם מוצג רק אם המשתמש בחר להציג אותו (ויש לו שם בפרופיל)
+  const cardName = (showSender && senderName) ? senderName.trim() : ''
 
   // מיון הרקעים: קטגוריה שמילת מפתח שלה מופיעה בטקסט — מוצגת ראשונה.
   // כך בוחר 'יום ראשון, שבוע טוב...' רואה קודם את רקעי 'שבוע טוב'.
@@ -574,11 +575,9 @@ function DesignStep({
 
   // היסט אנכי נפרד לטקסט הראשי ולשם (בפיקסלי SVG, טווח 1080)
   const [offsetYText, setOffsetYText] = useState(0)
-  const [offsetYName, setOffsetYName] = useState(0)
-  const [dragTarget, setDragTarget] = useState('text')
 
-  // כשמחליפים תבנית/רקע — מאפסים את שני ההיסטים
-  useEffect(() => { setOffsetYText(0); setOffsetYName(0) }, [templateId, bgId])
+  // כשמחליפים תבנית/רקע — מאפסים את ההיסט
+  useEffect(() => { setOffsetYText(0) }, [templateId, bgId])
 
   // ── גרירה ──────────────────────────────────────
   // שתי ידיות נפרדות: אחת לטקסט הראשי, אחת לשם.
@@ -592,7 +591,7 @@ function DesignStep({
   const onDragStart = (clientY) => {
     dragRef.current = {
       startY: clientY,
-      startOffset: dragTarget === 'name' ? offsetYName : offsetYText,
+      startOffset: offsetYText,
     }
   }
   const onDragMove = (clientY) => {
@@ -600,13 +599,11 @@ function DesignStep({
     const rect = previewRef.current.getBoundingClientRect()
     const scale = 1080 / rect.height
     const deltaPx = (clientY - dragRef.current.startY) * scale
-    const next = clampOffset(dragRef.current.startOffset + deltaPx)
-    if (dragTarget === 'name') setOffsetYName(next)
-    else setOffsetYText(next)
+    setOffsetYText(clampOffset(dragRef.current.startOffset + deltaPx))
   }
   const onDragEnd = () => { dragRef.current = null }
 
-  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText, offsetYName, effect, textColor })
+  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText, effect, textColor })
 
   // תמונת תצוגה מקדימה לתבנית: משתמשת ברקע מתאים לטקסט הברכה אם יש.
   // התבנית המשתנה היא בסגנון (פונט/אפקט/צבע), אז מספיק לתת תצוגה
@@ -690,31 +687,17 @@ function DesignStep({
       drawTextWithEffect(ctx, ln, x, y, ink, effId, actualFont)
     })
 
-    // ── שם המאחל + קו מפריד ──
+    // ── שם המאחל — מוצג מעל הכיתוב השיווקי, עם קו-מתאר לבן לקריאות על כל רקע ──
     if (cardName) {
-      const dividerY = firstLineY + (lines.length - 1) * lineHeight + actualFont * 0.85 + offsetYName
-      const senderY = dividerY + 70
-      const accent = bg ? bg.accent : palette.accent
-
-      // קו
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 2
-      ctx.globalAlpha = 0.8
-      ctx.beginPath()
-      ctx.moveTo(W / 2 - 120, dividerY)
-      ctx.lineTo(W / 2 + 120, dividerY)
-      ctx.stroke()
-      ctx.globalAlpha = 1
-
-      // שם — עטוף לשורות אם ארוך
-      ctx.font = `${Math.min(font.weight, 700)} 40px "${fam}", serif`
-      ctx.fillStyle = ink
-      ctx.globalAlpha = 0.92
-      const nameLines = wrapText(cardName, 26)
-      nameLines.forEach((ln, i) => {
-        ctx.fillText(ln, W / 2, senderY + i * 50)
-      })
-      ctx.globalAlpha = 1
+      ctx.font = `700 28px "${fam}", serif`
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#1B1B1B'
+      ctx.strokeStyle = '#FFFFFF'
+      ctx.lineWidth = 4
+      ctx.lineJoin = 'round'
+      const senderText = `מאחל: ${cardName}`
+      ctx.strokeText(senderText, W / 2, H - 80)
+      ctx.fillText(senderText, W / 2, H - 80)
     }
 
     // ── כיתוב שיווקי ──
@@ -724,8 +707,8 @@ function DesignStep({
     ctx.strokeStyle = '#FFFFFF'
     ctx.lineWidth = 4
     ctx.lineJoin = 'round'
-    ctx.strokeText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 48)
-    ctx.fillText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 48)
+    ctx.strokeText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 40)
+    ctx.fillText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 40)
 
     return new Promise((resolve, reject) => {
       canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png')
@@ -786,7 +769,6 @@ function DesignStep({
     { id: 'templates', label: 'תבניות', Icon: IconTemplates },
     { id: 'backgrounds', label: 'רקע', Icon: IconBackground },
     { id: 'text',      label: 'טקסט',   Icon: IconText },
-    { id: 'sender',    label: 'שם המאחל', Icon: IconSender },
     { id: 'font',      label: 'פונט',   Icon: IconFont },
     { id: 'effect',    label: 'אפקטים', Icon: IconEffects },
     { id: 'color',     label: 'צבע',    Icon: IconColor },
@@ -880,34 +862,13 @@ function DesignStep({
         </div>
       </div>
 
-      {/* בורר — מה גוררים: הברכה או השם */}
+      {/* רמז מונדרני — להזכיר למשתמש שהתצוגה ניתנת לגרירה */}
       <div style={{
-        flexShrink: 0, display: 'flex', gap: 8, justifyContent: 'center',
+        flexShrink: 0, display: 'flex', gap: 6, justifyContent: 'center',
         alignItems: 'center', padding: '0 16px 8px',
+        fontSize: 12, fontWeight: 600, color: 'var(--ink-3)',
       }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
-          גרורו למיקום:
-        </span>
-        <button onClick={() => setDragTarget('text')} style={{
-          padding: '7px 16px', borderRadius: 10,
-          background: dragTarget === 'text' ? 'var(--burgundy)' : 'var(--surface)',
-          color: dragTarget === 'text' ? 'white' : 'var(--ink)',
-          border: dragTarget === 'text' ? 'none' : '1px solid var(--line)',
-          fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-        }}>
-          📝 הברכה
-        </button>
-        {cardName && (
-          <button onClick={() => setDragTarget('name')} style={{
-            padding: '7px 16px', borderRadius: 10,
-            background: dragTarget === 'name' ? 'var(--burgundy)' : 'var(--surface)',
-            color: dragTarget === 'name' ? 'white' : 'var(--ink)',
-            border: dragTarget === 'name' ? 'none' : '1px solid var(--line)',
-            fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-          }}>
-            👤 השם
-          </button>
-        )}
+        <span>👆 גררו למיקום מועדף</span>
       </div>
 
       {/* ─── סרגל לשוניות תחתון ─── */}
@@ -1050,30 +1011,45 @@ function DesignStep({
               }}>
                 {text.length} / {MAX_TEXT}
               </div>
-            </div>
-          )}
 
-          {activeTab === 'sender' && (
-            <div style={{ width: '100%' }}>
-              <input
-                value={senderName}
-                onChange={e => setSenderName(e.target.value.slice(0, MAX_NAME))}
-                maxLength={MAX_NAME}
-                placeholder="השם שלך"
-                style={{
-                  width: '100%', fontSize: 16, fontFamily: 'inherit',
-                  padding: '12px 14px', borderRadius: 10,
-                  border: '1.5px solid var(--line-strong)',
-                  background: 'var(--bg-app)', color: 'var(--ink)',
-                  direction: 'rtl',
-                }}
-              />
-              <div style={{
-                textAlign: 'left', fontSize: 12, fontWeight: 600, marginTop: 4,
-                color: senderName.length >= MAX_NAME ? 'var(--burgundy)' : 'var(--ink-3)',
-              }}>
-                {senderName.length} / {MAX_NAME}
-              </div>
+              {/* Toggle להצגת שם המאחל — השם מגיע מהפרופיל אוטומטית */}
+              {senderName && (
+                <div style={{
+                  marginTop: 12, padding: '10px 12px',
+                  background: 'var(--surface)', borderRadius: 10,
+                  border: '1px solid var(--line)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                      הצג מאחל על הברכה
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)', marginTop: 2 }}>
+                      מאחל: {senderName}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowSender(!showSender)}
+                    aria-label={showSender ? 'הסתר מאחל' : 'הצג מאחל'}
+                    style={{
+                      width: 48, height: 28, borderRadius: 14,
+                      background: showSender ? 'var(--burgundy)' : 'var(--line-strong)',
+                      border: 'none', cursor: 'pointer',
+                      position: 'relative', transition: 'background 0.2s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      position: 'absolute', top: 3,
+                      [showSender ? 'right' : 'left']: 3,
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: 'white',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      transition: 'all 0.2s',
+                    }} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1568,7 +1544,7 @@ function buildTextWithEffect({ effectId, textLines, fontCss, fontWeight, fontSiz
   }
 }
 
-function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 0, offsetYName = 0, effect, textColor }) {
+function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 0, effect, textColor }) {
   const W = 1080, H = 1080
 
   // כשיש רקע תמונה — הוא גובר על הצבע/תבנית.
@@ -1602,9 +1578,6 @@ function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 
     `<tspan x="${W / 2}" y="${firstLineY + i * lineHeight}">${escapeXML(ln)}</tspan>`
   ).join('')
 
-  const dividerY = firstLineY + (lines.length - 1) * lineHeight + bigFont * 0.85
-  const senderY = dividerY + 70
-
   // בונה את שכבת הטקסט לפי האפקט הנבחר (uid ייחודי ל-id הפילטר)
   const effId = (effect && effect.id) || 'none'
   const fxUid = Math.random().toString(36).slice(2, 8)
@@ -1627,15 +1600,6 @@ function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 
       `<rect width="${W}" height="${H}" fill="url(#bg-grad-${fxUid})"/>`
   }
 
-  // ── עטיפת שם המאחל לשורות אם ארוך ──────────────────────────────
-  // שם גדול עלול לברוח מהכרטיס — מגבילים את הרוחב הזמין ועוטפים לשורות לפי הצורך.
-  const nameMaxChars = 26
-  const nameLines = cardName ? wrapText(cardName, nameMaxChars) : []
-  const nameLineHeight = 50
-  const nameTspans = nameLines.map((ln, i) =>
-    `<tspan x="${W / 2}" y="${senderY + i * nameLineHeight}">${escapeXML(ln)}</tspan>`
-  ).join('')
-
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block" preserveAspectRatio="xMidYMid meet">
   <defs><style>${buildFontFace(font.id)}</style>${fx.defs}</defs>
   ${background}
@@ -1644,18 +1608,16 @@ function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 
     ${fx.content}
   </g>
 
-  <!-- בלוק השם הנגרר (קו מפריד + שם) — נגרר בנפרד -->
-  ${cardName ? `<g transform="translate(0, ${offsetYName})">
-    <line x1="${W / 2 - 120}" y1="${dividerY}" x2="${W / 2 + 120}" y2="${dividerY}"
-          stroke="${accent}" stroke-width="2" opacity="0.8"/>
-    <text font-family="${font.css}"
-          font-size="40" font-weight="${Math.min(font.weight, 700)}" fill="${ink}" text-anchor="middle"
-          direction="rtl" opacity="0.92">${nameTspans}</text>
-  </g>` : ''}
+  <!-- שם המאחל — מוצג מעל הכיתוב השיווקי, עם קו-מתאר לבן לקריאות על כל רקע -->
+  ${cardName ? `<text x="${W / 2}" y="${H - 80}"
+        font-family="${font.css}" font-size="28" font-weight="700"
+        fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
+        stroke-linejoin="round" text-anchor="middle"
+        direction="rtl">מאחל: ${escapeXML(cardName)}</text>` : ''}
 
   <!-- כיתוב שיווקי — קבוע בתחתית, לא זז עם הגרירה.
        כתב שחור עם קו-מתאר לבן (paint-order=stroke) כדי שיהיה קריא על כל רקע. -->
-  <text x="${W / 2}" y="${H - 48}"
+  <text x="${W / 2}" y="${H - 40}"
         font-family="'Heebo', sans-serif" font-size="21" font-weight="600"
         fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
         stroke-linejoin="round" text-anchor="middle"

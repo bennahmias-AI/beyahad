@@ -3,14 +3,17 @@
 // הגדרת הקטגוריות והפרומפטים ליצירת רקעי ברכה אוטומטית.
 //
 // מבנה: כל קטגוריה = תיקייה אחת, עם רשימת "variants" (סצנות).
-//   dir      — שם התיקייה תחת public/backgrounds/
-//   label    — שם עברי (לתיעוד)
-//   variants — רשימת סצנות, כל אחת { prompt, count }
+//   dir       — שם התיקייה תחת public/backgrounds/
+//   label     — שם עברי (לתיעוד)
+//   variants  — רשימת סצנות, כל אחת { prompt, count }
+//   startFrom — אופציונלי: מספר הקובץ הראשון (ברירת מחדל: 1)
 //
 // גיוון: כל סצנה מקבלת מקום שונה מרשימת PLACES — כך כל תמונה
 //        שונה מהותית מקודמתה, גם כשהנושא זהה.
 //
-// חשוב: SHABAT ו-SHAVUA TOV לא מופיעות כאן בכוונה — אסור לגעת בהן.
+// חשוב: SHAVUA TOV לא מופיעה כאן בכוונה — אסור לגעת בה.
+// SHABAT — 10 התמונות הראשונות (1.png-10.png) נוצרו ידנית, אסור לגעת בהן.
+//          הסקריפט מתחיל מ-11.png כדי לא לדרוס את הקיימות.
 // ─────────────────────────────────────────────────────────────
 
 // ── תבנית סגנון מצויר ──
@@ -61,6 +64,105 @@ const makeVariedCategory = (dir, label, theme, styleFn = realistic, places = PLA
 })
 
 export const CATEGORIES = [
+  // ═══════════ שבת — 20 תוספות (16 ריאליסטי + 4 מצויר) ═══════════
+  // מתחיל מ-11.png — 10 הראשונות לא יידרסו
+  {
+    dir: 'SHABAT',
+    label: 'שבת שלום',
+    startFrom: 11,
+    variants: [
+      // ── שולחן שבת ואוכל (6 ריאליסטי) ──
+      { prompt: realistic(
+        'a traditional shabbat dinner table set beautifully, two challah breads covered with an embroidered white cloth, lit candles in silver candlesticks, a silver kiddush cup with red wine, warm soft candlelight.',
+        'a cozy festive dining room with warm wooden tones'
+      ), count: 1 },
+      { prompt: realistic(
+        'an elegant modern shabbat table, minimalist beautiful setting with white plates, fresh white flowers in a vase, two tall candles, soft natural light from a window.',
+        'a bright modern dining room with clean lines'
+      ), count: 1 },
+      { prompt: realistic(
+        'two freshly baked golden challah breads close-up, steam rising, sesame seeds on top, beautiful braided texture, warm golden crust.',
+        'a rustic wooden kitchen surface with soft natural light'
+      ), count: 1 },
+      { prompt: realistic(
+        'a winter shabbat dinner table, warm hearty soup, challah, candles glowing, intimate cozy atmosphere with deep warm tones.',
+        'a warm dining room on a cold winter evening, soft lamp light'
+      ), count: 1 },
+      { prompt: realistic(
+        'kiddush scene, a beautiful silver kiddush cup overflowing with red wine, covered challah breads beside it, soft elegant lighting.',
+        'an elegant shabbat dinner table with white tablecloth'
+      ), count: 1 },
+      { prompt: realistic(
+        'a shabbat morning lunch table, traditional cholent and kugel in beautiful serving dishes, salads, fresh challah, abundance of food, warm bright daylight.',
+        'a sunny dining room mid-morning with white tablecloth'
+      ), count: 1 },
+
+      // ── בית כנסת (4 ריאליסטי) ──
+      { prompt: realistic(
+        'inside a beautiful traditional synagogue, ornate ark with torah scrolls behind a velvet curtain, wooden benches, warm soft light streaming through windows, peaceful sacred atmosphere.',
+        'a classic ashkenazi synagogue interior'
+      ), count: 1 },
+      { prompt: realistic(
+        'a beautiful jerusalem synagogue interior, jerusalem stone walls, oil menorah burning, soft spiritual light, ancient atmosphere with golden warm tones.',
+        'an old jerusalem synagogue with stone walls'
+      ), count: 1 },
+      { prompt: realistic(
+        'a synagogue at friday evening, view toward the bimah and ark, warm candles glowing, soft golden light, serene shabbat eve atmosphere.',
+        'a synagogue interior at dusk just before kabbalat shabbat'
+      ), count: 1 },
+      { prompt: realistic(
+        'a beautiful sephardic synagogue, oriental decorations in burgundy and gold, ornate tiles, hanging brass lamps, warm rich colors and atmosphere.',
+        'a sephardic synagogue interior with traditional decor'
+      ), count: 1 },
+
+      // ── חופש ושלווה (4 ריאליסטי) ──
+      { prompt: realistic(
+        'a peaceful green valley landscape at the golden hour of friday afternoon, rolling hills, soft warm light, calm and inviting nature scene welcoming shabbat.',
+        'a wide open israeli countryside valley at sunset'
+      ), count: 1 },
+      { prompt: realistic(
+        'a quiet seaside promenade at sunset on friday afternoon, gentle waves, soft pink and gold sky, peaceful weekend mood.',
+        'a tel aviv style mediterranean beach at golden hour'
+      ), count: 1 },
+      { prompt: realistic(
+        'a serene mountain landscape with morning mist, soft light, restful natural beauty perfect for shabbat morning.',
+        'the galilee mountains at dawn with golden mist'
+      ), count: 1 },
+      { prompt: realistic(
+        'a peaceful path through an old olive grove, ancient olive trees, soft israeli countryside light, biblical pastoral atmosphere.',
+        'an olive grove in the judean hills, late afternoon'
+      ), count: 1 },
+
+      // ── מסורת וסמלים (2 ריאליסטי) ──
+      { prompt: realistic(
+        'two shabbat candles burning peacefully in elegant silver candlesticks, a beautifully embroidered head covering nearby, soft intimate candlelight against a dark blurred background.',
+        'a quiet corner with candles glowing in the evening'
+      ), count: 1 },
+      { prompt: realistic(
+        'an open prayer book (siddur) on a wooden table, soft warm light from a side window, peaceful spiritual atmosphere with golden tones.',
+        'a study room with wooden table and open siddur'
+      ), count: 1 },
+
+      // ── הדגמה (4 מצויר) ──
+      { prompt: illustrated(
+        'a warmly illustrated shabbat table from above, two braided challah breads, kiddush wine cup, lit candles, gentle pastel watercolor style, peaceful welcoming atmosphere.',
+        'a soft watercolor flat-lay of a shabbat table'
+      ), count: 1 },
+      { prompt: illustrated(
+        'a soft illustrated scene of two glowing shabbat candles with golden flames, decorative floral border in pastels, gentle dreamy mood.',
+        'an illustrated candles scene with watercolor flowers'
+      ), count: 1 },
+      { prompt: illustrated(
+        'an illustrated jerusalem cityscape at friday sunset, jerusalem stone houses, soft pink and gold sky, peaceful pastel watercolor style.',
+        'a stylized illustration of the jerusalem old city skyline'
+      ), count: 1 },
+      { prompt: illustrated(
+        'a gentle illustration of a covered braided challah on a beautiful tray with grape vines and wheat decorations, warm cream and gold pastel palette, elegant traditional style.',
+        'a flat decorative composition of challah with wheat and grapes'
+      ), count: 1 },
+    ],
+  },
+
   // ═══════════ ימים ═══════════
   makeVariedCategory('YOM_RISHON', 'יום ראשון',
     'a hopeful fresh start of a new week, gentle morning light, optimistic and peaceful mood.'),

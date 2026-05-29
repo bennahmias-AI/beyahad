@@ -88,10 +88,11 @@ async function main() {
     fs.mkdirSync(dir, { recursive: true })
 
     const plan = buildPlan(cat)
-    console.log(`\n── ${cat.label} (${cat.dir}) — ${plan.length} תמונות ──`)
+    const startFrom = cat.startFrom || 1
+    console.log(`\n── ${cat.label} (${cat.dir}) — ${plan.length} תמונות${startFrom > 1 ? ` (מתחיל מ-${startFrom}.png)` : ''} ──`)
 
     for (let idx = 0; idx < plan.length; idx++) {
-      const n = idx + 1
+      const n = idx + startFrom
       const filePath = path.join(dir, `${n}.png`)
 
       if (fs.existsSync(filePath)) {

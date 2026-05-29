@@ -123,6 +123,22 @@ export const IconBell = ({ size }) => (
   </CircleIcon>
 )
 
+// אייקון זירת המשחקים — בקר משחק (gamepad) בעיגול בורדו
+export const IconGames = ({ size }) => (
+  <CircleIcon size={size} fill="#7E2C2E" ring="#5A1D1E">
+    {/* גוף הבקר */}
+    <path d="M22 38c0-4.5 3.5-8 8-8h20c4.5 0 8 3.5 8 8v8c0 3.5-2.8 6-6 6-2 0-3.8-1-5-2.5l-2-2.5h-10l-2 2.5c-1.2 1.5-3 2.5-5 2.5-3.2 0-6-2.5-6-6v-8Z" fill={W} />
+    {/* כפתורי כיוון (משמאל) */}
+    <rect x="28" y="38" width="3" height="7" rx="1" fill="#7E2C2E" />
+    <rect x="25.5" y="40.5" width="8" height="3" rx="1" fill="#7E2C2E" />
+    {/* כפתורים עגולים (מימין) */}
+    <circle cx="48" cy="40" r="1.8" fill="#7E2C2E" />
+    <circle cx="52" cy="43" r="1.8" fill="#7E2C2E" />
+    <circle cx="44" cy="43" r="1.8" fill="#7E2C2E" />
+    <circle cx="48" cy="46" r="1.8" fill="#7E2C2E" />
+  </CircleIcon>
+)
+
 // ══ אייקוני UI — קו פשוט חד-גוני ═════════════════════════════
 
 export const IconPhone = (p) => (

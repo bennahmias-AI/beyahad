@@ -12,7 +12,11 @@ import CommunityPage from './pages/CommunityPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
+import GamesArenaPage from './pages/GamesArenaPage.jsx'
+import MemoryGame from './pages/MemoryGame.jsx'
+import Connect4Game from './pages/Connect4Game.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
+import GameInviteListener from './components/GameInviteListener.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM,
@@ -30,6 +34,16 @@ export default function App() {
   const [page, setPage] = useState('hub')
   const [loadingParliament, setLoadingParliament] = useState(false)
   const [loadingSinging, setLoadingSinging] = useState(false)
+  // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
+  const [connect4Room, setConnect4Room] = useState(null)
+
+  // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
+  function handleInviteAccept({ roomId, gameType }) {
+    if (gameType === 'connect4') {
+      setConnect4Room(roomId)
+      setPage('connect4-game')
+    }
+  }
 
   // Auto-navigate when LiveKit tokens are set
   useEffect(() => {
@@ -120,6 +134,20 @@ export default function App() {
           onCallFriend={() => setPage('waiting')}
         />
       )}
+      {page === 'games' && (
+        <GamesArenaPage
+          onBack={() => setPage('hub')}
+          onGoMemory={() => setPage('memory-game')}
+          onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
+        />
+      )}
+      {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
+      {page === 'connect4-game' && (
+        <Connect4Game
+          initialRoomId={connect4Room}
+          onBack={() => { setConnect4Room(null); setPage('games') }}
+        />
+      )}
       {page === 'waiting' && (
         <KafeWaitingPage
           onCancel={() => setPage('hub')}
@@ -136,9 +164,11 @@ export default function App() {
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
           onGoFriends={() => setPage('friends')}
+          onGoGames={() => setPage('games')}
         />
       )}
       <InstallPrompt />
+      <GameInviteListener onAccept={handleInviteAccept} />
     </div>
   )
 }

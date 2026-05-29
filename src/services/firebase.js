@@ -529,6 +529,281 @@ export async function getFriendshipStatus(myUid, otherUid) {
   }
 }
 
+// ─── Game rooms — זירת משחקים אונליין ────────────────────
+// התשתית הכללית למשחקי רשת — משמשת את Connect4 ולכל משחק עתידי.
+//
+// מבנה המסמך:
+//   gameRooms/{roomId}:
+//     gameType: 'connect4' | 'chess' | ...
+//     players: [{ uid, name, color: 'P1'|'P2' }]
+//     status: 'waiting' | 'playing' | 'ended'
+//     gameState: { board, currentTurn, winner, ... } — תלוי במשחק
+//     inviteCode: '6 תווים' (רק אם להזמנת חבר)
+//     isPrivate: boolean
+//     createdAt, updatedAt
+
+// מחולל קוד הזמנה בן 6 תווים (אותיות גדולות + מספרים, בלי תווים מבלבלים כמו O/0/I/1)
+function generateInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
+}
+
+// מצב המשחק ההתחלתי ל-Connect 4.
+// ⚠️ חשוב: Firestore לא תומך במערכים מקוננים (nested arrays).
+// לכן הלוח נשמר כמערך שטוח של 42 תאים (6 שורות × 7 עמודות),
+// כאשר התא בשורה r ועמודה c נמצא באינדקס r*7+c.
+// בצד הלקוח נמיר את זה חזרה למערך דו-ממדי בעת הצורך.
+// אותו דבר עם winningCells: מערך שטוח של זוגות [r,c] מפוצל לשני שדות.
+function initialConnect4State() {
+  return {
+    board: Array(42).fill(null),  // 6×7 = 42, שטוח
+    currentTurn: 'P1',
+    winner: null,
+    winningCells: [],  // נשמר כמערך של מחרוזות 'r,c' (לא מערכים מקוננים)
+    lastMove: null,    // null או { row, col, player } — אובייקט שטוח
+  }
+}
+
+// יוצר חדר משחק חדש (שחקן יחיד ממתין או מה הצטרף שני — לפי סוג החדר).
+// roomType: 'random' = פתוח למתאמה רנדומלית / 'private' = עם קוד הזמנה
+export async function createGameRoom({ gameType, creator, roomType }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const initialState = gameType === 'connect4' ? initialConnect4State() : {}
+
+  const ref = await addDoc(collection(db, 'gameRooms'), {
+    gameType,
+    players: [{
+      uid: creator.uid,
+      name: creator.name || 'משתמש',
+      color: 'P1',
+    }],
+    status: 'waiting',
+    gameState: initialState,
+    inviteCode,
+    isPrivate: roomType === 'private',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+// מחפש חדר לפי קוד הזמנה (עבור הצטרפות לחבר דרך קוד).
+// מחזיר { roomId } אם נמצא, null אחרת.
+export async function findRoomByCode(code) {
+  // שאילתא פשוטה — רק inviteCode (אינדקס יחיד, לא דורש composite)
+  const q = query(
+    collection(db, 'gameRooms'),
+    where('inviteCode', '==', code.toUpperCase()),
+    limit(5),
+  )
+  const snap = await getDocs(q)
+  // מסננים בצד הלקוח שהחדר עדיין מחכה
+  const waitingRoom = snap.docs.find(d => d.data().status === 'waiting')
+  if (!waitingRoom) return null
+  return { roomId: waitingRoom.id, ...waitingRoom.data() }
+}
+
+// מצטרף לחדר קיים כשחקן שני. ממלא את מקום P2.
+export async function joinGameRoom(roomId, player) {
+  const ref = doc(db, 'gameRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  if ((data.players || []).length >= 2) throw new Error('החדר מלא')
+
+  await updateDoc(ref, {
+    players: [...(data.players || []), {
+      uid: player.uid,
+      name: player.name || 'משתמש',
+      color: 'P2',
+    }],
+    status: 'playing',
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מסתכל על חדר משחק בזמן אמת.
+export function watchGameRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'gameRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => {
+    console.error('watchGameRoom error:', err)
+  })
+}
+
+// מעדכן את מצב המשחק (לאחר מהלך של שחקן).
+export async function updateGameState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'gameRooms', roomId), {
+      gameState,
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateGameState error:', e)
+  }
+}
+
+// מעדכן שדות כלליים בחדר (למשל הצבעות "שחק שוב" — rematch).
+// תומך גם ב-field paths מקוננים כמו 'rematch.P1'.
+export async function updateGameRoom(roomId, fields) {
+  try {
+    await updateDoc(doc(db, 'gameRooms', roomId), {
+      ...fields,
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateGameRoom error:', e)
+  }
+}
+
+// עזיבת החדר (מחקת את ה-doc).
+// משמש לניקוי כשהמשחק מסתיים או השחקן עוזב לפני שמישהו הצטרף.
+export async function leaveGameRoom(roomId) {
+  try {
+    await deleteDoc(doc(db, 'gameRooms', roomId))
+  } catch (e) {
+    console.error('leaveGameRoom error:', e)
+  }
+}
+
+// ─── התאמת רנדומלית (matchmaking) ──────────────────────
+// לוגיקה: המשתמש לוחץ "שחקן רנדומלי" → מחפש חדר קיים מחכה לשחקן,
+// אם קיים — מצטרף מיד. אם לא — יוצר חדר חדש ומחכה.
+//
+// שימוש בשאילתא פשוטה (רק 2 where, בלי orderBy) כדי לא לדרוש composite index ב-Firestore.
+// המיון והסינון לפי isPrivate נעשים בצד הלקוח על תוצאות מצומצמות.
+export async function findOrCreateMatch({ gameType, player }) {
+  // שלב 1: חיפוש חדרים פתוחים מסוג המשחק הנכון
+  const q = query(
+    collection(db, 'gameRooms'),
+    where('gameType', '==', gameType),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+
+  // מסננים בצד הלקוח: לא חדר שלי, יש בו מקום, ולא פרטי
+  const availableRoom = snap.docs.find(d => {
+    const data = d.data()
+    const players = data.players || []
+    if (data.isPrivate) return false                     // חדר עם קוד הזמנה — לא לרנדומלי
+    if (players.length !== 1) return false               // צריך בדיוק שחקן אחד שמחכה
+    if (players[0].uid === player.uid) return false      // לא להצטרף לחדר של עצמי
+    return true
+  })
+
+  if (availableRoom) {
+    // נמצא — מצטרף
+    await joinGameRoom(availableRoom.id, player)
+    return { roomId: availableRoom.id, isCreator: false }
+  } else {
+    // לא נמצא — יוצרים חדר חדש ומחכים
+    const { roomId } = await createGameRoom({
+      gameType,
+      creator: player,
+      roomType: 'random',
+    })
+    return { roomId, isCreator: true }
+  }
+}
+
+// ─── הזמנות לחברים למשחק ──────────────────────────────
+// הלוגיקה: שחקן A לוחץ "הזמן את שחקן B" → יוצר את החדר הפרטי וגם
+// יוצר doc ב-gameInvites שמופיע אצל B. אם B מאשר — הוא מצטרף לחדר.
+// אם דוחה / לא מגיב תוך 60 שניות — ההזמנה נמחקת.
+//
+// מבנה המסמך:
+//   gameInvites/{inviteId}:
+//     fromUid, fromName
+//     toUid, toName
+//     gameType: 'connect4' | ...
+//     roomId: id של החדר ב-gameRooms
+//     status: 'pending' | 'accepted' | 'declined' | 'expired'
+//     createdAt
+
+export async function sendGameInvite({ from, to, gameType, roomId }) {
+  const ref = await addDoc(collection(db, 'gameInvites'), {
+    fromUid: from.uid,
+    fromName: from.name || 'משתמש',
+    toUid: to.uid,
+    toName: to.name || 'משתמש',
+    gameType,
+    roomId,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+// מאזין להזמנות נכנסות (pending) של המשתמש הזה.
+// משמש את ה-GameInviteListener שיציג popup.
+export function watchIncomingInvites(myUid, cb) {
+  const q = query(
+    collection(db, 'gameInvites'),
+    where('toUid', '==', myUid),
+    where('status', '==', 'pending'),
+  )
+  return onSnapshot(q, snap => {
+    const invites = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    cb(invites)
+  }, err => {
+    console.error('watchIncomingInvites error:', err)
+  })
+}
+
+// השולח מאזין לסטטוס של ההזמנה שלו — כדי לדעת אם התקבלה/נדחתה.
+export function watchInvite(inviteId, cb) {
+  return onSnapshot(doc(db, 'gameInvites', inviteId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  })
+}
+
+// אישור הזמנה — המוזמן מצטרף לחדר ומסמן את ההזמנה accepted.
+export async function acceptGameInvite(inviteId, player) {
+  const inviteRef = doc(db, 'gameInvites', inviteId)
+  const snap = await getDoc(inviteRef)
+  if (!snap.exists()) throw new Error('ההזמנה לא קיימת יותר')
+  const data = snap.data()
+  if (data.status !== 'pending') throw new Error('ההזמנה לא תקפה יותר')
+
+  // מצטרפים לחדר
+  await joinGameRoom(data.roomId, player)
+  // מעדכנים את ההזמנה ל-accepted
+  await updateDoc(inviteRef, {
+    status: 'accepted',
+    acceptedAt: serverTimestamp(),
+  })
+  return data.roomId
+}
+
+// דחיית הזמנה — מסמן ההזמנה כ-declined (השולח יראה את זה ויבטל).
+export async function declineGameInvite(inviteId) {
+  try {
+    await updateDoc(doc(db, 'gameInvites', inviteId), {
+      status: 'declined',
+      declinedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('declineGameInvite error:', e)
+  }
+}
+
+// מחיקה מלאה של ההזמנה — לשלב הניקוי הסופי.
+export async function deleteGameInvite(inviteId) {
+  try {
+    await deleteDoc(doc(db, 'gameInvites', inviteId))
+  } catch (e) {
+    console.error('deleteGameInvite error:', e)
+  }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName, uid = '') {

@@ -10,6 +10,7 @@ import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconFriends,
   IconKitchen, IconGreeting, IconBell, IconBackRTL, IconLightbulb,
+  IconGames,
 } from '../icons/index.jsx'
 
 // ─── DEMO TOGGLE ─────────────────────────────────────────────
@@ -22,7 +23,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends, onGoGames }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -285,6 +286,53 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             </div>
           </div>
           <IconGreeting size={56} />
+        </button>
+
+        {/* ── כרטיס זירת המשחקים — רוחב מלא, בולט ── */}
+        <button onClick={onGoGames} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #7E2C2E 0%, #5A1D1E 100%)',
+          border: 'none',
+          borderRadius: 20,
+          padding: '18px 18px',
+          color: '#FBF7EE',
+          boxShadow: '0 10px 24px -8px rgba(126,44,46,.5)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* נימבוס זוהר ברקע */}
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(232,200,121,.25), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <IconBackRTL size={22} color="#FBF7EE" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800, marginBottom: 4,
+              color: '#E8C879',
+              textTransform: 'uppercase', letterSpacing: '0.10em',
+              fontFamily: 'var(--font-display)',
+            }}>
+              ✨ חדש!
+            </div>
+            <div className="h-display" style={{
+              fontSize: 22, lineHeight: 1.15, color: '#FBF7EE', letterSpacing: '-0.01em',
+            }}>
+              זירת המשחקים
+            </div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, marginTop: 3,
+              color: 'rgba(255,255,255,.92)',
+            }}>
+              שחקו בינגו, שש-בש, שחמט ועוד — עם חברים מקוון
+            </div>
+          </div>
+          <IconGames size={64} />
         </button>
 
         {/* ── 3 utility tiles ── */}
