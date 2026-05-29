@@ -17,6 +17,7 @@ import MemoryGame from './pages/MemoryGame.jsx'
 import Connect4Game from './pages/Connect4Game.jsx'
 import CheckersGame from './pages/CheckersGame.jsx'
 import SheshBeshGame from './pages/SheshBeshGame.jsx'
+import MillionaireGame from './pages/MillionaireGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import {
@@ -151,9 +152,17 @@ export default function App() {
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
           onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
           onGoSheshbesh={() => { setSheshbeshRoom(null); setPage('sheshbesh-game') }}
+          onGoTrivia={() => setPage('millionaire-game')}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
+      {page === 'millionaire-game' && (
+        <MillionaireGame
+          onBack={() => setPage('games')}
+          uid={authUser?.uid}
+          userName={profile?.name || 'משתמש'}
+        />
+      )}
       {page === 'connect4-game' && (
         <Connect4Game
           initialRoomId={connect4Room}

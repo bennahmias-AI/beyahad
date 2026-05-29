@@ -1105,6 +1105,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
+      flip={myColor === 'P2'}
       chat={room.chat || []} meUid={myUid}
       socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark suppressToast />}
     >
@@ -1130,7 +1131,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameLayout({
   onBack, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
-  onReset, onChangeMode, isOnline, socialBar, children, chat = [], meUid,
+  onReset, onChangeMode, isOnline, socialBar, children, chat = [], meUid, flip,
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
@@ -1164,6 +1165,7 @@ function GameLayout({
           lastMove={lastMove}
           onCellTap={onCellTap}
           disabled={disabled}
+          flip={flip}
         />
 
         {/* מגשי כלים שנאכלו */}
@@ -1255,7 +1257,7 @@ function CapturedTray({ count, pieceColor, label }) {
 // ════════════════════════════════════════════════════════
 // לוח הדמקה
 // ════════════════════════════════════════════════════════
-function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, disabled }) {
+function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, disabled, flip }) {
   const isSel = (r, c) => selected && selected[0] === r && selected[1] === c
   const isDest = (r, c) => destinations.some(([dr, dc]) => dr === r && dc === c)
   const isLastFrom = (r, c) => lastMove && lastMove.from[0] === r && lastMove.from[1] === c
@@ -1272,6 +1274,7 @@ function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, dis
         display: 'grid', gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
         borderRadius: 8, overflow: 'hidden',
         border: '2px solid #2E1C0E',
+        transform: flip ? 'rotate(180deg)' : 'none',
       }}>
         {board.map((row, r) =>
           row.map((cell, c) => {
@@ -1301,7 +1304,7 @@ function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, dis
                   }} />
                 )}
                 {/* כלי */}
-                {cell && <Piece piece={cell} selected={sel} dest={dest} />}
+                {cell && <Piece piece={cell} selected={sel} dest={dest} flip={flip} />}
               </div>
             )
           })
@@ -1311,7 +1314,7 @@ function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, dis
   )
 }
 
-function Piece({ piece, selected, dest }) {
+function Piece({ piece, selected, dest, flip }) {
   const dark = piece.p === P2
   return (
     <div style={{
@@ -1336,6 +1339,8 @@ function Piece({ piece, selected, dest }) {
           <span style={{
             fontSize: '0.9em', lineHeight: 1,
             filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.5))',
+            display: 'inline-block',
+            transform: flip ? 'rotate(180deg)' : 'none',
           }}>👑</span>
         )}
       </div>

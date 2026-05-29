@@ -818,6 +818,63 @@ export async function deleteGameInvite(inviteId) {
   }
 }
 
+// ─── מי רוצה להיות מיליונר — טבלת מובילים יומית ─────────
+// שומרים את הניקוד הטוב ביותר לכל משתמש לכל יום במסמך יחיד
+// (מזהה = `${dateKey}__${uid}`). כך לכל אדם שורה אחת — התוצאה הכי טובה שלו.
+//
+//   millionaireScores/{dateKey__uid}:
+//     uid, name, points, dateKey, updatedAt
+
+function todayKey() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// שומר ניקוד — רק אם הוא גבוה מהתוצאה הקודמת של המשתמש היום.
+export async function saveMillionaireScore(uid, name, points) {
+  if (!uid) return
+  const dateKey = todayKey()
+  const ref = doc(db, 'millionaireScores', `${dateKey}__${uid}`)
+  try {
+    const snap = await getDoc(ref)
+    const prev = snap.exists() ? (snap.data().points || 0) : -1
+    if (points > prev) {
+      await setDoc(ref, {
+        uid,
+        name: name || 'משתמש',
+        points,
+        dateKey,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+    }
+  } catch (e) {
+    console.error('saveMillionaireScore error:', e)
+  }
+}
+
+// מחזיר את המובילים של היום (ממוין יורד, top N).
+// שאילתה פשוטה (where יחיד) — ללא orderBy, כך לא נדרש composite index.
+export async function getMillionaireLeaderboard(topN = 10) {
+  const dateKey = todayKey()
+  try {
+    const q = query(
+      collection(db, 'millionaireScores'),
+      where('dateKey', '==', dateKey),
+    )
+    const snap = await getDocs(q)
+    return snap.docs
+      .map(d => d.data())
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, topN)
+  } catch (e) {
+    console.error('getMillionaireLeaderboard error:', e)
+    return []
+  }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName, uid = '') {

@@ -780,7 +780,7 @@ function SheshLayout({
         <SheshBoard
           state={state} selected={selected} targets={targets} centerLabel={centerLabel}
           onPointClick={onPointClick} onOffClick={onOffClick} onBarClick={onBarClick}
-          canRoll={canRoll} onRoll={onRoll}
+          canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
         />
 
         {isOnline && me?.uid && <ChatToast inline msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
@@ -861,63 +861,66 @@ function selectedIsP2(state, selected) {
 const LP_TOP = [12, 13, 14, 15, 16, 17], RP_TOP = [18, 19, 20, 21, 22, 23]
 const LP_BOT = [11, 10, 9, 8, 7, 6], RP_BOT = [5, 4, 3, 2, 1, 0]
 
-function SheshBoard({ state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel, canRoll, onRoll }) {
+function SheshBoard({ state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel, canRoll, onRoll, flip }) {
   const targetSet = new Set(targets.filter(t => typeof t.to === 'number').map(t => t.to))
   const canBearOff = targets.some(t => t.to === 'off')
   const offP2 = selectedIsP2(state, selected)
   const showDice = state.phase === 'move' && state.dice.length > 0
+  const cr = flip ? 'rotate(180deg)' : 'none'  // סיבוב הפוך לטקסט כדי שיישאר קריא
 
   return (
     <div style={{ background: WOOD_FRAME, borderRadius: 18, padding: 8, border: `2px solid ${GOLD_DEEP}`, boxShadow: '0 14px 32px -10px rgba(0,0,0,.7), inset 0 2px 6px rgba(255,255,255,.08)', maxWidth: 420, margin: '0 auto' }}>
+      <div style={{ transform: flip ? 'rotate(180deg)' : 'none' }}>
       {/* פאנלים + ציר */}
       <div style={{ position: 'relative', display: 'flex', gap: 0, aspectRatio: '1 / 1.1' }}>
-        <Panel side="left" topIdx={LP_TOP} botIdx={LP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} />
-        <CenterBar state={state} selected={selected} onBarClick={onBarClick} />
-        <Panel side="right" topIdx={RP_TOP} botIdx={RP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} />
+        <Panel side="left" topIdx={LP_TOP} botIdx={LP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
+        <CenterBar state={state} selected={selected} onBarClick={onBarClick} flip={flip} />
+        <Panel side="right" topIdx={RP_TOP} botIdx={RP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
 
         {/* שכבת על — טקסט תור + קוביות */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6%' }}>
           {centerLabel
-            ? <div style={{ fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)' }}>{centerLabel}</div>
+            ? <div style={{ fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)', transform: cr }}>{centerLabel}</div>
             : <div />}
           {showDice ? (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 120, justifyContent: 'center' }}>{state.dice.map((d, i) => <Die key={i} value={d} glow />)}</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 120, justifyContent: 'center', transform: cr }}>{state.dice.map((d, i) => <Die key={i} value={d} glow />)}</div>
           ) : canRoll ? (
-            <div onClick={onRoll} style={{ pointerEvents: 'auto', cursor: 'pointer', fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)' }}>הקש לזריקה</div>
+            <div onClick={onRoll} style={{ pointerEvents: 'auto', cursor: 'pointer', fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)', transform: cr }}>הקש לזריקה</div>
           ) : <div />}
         </div>
       </div>
 
       {/* מגשי הוצאה (בית) */}
       <div style={{ display: 'flex', gap: 0, marginTop: 8 }}>
-        <OffTray player="P1" count={state.off.P1} highlight={canBearOff && !offP2} onClick={onOffClick} />
+        <OffTray player="P1" count={state.off.P1} highlight={canBearOff && !offP2} onClick={onOffClick} flip={flip} />
         <div style={{ width: 22, flexShrink: 0 }} />
-        <OffTray player="P2" count={state.off.P2} highlight={canBearOff && offP2} onClick={onOffClick} />
+        <OffTray player="P2" count={state.off.P2} highlight={canBearOff && offP2} onClick={onOffClick} flip={flip} />
+      </div>
       </div>
     </div>
   )
 }
 
-function Panel({ side, topIdx, botIdx, state, selected, targetSet, onPointClick }) {
+function Panel({ side, topIdx, botIdx, state, selected, targetSet, onPointClick, flip }) {
   const numTop = topIdx.map(i => i + 1)
   const numBot = botIdx.map(i => i + 1)
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: WOOD_FRAME, borderRadius: 8, padding: 5, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.08)' }}>
-      <NumStrip nums={numTop} />
+      <NumStrip nums={numTop} flip={flip} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: WOOD_TABLE, borderRadius: 5, overflow: 'hidden', boxShadow: 'inset 0 0 16px rgba(0,0,0,.55)' }}>
         <div style={{ flex: 5, display: 'flex' }}>{topIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top count={state.points[idx]} isTarget={targetSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} />)}</div>
         <div style={{ flex: 2 }} />
         <div style={{ flex: 5, display: 'flex' }}>{botIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top={false} count={state.points[idx]} isTarget={targetSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} />)}</div>
       </div>
-      <NumStrip nums={numBot} />
+      <NumStrip nums={numBot} flip={flip} />
     </div>
   )
 }
 
-function NumStrip({ nums }) {
+function NumStrip({ nums, flip }) {
   return (
     <div style={{ display: 'flex', padding: '2px 0' }}>
-      {nums.map((n, i) => <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(243,226,190,.55)' }}>{n}</div>)}
+      {nums.map((n, i) => <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(243,226,190,.55)', transform: flip ? 'rotate(180deg)' : 'none' }}>{n}</div>)}
     </div>
   )
 }
@@ -947,7 +950,7 @@ function PointCol({ idx, pos, top, count, isTarget, isSelected, onClick }) {
   )
 }
 
-function CenterBar({ state, selected, onBarClick }) {
+function CenterBar({ state, selected, onBarClick, flip }) {
   const selP2 = selected === 'bar' && state.turn === 'P2'
   const selP1 = selected === 'bar' && state.turn === 'P1'
   const renderBar = (player, sel) => {
@@ -956,7 +959,7 @@ function CenterBar({ state, selected, onBarClick }) {
     for (let i = 0; i < Math.min(n, 4); i++) stones.push(
       <div key={i} style={{ width: '86%', aspectRatio: '1', flexShrink: 0, marginTop: i === 0 ? 0 : '-26%', position: 'relative' }}>
         <Stone player={player} />
-        {i === Math.min(n, 4) - 1 && n > 4 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: player === 'P2' ? '#F0E2C6' : '#3A2410' }}>{n}</div>}
+        {i === Math.min(n, 4) - 1 && n > 4 && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: player === 'P2' ? '#F0E2C6' : '#3A2410', transform: flip ? 'rotate(180deg)' : 'none' }}>{n}</div>}
       </div>
     )
     return (
@@ -974,7 +977,7 @@ function CenterBar({ state, selected, onBarClick }) {
   )
 }
 
-function OffTray({ player, count, highlight, onClick }) {
+function OffTray({ player, count, highlight, onClick, flip }) {
   const dark = player === 'P2'
   const discs = []
   for (let i = 0; i < Math.min(count, 7); i++) discs.push(
@@ -989,7 +992,7 @@ function OffTray({ player, count, highlight, onClick }) {
       boxShadow: highlight ? '0 0 12px rgba(120,220,120,.6)' : 'inset 0 2px 5px rgba(0,0,0,.5)',
       flexDirection: dark ? 'row' : 'row-reverse',
     }}>
-      <span style={{ fontSize: 16, fontWeight: 900, color: CREAM, minWidth: 18, textAlign: 'center' }}>{count}</span>
+      <span style={{ fontSize: 16, fontWeight: 900, color: CREAM, minWidth: 18, textAlign: 'center', display: 'inline-block', transform: flip ? 'rotate(180deg)' : 'none' }}>{count}</span>
       <div style={{ display: 'flex', flexDirection: dark ? 'row' : 'row-reverse' }}>{discs}</div>
     </div>
   )

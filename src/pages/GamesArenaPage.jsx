@@ -58,6 +58,15 @@ const GAMES = [
     color: '#5A1D1E', // burgundy deep
     status: 'available',
   },
+  {
+    id: 'trivia',
+    name: 'מיליונר',
+    description: 'מי רוצה להיות מיליונר?',
+    emoji: '💰',
+    players: 'לבד',
+    color: '#2A1438', // אוברגין עמוק — אווירת שעשועון
+    status: 'available',
+  },
   // ── בקרוב — משחקים שעוד לא בנינו ─────────────────────────
   {
     id: 'bingo',
@@ -77,27 +86,9 @@ const GAMES = [
     color: '#1B2540', // navy
     status: 'coming-soon',
   },
-  {
-    id: 'trivia',
-    name: 'טריוויה',
-    description: 'חידון ידע ישראלי',
-    emoji: '💡',
-    players: '2-4 שחקנים',
-    color: '#4F6B4A', // forest
-    status: 'coming-soon',
-  },
-  {
-    id: 'words',
-    name: 'מילים ירוקות',
-    description: 'נחשו את המילה היומית',
-    emoji: '🟩',
-    players: 'לבד',
-    color: '#4F6B4A', // forest
-    status: 'coming-soon',
-  },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -120,6 +111,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'sheshbesh' && onGoSheshbesh) {
       onGoSheshbesh()
+      return
+    }
+    if (game.id === 'trivia' && onGoTrivia) {
+      onGoTrivia()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"
