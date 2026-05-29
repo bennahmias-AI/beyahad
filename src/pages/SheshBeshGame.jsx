@@ -20,7 +20,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
+import { ChatPanel, AddFriendButton, ChatToast } from '../components/GameChat.jsx'
 
 // ════════════════════════════════════════════════════════
 // פלטת עץ ופליז (משותף לעיצוב)
@@ -798,6 +798,7 @@ function SheshLayout({
         </div>
       </div>
 
+      {isOnline && me?.uid && <ChatToast msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
       {chatOpen && isOnline && me?.uid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>

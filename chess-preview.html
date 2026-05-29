@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>שחמט — תצוגה מקדימה תלת-ממד</title>
+<style>
+  :root{
+    --wood-frame: repeating-linear-gradient(91deg, rgba(0,0,0,.05) 0 1px, transparent 1px 5px), linear-gradient(155deg,#7d5430 0%,#553720 55%,#3a2410 100%);
+    --gold:#E8C879;
+    --gold-deep:#C9A24A;
+    --cream:#F3E2BE;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family: 'Assistant', 'Segoe UI', sans-serif;
+    background: radial-gradient(120% 80% at 50% 0%, #3a2716, #1c1108 70%);
+    min-height:100vh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding:20px 10px;
+  }
+  .phone{ width:100%; max-width:430px; border-radius:28px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+
+  /* כותרת */
+  .header{
+    background:var(--wood-frame);
+    border-bottom:2px solid var(--gold-deep);
+    padding:14px 16px; display:flex; align-items:center; justify-content:center;
+    position:relative; box-shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+  .header .title{ font-family:'Suez One', serif; font-weight:800; font-size:24px; color:var(--gold); text-shadow:0 1px 2px rgba(0,0,0,.6); letter-spacing:.5px; }
+  .header .back{position:absolute; inset-inline-start:16px; color:var(--gold); font-size:24px;}
+  .header .menu{position:absolute; inset-inline-end:16px; color:var(--gold); font-size:22px;}
+  .body{padding:12px 12px 20px;}
+
+  /* כרטיס שחקן */
+  .pcard{ display:flex; align-items:center; gap:9px; background:linear-gradient(180deg,#4a3018,#352010); border:1px solid rgba(201,162,74,.4); border-radius:14px; padding:6px 12px 6px 8px; }
+  .pcard.active{ background:linear-gradient(180deg,#6e4a28,#4a2e16); border:2px solid var(--gold); box-shadow:0 0 12px rgba(232,200,121,.35); }
+  .pcard .avatar{ width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#8a6a3e,#5a3f22); display:flex; align-items:center; justify-content:center; color:var(--cream); font-weight:800; font-size:16px; flex-shrink:0; box-shadow:inset 0 2px 3px rgba(255,255,255,.2), 0 2px 4px rgba(0,0,0,.4); }
+  .pcard .nm{font-family:'Suez One',serif; font-weight:700; font-size:15px; color:var(--cream);}
+  .pcard .sub{display:flex; align-items:center; gap:5px; margin-top:1px;}
+  .pcard .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.3); box-shadow:inset 0 1px 1px rgba(255,255,255,.4);}
+  .pcard .dot.white{background:radial-gradient(circle at 35% 30%,#fff,#cdbd9a);}
+  .pcard .dot.black{background:radial-gradient(circle at 35% 30%,#55504f,#16161a);}
+  .pcard .turn{font-size:11px; font-weight:800; color:var(--gold);}
+  .pcard .cap{font-size:15px; color:#d8c08a; font-weight:700; letter-spacing:1px;}
+  .row-top{display:flex; justify-content:flex-end; margin-bottom:10px;}
+  .row-bottom{display:flex; align-items:stretch; gap:8px; margin-top:14px;}
+
+  /* מסגרת לוח עם פאזות תלת-ממד */
+  .board-frame{
+    background:var(--wood-frame);
+    border-radius:16px; padding:14px;
+    border:1px solid #2a1a0c;
+    box-shadow:
+      0 18px 40px -10px rgba(0,0,0,.8),
+      inset 0 3px 4px rgba(255,225,170,.35),
+      inset 0 -4px 6px rgba(0,0,0,.55);
+    max-width:420px; margin:0 auto;
+    position:relative;
+  }
+  /* טבעת פליז פנימית */
+  .board-bevel{
+    border-radius:8px; padding:6px;
+    background:linear-gradient(160deg,#caa24a,#6e4a1e);
+    box-shadow: inset 0 2px 3px rgba(255,235,180,.5), inset 0 -3px 5px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.4);
+  }
+  .board-inner{ border-radius:4px; overflow:hidden; position:relative; box-shadow:inset 0 0 22px rgba(0,0,0,.6); }
+  .grid{display:grid; grid-template-columns:repeat(8,1fr); aspect-ratio:1/1;}
+  /* תאורה כללית מלמעלה על הלוח */
+  .board-inner::after{ content:''; position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 80% at 50% -10%, rgba(255,240,200,.18), transparent 55%); }
+
+  .sq{position:relative; display:flex; align-items:center; justify-content:center;}
+  .sq.light{ background:linear-gradient(160deg,#f0d7a6 0%,#dcbb80 100%); box-shadow:inset 0 1px 1px rgba(255,255,255,.5), inset 0 -2px 4px rgba(120,80,30,.35); }
+  .sq.dark{ background:linear-gradient(160deg,#80502e 0%,#5a3318 100%); box-shadow:inset 0 1px 1px rgba(255,200,140,.18), inset 0 -2px 4px rgba(0,0,0,.45); }
+  .sq .file-lbl{position:absolute; bottom:1px; inset-inline-end:3px; font-size:8px; font-weight:800; opacity:.55;}
+  .sq .rank-lbl{position:absolute; top:1px; inset-inline-start:3px; font-size:8px; font-weight:800; opacity:.55;}
+  .sq.light .file-lbl, .sq.light .rank-lbl{color:#5a3318;}
+  .sq.dark .file-lbl, .sq.dark .rank-lbl{color:#f0d7a6;}
+
+  /* כלי תלת-ממד */
+  .pieceWrap{position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center;}
+  .shadow{ position:absolute; bottom:9%; width:60%; height:15%; border-radius:50%; background:radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); filter:blur(1px); }
+  .piece{ position:relative; font-size:min(9.2vw, 42px); line-height:1; transform:translateY(-7%); user-select:none; cursor:pointer; }
+  .piece.white{
+    color:#FCF4E0;
+    -webkit-text-stroke:0.7px #6e5226;
+    text-shadow:
+      0 1px 0 #e7d3a3, 0 2px 0 #d9c08a, 0 3px 0 #c9aa6f,
+      0 4px 0 #b08f50, 0 5px 0 #94743b, 0 6px 5px rgba(0,0,0,.55);
+  }
+  .piece.black{
+    color:#3b3631;
+    -webkit-text-stroke:0.7px #0c0b0a;
+    text-shadow:
+      0 1px 0 #2f2b26, 0 2px 0 #26221e, 0 3px 0 #1c1916,
+      0 4px 0 #131110, 0 5px 0 #0a0908, 0 6px 5px rgba(0,0,0,.6),
+      0 -1px 1px rgba(255,255,255,.12);
+  }
+
+  .sq.sel{box-shadow:inset 0 0 0 3px var(--gold), inset 0 1px 1px rgba(255,255,255,.5);}
+  .dotmove{position:absolute; width:30%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 40% 35%, rgba(170,235,150,.95), rgba(90,180,90,.7)); box-shadow:0 0 12px rgba(120,230,120,.85), inset 0 -2px 3px rgba(0,0,0,.3);}
+  .lastmove{position:absolute; inset:0; background:rgba(232,200,121,.22); box-shadow:inset 0 0 0 2px rgba(232,200,121,.4);}
+
+  .status-banner{ text-align:center; color:var(--gold); font-family:'Suez One',serif; font-weight:700; font-size:18px; margin:12px 0 2px; text-shadow:0 2px 4px rgba(0,0,0,.6); }
+
+  /* כפתורי זהב תלת-ממד */
+  .gbtn{ flex:0 0 auto; min-width:64px; position:relative; background:linear-gradient(180deg,#6a4a26,#3f2813); border:1.5px solid var(--gold-deep); border-radius:14px; padding:9px 12px; color:#E6CD90; display:flex; flex-direction:column; align-items:center; gap:3px; box-shadow:inset 0 2px 2px rgba(255,225,170,.3), inset 0 -3px 5px rgba(0,0,0,.5), 0 3px 5px rgba(0,0,0,.45); font-size:12px; font-weight:800; }
+  .gbtn.primary{ background:linear-gradient(180deg,#9a6c34,#5e3a18); border-color:#F2CE6A; color:#FCE9B6; box-shadow:0 0 14px rgba(242,206,106,.5), inset 0 2px 2px rgba(255,235,180,.4), inset 0 -3px 5px rgba(0,0,0,.4); }
+  .gbtn svg{width:20px;height:20px;}
+  .note{color:#caa98c; text-align:center; font-size:12px; margin-top:14px; line-height:1.5;}
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="header">
+      <span class="back">→</span>
+      <span class="title">שחמט אונליין</span>
+      <span class="menu">☰</span>
+    </div>
+
+    <div class="body">
+      <div class="row-top">
+        <div class="pcard">
+          <div style="text-align:left">
+            <div class="nm">דני</div>
+            <div class="sub" style="justify-content:flex-start"><span class="dot black"></span><span class="cap">♙♙</span></div>
+          </div>
+          <div class="avatar">ד</div>
+        </div>
+      </div>
+
+      <div class="board-frame">
+        <div class="board-bevel">
+          <div class="board-inner"><div class="grid" id="grid"></div></div>
+        </div>
+      </div>
+
+      <div class="status-banner">תורך — לבן</div>
+
+      <div class="row-bottom">
+        <div class="pcard active" style="flex:1 1 auto;">
+          <div class="avatar">נ</div>
+          <div style="text-align:right">
+            <div class="nm">נועם</div>
+            <div class="sub"><span class="dot white"></span><span class="turn">● תור</span></div>
+          </div>
+        </div>
+        <div class="gbtn primary">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 0 3-3m-3 3L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="15" r="6" stroke="currentColor" stroke-width="2"/></svg>
+          תיקו
+        </div>
+        <div class="gbtn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 21V5a2 2 0 0 1 2-2h7l-1.5 3L14 9H7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          כניעה
+        </div>
+        <div class="gbtn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20.5 11.5a7.5 7.5 0 0 1-10.8 6.7L4 19.5l1.3-4.4A7.5 7.5 0 1 1 20.5 11.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          צ'אט
+        </div>
+      </div>
+
+      <div class="note">תצוגה מקדימה בלבד — כלים תלת-ממדיים מובלטים עם צל מגע, מסגרת פליז עם פאזות, ותאורה מלמעלה.<br>הכלי הנבחר (טבעת זהב), המהלכים האפשריים (נקודות ירוקות) והמהלך האחרון מודגמים על עמדת פתיחה.</div>
+    </div>
+  </div>
+
+<script>
+  const START = [
+    ['r','n','b','q','k','b','n','r'],
+    ['p','p','p','p','p','p','p','p'],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['','','','','','','',''],
+    ['P','P','P','P','P','P','P','P'],
+    ['R','N','B','Q','K','B','N','R'],
+  ];
+  const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
+  const FILES = ['a','b','c','d','e','f','g','h'];
+  const grid = document.getElementById('grid');
+
+  for (let r=0; r<8; r++){
+    for (let c=0; c<8; c++){
+      const sq = document.createElement('div');
+      const isLight = (r+c)%2===0;
+      sq.className = 'sq ' + (isLight?'light':'dark');
+      if (c===7){ const rl=document.createElement('span'); rl.className='rank-lbl'; rl.textContent=8-r; sq.appendChild(rl); }
+      if (r===7){ const fl=document.createElement('span'); fl.className='file-lbl'; fl.textContent=FILES[c]; sq.appendChild(fl); }
+      if ((r===6&&c===4)||(r===4&&c===4)){ const lm=document.createElement('div'); lm.className='lastmove'; sq.appendChild(lm); }
+
+      const p = START[r][c];
+      if (p){
+        const wrap = document.createElement('div'); wrap.className='pieceWrap';
+        const sh = document.createElement('div'); sh.className='shadow'; wrap.appendChild(sh);
+        const span = document.createElement('span');
+        const white = p===p.toUpperCase();
+        span.className = 'piece ' + (white?'white':'black');
+        span.textContent = GLYPH[p.toLowerCase()];
+        wrap.appendChild(span);
+        sq.appendChild(wrap);
+      }
+      if (r===7&&c===1){ sq.classList.add('sel'); }
+      if ((r===5&&c===0)||(r===5&&c===2)){ const d=document.createElement('div'); d.className='dotmove'; sq.appendChild(d); }
+      grid.appendChild(sq);
+    }
+  }
+</script>
+</body>
+</html>

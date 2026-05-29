@@ -130,6 +130,7 @@ function ChatButton({ roomId, me, chat, dark }) {
           </span>
         )}
       </button>
+      <ChatToast msgs={msgs} meUid={me.uid} suppressed={open} onOpen={() => setOpen(true)} />
       {open && (
         <ChatPanel roomId={roomId} me={me} msgs={msgs} onClose={() => setOpen(false)} />
       )}
@@ -173,7 +174,7 @@ export function ChatPanel({ roomId, me, msgs, onClose }) {
         border: '1px solid var(--line)',
         borderRadius: 20,
         maxWidth: 360, width: '100%',
-        height: 'min(46vh, 360px)', display: 'flex', flexDirection: 'column',
+        height: 'min(34vh, 270px)', display: 'flex', flexDirection: 'column',
         boxShadow: '0 12px 36px -6px rgba(0,0,0,.45)',
         overflow: 'hidden',
       }}>
@@ -255,6 +256,50 @@ export function ChatPanel({ roomId, me, msgs, onClose }) {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// בועת התראה — קופצת כשמגיעה הודעה חדשה מהיריב (כשהצ'אט סגור)
+// ═══════════════════════════════════════════════════════════════
+export function ChatToast({ msgs = [], meUid, suppressed = false, onOpen }) {
+  const [toast, setToast] = useState(null)
+  const lastTsRef = useRef(msgs.length ? (msgs[msgs.length - 1].ts || 0) : 0)
+
+  useEffect(() => {
+    if (!msgs.length) return
+    const last = msgs[msgs.length - 1]
+    const ts = last.ts || 0
+    if (ts <= lastTsRef.current) return
+    lastTsRef.current = ts
+    if (last.uid === meUid) return       // הודעה שלי — לא מקפיצים
+    if (suppressed) return               // הצ'אט פתוח — כבר רואים
+    setToast(last)
+    const t = setTimeout(() => setToast(null), 4500)
+    return () => clearTimeout(t)
+  }, [msgs.length]) // eslint-disable-line
+
+  if (!toast) return null
+  return (
+    <div
+      onClick={() => { setToast(null); onOpen && onOpen() }}
+      style={{
+        position: 'fixed', insetInlineStart: '50%', transform: 'translateX(-50%)',
+        bottom: 92, zIndex: 1100, maxWidth: 340, width: 'calc(100% - 32px)',
+        background: 'linear-gradient(180deg,#3a2a18,#241608)',
+        border: '1.5px solid #C9A24A', borderRadius: 16, padding: '11px 14px',
+        boxShadow: '0 10px 28px -6px rgba(0,0,0,.55)', cursor: 'pointer', direction: 'rtl',
+        display: 'flex', alignItems: 'center', gap: 10, animation: 'chatToastIn .28s ease',
+      }}
+    >
+      <div style={{ fontSize: 22, flexShrink: 0 }}>💬</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#E8C879', marginBottom: 1 }}>{toast.name || 'הודעה חדשה'}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: '#F3E2BE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.text}</div>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#C9A24A', flexShrink: 0 }}>פתח ›</div>
+      <style>{`@keyframes chatToastIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
     </div>
   )
 }
