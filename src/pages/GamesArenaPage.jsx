@@ -21,32 +21,15 @@ import { GameIcon } from '../icons/gameIcons.jsx'
 // players: '2' / '2-4' / '10' וכו'
 // emoji זמני — אחר כך נחליף באייקוני SVG מותאמים.
 const GAMES = [
+  // ── פעילים — משחקים שבנינו ועובדים ───────────────────────
   {
-    id: 'bingo',
-    name: 'בינגו',
-    description: 'משחק קלאסי בקבוצה',
-    emoji: '🎱',
-    players: 'עד 10 שחקנים',
-    color: '#7E2C2E', // burgundy
-    status: 'coming-soon',
-  },
-  {
-    id: 'sheshbesh',
-    name: 'שש-בש',
-    description: 'הקלאסי האהוב',
-    emoji: '🎲',
+    id: 'connect4',
+    name: '4 בשורה',
+    description: 'חברו 4 ברצף ראשונים',
+    emoji: '🔴',
     players: 'AI / 2 שחקנים',
-    color: '#6B3A4F', // wine
+    color: '#B89048', // mustard
     status: 'available',
-  },
-  {
-    id: 'chess',
-    name: 'שחמט',
-    description: 'משחק האסטרטגיה',
-    emoji: '♟️',
-    players: '2 שחקנים',
-    color: '#1B2540', // navy
-    status: 'coming-soon',
   },
   {
     id: 'checkers',
@@ -58,22 +41,13 @@ const GAMES = [
     status: 'available',
   },
   {
-    id: 'connect4',
-    name: '4 בשורה',
-    description: 'חברו 4 ברצף ראשונים',
-    emoji: '🔴',
+    id: 'sheshbesh',
+    name: 'שש-בש',
+    description: 'הקלאסי האהוב',
+    emoji: '🎲',
     players: 'AI / 2 שחקנים',
-    color: '#B89048', // mustard
+    color: '#6B3A4F', // wine
     status: 'available',
-  },
-  {
-    id: 'trivia',
-    name: 'טריוויה',
-    description: 'חידון ידע ישראלי',
-    emoji: '💡',
-    players: '2-4 שחקנים',
-    color: '#4F6B4A', // forest
-    status: 'coming-soon',
   },
   {
     id: 'memory',
@@ -83,6 +57,34 @@ const GAMES = [
     players: 'לבד',
     color: '#5A1D1E', // burgundy deep
     status: 'available',
+  },
+  // ── בקרוב — משחקים שעוד לא בנינו ─────────────────────────
+  {
+    id: 'bingo',
+    name: 'בינגו',
+    description: 'משחק קלאסי בקבוצה',
+    emoji: '🎱',
+    players: 'עד 10 שחקנים',
+    color: '#7E2C2E', // burgundy
+    status: 'coming-soon',
+  },
+  {
+    id: 'chess',
+    name: 'שחמט',
+    description: 'משחק האסטרטגיה',
+    emoji: '♟️',
+    players: '2 שחקנים',
+    color: '#1B2540', // navy
+    status: 'coming-soon',
+  },
+  {
+    id: 'trivia',
+    name: 'טריוויה',
+    description: 'חידון ידע ישראלי',
+    emoji: '💡',
+    players: '2-4 שחקנים',
+    color: '#4F6B4A', // forest
+    status: 'coming-soon',
   },
   {
     id: 'words',
@@ -97,6 +99,10 @@ const GAMES = [
 
 export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh }) {
   const [comingSoon, setComingSoon] = useState(null)
+
+  // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
+  const availableGames = GAMES.filter(g => g.status === 'available' || g.status === 'live')
+  const comingSoonGames = GAMES.filter(g => g.status === 'coming-soon')
 
   const handleGameClick = (game) => {
     // משחקים זמינים — ניווט למסך המשחק
@@ -163,7 +169,7 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
           </div>
         </div>
 
-        {/* ── כותרת רשימת המשחקים ───────────────────── */}
+        {/* ── קבוצה 1: המשחקים הפעילים ───────────────── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 12,
@@ -177,16 +183,16 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
             fontSize: 12, fontWeight: 700,
             color: 'var(--ink-3)',
           }}>
-            {GAMES.length} משחקים
+            {availableGames.length} זמינים
           </span>
         </div>
 
-        {/* ── רשת המשחקים — 2 בכל שורה ──────────────── */}
+        {/* רשת המשחקים הפעילים — 2 בכל שורה */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr',
           gap: 12,
         }}>
-          {GAMES.map(game => (
+          {availableGames.map(game => (
             <GameCard
               key={game.id}
               game={game}
@@ -194,6 +200,42 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
             />
           ))}
         </div>
+
+        {/* ── קבוצה 2: בקרוב ──────────────────────────── */}
+        {comingSoonGames.length > 0 && (
+          <>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginTop: 28, marginBottom: 12,
+            }}>
+              <h2 className="h-display" style={{
+                fontSize: 20, margin: 0, color: 'var(--ink-2)',
+              }}>
+                בקרוב
+              </h2>
+              <span style={{
+                fontSize: 12, fontWeight: 700,
+                color: 'var(--ink-3)',
+              }}>
+                {comingSoonGames.length} בדרך
+              </span>
+            </div>
+
+            {/* רשת המשחקים שעוד לא בנויים */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              gap: 12,
+            }}>
+              {comingSoonGames.map(game => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  onClick={() => handleGameClick(game)}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* ── הצעה — שלחו לנו משחק רעיון ──────────── */}
         <div style={{
