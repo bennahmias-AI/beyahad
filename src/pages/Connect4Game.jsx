@@ -27,6 +27,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
+import GameSocialBar from '../components/GameChat.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const COLS = 7
@@ -1502,6 +1503,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
+      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} />}
     >
       {winner && (
         <OnlineEndModal
@@ -1532,7 +1534,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameScreenLayout({
   onBack, statusText, statusColor, p1Name, p2Name,
   currentPlayer, winner, board, winningCells, lastDropped,
-  onColumnClick, disabled, onReset, onChangeMode, isOnline, children,
+  onColumnClick, disabled, onReset, onChangeMode, isOnline, socialBar, children,
 }) {
   // מצב השתקה (נקרא מ-localStorage בכל מונט כדי להתעדכן אם המשתמש שינה במקום אחר)
   const [muted, setMutedState] = useState(() => isMuted())
@@ -1624,6 +1626,8 @@ function GameScreenLayout({
             {isOnline ? '🚪 עזוב משחק' : 'החלף מצב'}
           </button>
         </div>
+
+        {socialBar}
       </div>
 
       {children}

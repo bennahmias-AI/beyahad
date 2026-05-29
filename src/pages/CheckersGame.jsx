@@ -18,7 +18,7 @@
 // בנוי על אותה תשתית Firestore של gameRooms — לכן הזמנות חברים,
 // matchmaking רנדומלי, חלונית ההזמנה ו"שחק שוב" ההדדי עובדים מיד.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
@@ -30,6 +30,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
+import GameSocialBar from '../components/GameChat.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const SIZE = 8
@@ -840,7 +841,6 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
       from: move.path[0],
       to: move.path[move.path.length - 1],
       caps: move.captures,
-      path: move.path,
     })
     setNoProgress(np)
     setSelected(null)
@@ -863,7 +863,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
       const m = chooseAIMove(board, P2, difficulty)
       if (m) doMove(m)
       setBusy(false)
-    }, 650)
+    }, 500)
     return () => clearTimeout(t)
     // eslint-disable-next-line
   }, [isAITurn, board])
@@ -984,7 +984,6 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     from: [Math.floor(lm.from / SIZE), lm.from % SIZE],
     to: [Math.floor(lm.to / SIZE), lm.to % SIZE],
     caps: (lm.caps || []).map(i => [Math.floor(i / SIZE), i % SIZE]),
-    path: (lm.path || []).map(i => [Math.floor(i / SIZE), i % SIZE]),
   } : null
 
   // rematch
@@ -1062,7 +1061,6 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
             from: idx(move.path[0][0], move.path[0][1]),
             to: idx(move.path[move.path.length - 1][0], move.path[move.path.length - 1][1]),
             caps: move.captures.map(([cr, cc]) => idx(cr, cc)),
-            path: move.path.map(([r, c]) => idx(r, c)),
           },
           noProgress: np,
         })
@@ -1107,6 +1105,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
+      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark />}
     >
       {winner && (
         <OnlineEndModal
@@ -1130,7 +1129,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameLayout({
   onBack, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
-  onReset, onChangeMode, isOnline, children,
+  onReset, onChangeMode, isOnline, socialBar, children,
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
@@ -1202,6 +1201,8 @@ function GameLayout({
             fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
           }}>{isOnline ? '🚪 עזוב משחק' : 'החלף מצב'}</button>
         </div>
+
+        {socialBar}
       </div>
 
       {children}

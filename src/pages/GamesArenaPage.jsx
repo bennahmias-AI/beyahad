@@ -35,9 +35,9 @@ const GAMES = [
     name: 'שש-בש',
     description: 'הקלאסי האהוב',
     emoji: '🎲',
-    players: '2 שחקנים',
+    players: 'AI / 2 שחקנים',
     color: '#6B3A4F', // wine
-    status: 'coming-soon',
+    status: 'available',
   },
   {
     id: 'chess',
@@ -95,7 +95,7 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   const handleGameClick = (game) => {
@@ -110,6 +110,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'checkers' && onGoCheckers) {
       onGoCheckers()
+      return
+    }
+    if (game.id === 'sheshbesh' && onGoSheshbesh) {
+      onGoSheshbesh()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

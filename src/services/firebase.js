@@ -11,7 +11,7 @@ import {
   doc, setDoc, getDoc, updateDoc, deleteDoc,
   onSnapshot, serverTimestamp,
   collection, query, where, getDocs, orderBy, limit,
-  addDoc,
+  addDoc, arrayUnion,
 } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -659,6 +659,20 @@ export async function updateGameRoom(roomId, fields) {
     })
   } catch (e) {
     console.error('updateGameRoom error:', e)
+  }
+}
+
+// שליחת הודעת צ'אט בתוך חדר משחק.
+// ההודעות נשמרות כמערך על מסמך החדר (chat). משתמשים ב-arrayUnion
+// כדי להוסיף הודעה בלי לדרוס הודעות אחרות. אסור serverTimestamp בתוך מערך,
+// לכן הזמן נשמר כ-ts (מילי-שניות מצד הלקוח) לצורך מיון/תצוגה.
+export async function sendGameChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'gameRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendGameChat error:', e)
   }
 }
 

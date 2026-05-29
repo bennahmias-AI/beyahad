@@ -22,6 +22,14 @@ import Avatar from './Avatar.jsx'
 const GAME_NAMES = {
   connect4: '4 בשורה',
   checkers: 'דמקה',
+  sheshbesh: 'שש-בש',
+}
+
+// איקון אמוג'י לתצוגה לפי סוג המשחק
+const GAME_EMOJIS = {
+  connect4: '🔴 🟡',
+  checkers: '⚫ 🔴',
+  sheshbesh: '🎲',
 }
 
 export default function GameInviteListener({ onAccept }) {
@@ -94,7 +102,7 @@ export default function GameInviteListener({ onAccept }) {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           <Avatar name={invite.fromName} size={72} />
         </div>
-        <div style={{ fontSize: 38, marginBottom: 6 }}>🔴 🟡</div>
+        <div style={{ fontSize: 38, marginBottom: 6 }}>{GAME_EMOJIS[invite.gameType] || '🎮'}</div>
         <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 6 }}>
           {invite.fromName} מזמין/ה אותך לשחק
         </div>

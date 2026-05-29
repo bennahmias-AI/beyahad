@@ -16,6 +16,7 @@ import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
 import Connect4Game from './pages/Connect4Game.jsx'
 import CheckersGame from './pages/CheckersGame.jsx'
+import SheshBeshGame from './pages/SheshBeshGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import {
@@ -38,6 +39,7 @@ export default function App() {
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
   const [connect4Room, setConnect4Room] = useState(null)
   const [checkersRoom, setCheckersRoom] = useState(null)
+  const [sheshbeshRoom, setSheshbeshRoom] = useState(null)
 
   // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
   function handleInviteAccept({ roomId, gameType }) {
@@ -47,6 +49,9 @@ export default function App() {
     } else if (gameType === 'checkers') {
       setCheckersRoom(roomId)
       setPage('checkers-game')
+    } else if (gameType === 'sheshbesh') {
+      setSheshbeshRoom(roomId)
+      setPage('sheshbesh-game')
     }
   }
 
@@ -145,6 +150,7 @@ export default function App() {
           onGoMemory={() => setPage('memory-game')}
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
           onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
+          onGoSheshbesh={() => { setSheshbeshRoom(null); setPage('sheshbesh-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
@@ -158,6 +164,12 @@ export default function App() {
         <CheckersGame
           initialRoomId={checkersRoom}
           onBack={() => { setCheckersRoom(null); setPage('games') }}
+        />
+      )}
+      {page === 'sheshbesh-game' && (
+        <SheshBeshGame
+          initialRoomId={sheshbeshRoom}
+          onBack={() => { setSheshbeshRoom(null); setPage('games') }}
         />
       )}
       {page === 'waiting' && (
