@@ -67,6 +67,15 @@ const GAMES = [
     color: '#2A1438', // אוברגין עמוק — אווירת שעשועון
     status: 'available',
   },
+  {
+    id: 'rummikub',
+    name: 'רמיקוב',
+    description: 'סדרו רצפים וקבוצות',
+    emoji: '🎴',
+    players: 'AI / 2-4 שחקנים',
+    color: '#6B4427', // עץ אגוז
+    status: 'available',
+  },
   // ── בקרוב — משחקים שעוד לא בנינו ─────────────────────────
   {
     id: 'bingo',
@@ -88,7 +97,7 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -115,6 +124,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'trivia' && onGoTrivia) {
       onGoTrivia()
+      return
+    }
+    if (game.id === 'rummikub' && onGoRummikub) {
+      onGoRummikub()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

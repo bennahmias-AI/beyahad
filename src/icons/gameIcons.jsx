@@ -300,6 +300,24 @@ function LocalIcon({ size }) {
 // ─────────────────────────────────────────────────────────────
 // קומפוננטה ראשית: בוחרת אייקון לפי id המשחק
 // ─────────────────────────────────────────────────────────────
+// ── 🎴 רמיקוב — שני אריחים עם מספרים ──
+function RummikubIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      <g transform="rotate(-9, 26, 34)">
+        <rect x="15" y="18" width="22" height="30" rx="4" fill={W} />
+        <text x="26" y="40" textAnchor="middle" fontFamily="Arial, sans-serif"
+              fontSize="18" fontWeight="900" fill={DARK}>7</text>
+      </g>
+      <g transform="rotate(9, 40, 30)">
+        <rect x="29" y="16" width="22" height="30" rx="4" fill={W} />
+        <text x="40" y="38" textAnchor="middle" fontFamily="Arial, sans-serif"
+              fontSize="18" fontWeight="900" fill={DARK} fillOpacity="0.55">8</text>
+      </g>
+    </IconWrap>
+  )
+}
+
 export function GameIcon({ id, size = 64 }) {
   switch (id) {
     case 'bingo':     return <BingoIcon size={size} />
@@ -309,6 +327,7 @@ export function GameIcon({ id, size = 64 }) {
     case 'connect4':  return <Connect4Icon size={size} />
     case 'trivia':    return <TriviaIcon size={size} />
     case 'memory':    return <MemoryIcon size={size} />
+    case 'rummikub':  return <RummikubIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
     // ── מצבי משחק של 4 בשורה ──
     case 'online-random':  return <OnlineRandomIcon size={size} />

@@ -875,6 +875,104 @@ export async function getMillionaireLeaderboard(topN = 10) {
   }
 }
 
+// ─── רמיקוב — חדרי משחק רב-משתתפים (2-4) ─────────────
+// התשתית הכללית (gameRooms) בנויה ל-2 שחקנים. לרמיקוב אנו צריכים
+// 2-4 שחקנים והתחלה יזומת ע"י המארח — לכן אוסף נפרד של פונקציות.
+//
+//   rummikubRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
+//     gameStateJson: מצב המשחק מהמנוע (JSON), maxPlayers, roomType, inviteCode
+
+export async function createRummikubRoom({ host, roomType, maxPlayers = 4 }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const ref = await addDoc(collection(db, 'rummikubRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    gameStateJson: '',
+    maxPlayers,
+    roomType,
+    isPrivate: roomType === 'private',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+// מצטרף לחדר רמיקוב קיים (אם יש מקום ועדיין מחכה).
+export async function joinRummikubRoom(roomId, player) {
+  const ref = doc(db, 'rummikubRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 4)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
+export async function startRummikubGame(roomId, gameState) {
+  await updateDoc(doc(db, 'rummikubRooms', roomId), {
+    status: 'playing',
+    gameStateJson: JSON.stringify(gameState),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מעדכן את מצב המשחק (אחרי תור).
+export async function updateRummikubState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'rummikubRooms', roomId), {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateRummikubState error:', e)
+  }
+}
+
+export function watchRummikubRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'rummikubRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchRummikubRoom error:', err) })
+}
+
+export async function leaveRummikubRoom(roomId) {
+  try { await deleteDoc(doc(db, 'rummikubRooms', roomId)) }
+  catch (e) { console.error('leaveRummikubRoom error:', e) }
+}
+
+// מתאמה רנדומלית לרמיקוב — מצטרף לחדר ממתין או יוצר חדש.
+export async function findOrCreateRummikubMatch({ player }) {
+  const q = query(
+    collection(db, 'rummikubRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    const players = data.players || []
+    if (players.length >= (data.maxPlayers || 4)) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinRummikubRoom(room.id, player)
+    return { roomId: room.id, isHost: false }
+  }
+  const { roomId } = await createRummikubRoom({ host: player, roomType: 'random' })
+  return { roomId, isHost: true }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName, uid = '') {

@@ -15,6 +15,7 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchIncomingInvites, acceptGameInvite, declineGameInvite,
+  joinRummikubRoom, deleteGameInvite,
 } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
 
@@ -23,6 +24,7 @@ const GAME_NAMES = {
   connect4: '4 בשורה',
   checkers: 'דמקה',
   sheshbesh: 'שש-בש',
+  rummikub: 'רמיקוב',
 }
 
 // איקון אמוג'י לתצוגה לפי סוג המשחק
@@ -30,6 +32,7 @@ const GAME_EMOJIS = {
   connect4: '🔴 🟡',
   checkers: '⚫ 🔴',
   sheshbesh: '🎲',
+  rummikub: '🎴',
 }
 
 export default function GameInviteListener({ onAccept }) {
@@ -59,7 +62,15 @@ export default function GameInviteListener({ onAccept }) {
     setError('')
     try {
       const player = { uid: authUser.uid, name: profile?.name || 'משתמש' }
-      const roomId = await acceptGameInvite(invite.id, player)
+      let roomId
+      if (invite.gameType === 'rummikub') {
+        // רמיקוב משתמש בתשתית רב-משתתפים נפרדת
+        await joinRummikubRoom(invite.roomId, player)
+        await deleteGameInvite(invite.id)
+        roomId = invite.roomId
+      } else {
+        roomId = await acceptGameInvite(invite.id, player)
+      }
       // ניווט ישר לתוך המשחק בחדר הזה
       onAccept && onAccept({ roomId, gameType: invite.gameType })
     } catch (e) {

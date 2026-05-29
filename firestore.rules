@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid;
+    }
+    match /cafeSessions/{id} {
+      allow create: if request.auth != null;
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+    }
+    match /parliamentSessions/{id} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+    match /cafeQueue/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    match /communityPosts/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+    match /friendships/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    match /gameRooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.players.size() == 1
+        && request.resource.data.players[0].uid == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    // ── הזמנות למשחק בין חברים ──
+    match /gameInvites/{inviteId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    // ── חדרי רמיקוב (2-4 שחקנים) — חדש ──
+    // היוצר מתחיל לבד כמארח; שאר השחקנים מצטרפים דרך update.
+    match /rummikubRooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.players.size() == 1
+        && request.resource.data.players[0].uid == request.auth.uid
+        && request.resource.data.hostUid == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    // ── טבלת מובילים יומית של "מי רוצה להיות מיליונר" — חדש ──
+    match /millionaireScores/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
