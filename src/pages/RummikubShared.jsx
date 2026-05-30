@@ -300,14 +300,18 @@ export function RummiGameLayout(props) {
             {chat}
           </div>
 
-          {/* מרכז — שולחן + יד */}
+          {/* מרכז — שולחן (גמיש, רוב המקום) + יד (גובה מוגבל למטה) */}
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{board}</div>
+            {/* השולחן — תופס את כל המקום הפנוי וגולל בפנים אם צריך */}
+            <div style={{ flex: 1, minHeight: 80, overflowY: 'auto' }}>{board}</div>
             {status}
-            {rack}
-            {newTile}
-            {meldHint}
-            {aiThinking}
+            {/* היד — לא גדלה על חשבון השולחן; גוללת בתוך עצמה אם יש הרבה אריחים */}
+            <div style={{ flexShrink: 0, maxHeight: '38%', overflowY: 'auto' }}>
+              {rack}
+              {newTile}
+              {meldHint}
+              {aiThinking}
+            </div>
           </div>
 
           {/* עמודה שמאלית — כפתורי פעולה + מיון */}
