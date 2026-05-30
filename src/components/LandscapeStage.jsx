@@ -1,20 +1,21 @@
 // src/components/LandscapeStage.jsx
 // ─────────────────────────────────────────────────────────────
-// עטיפה שמעודדת תצוגת רוחב (landscape) למשחק שבתוכה.
+// עטיפה שמכריחה תצוגת רוחב (landscape) למשחק שבתוכה — בנייד.
 //
-// גישה פשוטה ויציבה (ללא סיבוב CSS שמעוות את התצוגה):
-//   • בנייד — מנסה נעילת כיוון אמיתית (requestFullscreen +
-//     screen.orientation.lock). עובד באנדרואיד/כרום: המסך מסתובב
-//     פיזית לרוחב, ו-RummiGameLayout מציג את פריסת הרוחב.
-//   • אם הנעילה לא נתמכת (אייפון/ספארי) או שהמשתמש מחזיק לאורך —
-//     פשוט מציגים את התוכן כמו שהוא. RummiGameLayout בוחר לבד
-//     פריסת רוחב או אורך לפי מידות החלון, ושתיהן נוחות לשימוש.
+// גישה: סיבוב-בתוכנה בלבד (ללא נעילת-כיוון של המערכת, שמתנהגת
+// שונה בין מכשירים וגרמה לפריסת-רוחב דחוסה על מסך צר).
 //
-// אין כאן שום סיבוב-בתוכנה: הוא גרם לעיוות (טקסט אנכי, פריסה על
-// הצד) ולכן הוסר. העטיפה לעולם לא משנה את צורת התוכן — רק מנסה
-// לבקש מהמערכת לנעול כיוון בנייד.
+//   • במחשב — לא נוגעים בכלום. מציגים את התוכן כמו שהוא,
+//     ו-RummiGameLayout בוחר פריסה לפי מידות החלון.
+//   • בנייד המוחזק לאורך (portrait) — מסובבים את כל המשחק 90°
+//     עם CSS, ונותנים לו מידות = (גובה-המסך רוחב) × (רוחב-המסך גובה),
+//     כך שהוא ממלא בדיוק את כל המסך אבל מוצג לרוחב.
+//   • בנייד שכבר מוחזק לרוחב — מציגים כרגיל (אין צורך לסובב).
+//
+// כך המשחק תמיד מוצג לרוחב בנייד, באופן זהה בכל מכשיר ודפדפן,
+// בלי תלות בנעילת-כיוון שלא נתמכת בכל מקום (למשל אייפון).
 // ─────────────────────────────────────────────────────────────
-import { useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 // האם זה מכשיר מגע אמיתי (טלפון/טאבלט)?
 function isTouchDevice() {
@@ -23,43 +24,45 @@ function isTouchDevice() {
 }
 
 export default function LandscapeStage({ children }) {
-  const lockTriedRef = useRef(false)
+  const [dims, setDims] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : 0,
+    h: typeof window !== 'undefined' ? window.innerHeight : 0,
+  }))
 
-  // מנסה נעילת כיוון אמיתית — רק בנייד, פעם אחת בכניסה.
-  // אם זה נכשל (אייפון וכו') — לא קורה כלום, פשוט נשארים בכיוון הנוכחי.
   useEffect(() => {
-    if (!isTouchDevice() || lockTriedRef.current) return
-    lockTriedRef.current = true
-    tryLockLandscape()
-    return () => { tryUnlock() }
+    const update = () => setDims({ w: window.innerWidth, h: window.innerHeight })
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
   }, [])
 
-  // התוכן תמיד מוצג כמו שהוא — RummiGameLayout מטפל בפריסה.
-  return <div style={{ height: '100%', width: '100%' }}>{children}</div>
-}
+  const touch = isTouchDevice()
+  const isPortrait = dims.h > dims.w
 
-// ── עזרי נעילת כיוון ──────────────────────────────────────
-async function tryLockLandscape() {
-  try {
-    const el = document.documentElement
-    if (el.requestFullscreen) {
-      await el.requestFullscreen().catch(() => {})
-    }
-    if (screen.orientation && screen.orientation.lock) {
-      await screen.orientation.lock('landscape').catch(() => {})
-    }
-  } catch (e) {
-    // נכשל (למשל אייפון) — נשארים בכיוון הנוכחי, וזה בסדר גמור.
+  // מחשב, או נייד שכבר לרוחב — מציגים כרגיל.
+  if (!touch || !isPortrait) {
+    return <div style={{ height: '100%', width: '100%' }}>{children}</div>
   }
-}
 
-function tryUnlock() {
-  try {
-    if (screen.orientation && screen.orientation.unlock) {
-      screen.orientation.unlock()
-    }
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {})
-    }
-  } catch (e) { /* ignore */ }
+  // נייד מאונך — מסובבים את כל המשחק 90° כך שייראה לרוחב וימלא את המסך.
+  // המסגרת הפנימית מקבלת רוחב=גובה-המסך, גובה=רוחב-המסך, מסובבת 90°
+  // סביב הפינה השמאלית-עליונה, ומוזזת חזרה כך שתכסה בדיוק את המסך.
+  return (
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#1c1108', zIndex: 1 }}>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: dims.w,                       // מתחילים מהקצה הימני
+        width: dims.h,                      // רוחב התוכן = גובה המסך
+        height: dims.w,                     // גובה התוכן = רוחב המסך
+        transform: 'rotate(90deg)',
+        transformOrigin: 'top left',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
 }
