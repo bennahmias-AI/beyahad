@@ -7,6 +7,7 @@
 // האריחים, הכפתור, ראש המסך, וה-banner של "האריח החדש".
 // כך שני המסכים נראים זהים לחלוטין ואין כפילות קוד.
 // ─────────────────────────────────────────────────────────────
+import { useState, useEffect } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
 import { isValidSet, sortSetForDisplay, sortRack } from '../utils/rummikubEngine.js'
 
@@ -227,6 +228,142 @@ export function NewTileBanner({ tile }) {
       <span style={{ fontSize: 14, fontWeight: 800, color: GOLD }}>
         {colorName ? `${label} ${colorName}` : label}
       </span>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════
+// מונה האריחים שנותרו בקופה (כמה אפשר עוד לשלוף)
+// ═════════════════════════════════════════════════════════
+export function PoolCounter({ count }) {
+  const low = count <= 5
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      background: 'rgba(0,0,0,.25)', border: `1px solid ${low ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
+      borderRadius: 999, padding: '5px 14px',
+    }}>
+      <span style={{ fontSize: 15 }}>🎴</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
+      <span style={{ fontSize: 16, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
+    </div>
+  )
+}
+
+// סגנון כפתור מיון (לשימוש בעמודת הפעולות לרוחב ולאורך)
+const layoutSortBtn = {
+  background: 'linear-gradient(180deg,#5e3f22,#3a2410)', color: '#e6cd90',
+  border: 'none', borderTop: '1px solid #a07d3e', borderBottom: '3px solid #1c1008',
+  borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 800,
+  fontFamily: 'inherit', cursor: 'pointer',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.4)',
+}
+
+// ═════════════════════════════════════════════════════════
+// פריסת המשחק — מתאימה לאורך (portrait) ולרוחב (landscape).
+// מקבלת את כל חלקי המשחק כ-props ומסדרת אותם אחרת לפי הכיוון.
+// משותף למשחק המקומי ולאונליין.
+// ═════════════════════════════════════════════════════════
+export function RummiGameLayout(props) {
+  const {
+    header, players, poolCount, board, status, aiThinking, meldHint,
+    rack, newTile, showActions, onReset, onDraw, onEndTurn, onSort, modals,
+    chat,  // אופציונלי — רק באונליין
+  } = props
+
+  const [wide, setWide] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= window.innerHeight : false
+  )
+  useEffect(() => {
+    const update = () => setWide(window.innerWidth >= window.innerHeight)
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
+  }, [])
+
+  const poolCounterEl = <PoolCounter count={poolCount} />
+
+  // ── פריסת רוחב ─────────────────────────────────
+  if (wide) {
+    return (
+      <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {header}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: '8px 10px 10px' }}>
+
+          {/* עמודה ימנית — שחקנים, קופה, צ'אט */}
+          <div style={{ width: 132, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 7, overflowY: 'auto' }}>
+            {players}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>{poolCounterEl}</div>
+            {chat}
+          </div>
+
+          {/* מרכז — שולחן + יד */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{board}</div>
+            {status}
+            {rack}
+            {newTile}
+            {meldHint}
+            {aiThinking}
+          </div>
+
+          {/* עמודה שמאלית — כפתורי פעולה + מיון */}
+          {showActions && (
+            <div style={{ width: 100, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <RummiButton gold label="✓ סיים תור" onClick={onEndTurn} />
+              <RummiButton ghost label="🎴 שלוף" onClick={onDraw} />
+              <RummiButton ghost label="↩ אפס" onClick={onReset} />
+              <button onClick={() => onSort('color')} style={layoutSortBtn}>🎨 סדר לפי צבע</button>
+              <button onClick={() => onSort('number')} style={layoutSortBtn}>🔢 סדר לפי מספר</button>
+            </div>
+          )}
+        </div>
+        {modals}
+      </div>
+    )
+  }
+
+  // ── פריסת אורך ───────────────────────────
+  return (
+    <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {header}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
+        {players}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
+        {poolCounterEl}
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
+        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{board}</div>
+      </div>
+      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
+        {status}
+        {rack && (
+          <>
+            {/* כפתורי מיון — לאורך מעל היד */}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 8 }}>
+              <button onClick={() => onSort('number')} style={layoutSortBtn}>🔢 סדר לפי מספר</button>
+              <button onClick={() => onSort('color')} style={layoutSortBtn}>🎨 סדר לפי צבע</button>
+            </div>
+            {rack}
+          </>
+        )}
+        {newTile}
+        {aiThinking}
+        {meldHint}
+        {showActions && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <RummiButton ghost label="↩ אפס" onClick={onReset} />
+            <RummiButton ghost label="🎴 שלוף" onClick={onDraw} />
+            <RummiButton gold label="✓ סיים תור" onClick={onEndTurn} />
+          </div>
+        )}
+      </div>
+      {modals}
     </div>
   )
 }

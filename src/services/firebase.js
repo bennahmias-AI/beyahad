@@ -949,6 +949,17 @@ export async function leaveRummikubRoom(roomId) {
   catch (e) { console.error('leaveRummikubRoom error:', e) }
 }
 
+// שולח הודעת צ'אט בחדר רמיקוב (מתווסף למערך chat).
+export async function sendRummikubChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'rummikubRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendRummikubChat error:', e)
+  }
+}
+
 // מתאמה רנדומלית לרמיקוב — מצטרף לחדר ממתין או יוצר חדש.
 export async function findOrCreateRummikubMatch({ player }) {
   const q = query(
