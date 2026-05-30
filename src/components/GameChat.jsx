@@ -138,7 +138,7 @@ function ChatButton({ roomId, me, chat, dark, suppressToast = false }) {
   )
 }
 
-export function ChatPanel({ roomId, me, msgs, onClose, sendFn }) {
+export function ChatPanel({ roomId, me, msgs, onClose }) {
   const [text, setText] = useState('')
   const endRef = useRef(null)
 
@@ -150,16 +150,12 @@ export function ChatPanel({ roomId, me, msgs, onClose, sendFn }) {
     const t = text.trim()
     if (!t) return
     setText('')
-    const message = {
+    await sendGameChat(roomId, {
       uid: me.uid,
       name: me.name || 'אני',
       text: t.slice(0, 300),
       ts: Date.now(),
-    }
-    // אם סופקה פונקציית שליחה ייעודית (למשל רמיקוב) — משתמשים בה;
-    // אחרת ברירת המחדל היא sendGameChat (ל-gameRooms)
-    if (sendFn) await sendFn(roomId, message)
-    else await sendGameChat(roomId, message)
+    })
   }
 
   const onKey = (e) => {

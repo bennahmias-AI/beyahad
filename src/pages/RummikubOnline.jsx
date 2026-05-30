@@ -15,13 +15,11 @@ import { IconBackRTL } from '../icons/index.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import LandscapeStage from '../components/LandscapeStage.jsx'
-import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
   updateRummikubState, watchRummikubRoom, leaveRummikubRoom,
   findOrCreateRummikubMatch, watchFriendships, sendGameInvite,
-  watchUser, sendRummikubChat,
+  watchUser,
 } from '../services/firebase.js'
 import {
   initGame, isBoardValid, drawTile, commitTurn, MELD_MIN,
@@ -29,7 +27,7 @@ import {
 } from '../utils/rummikubEngine.js'
 import {
   RummiHeaderShared, BoardArea, PlayerRack, RummiButton,
-  NewTileBanner, GOLD, GOLD_DEEP, CREAM, RummiGameLayout, PoolCounter,
+  NewTileBanner, GOLD, GOLD_DEEP, CREAM,
 } from './RummikubShared.jsx'
 
 // ════════════════════════════════════════════════════════
@@ -447,123 +445,98 @@ function OnlineGame({ room, roomId, me, onBack }) {
     ? (winner.id === me.uid ? 'ניצחת! 🎉' : `${winner.name} ניצח`)
     : isMyTurn ? 'תורך' : `תור ${state.players[turnIdx].name}`
 
-  // צ'אט האונליין — היריב(ים) לצורך כפתור "הוסף חבר"
-  const opponent = state.players.find(p => p.id !== me.uid)
-  const chatMsgs = room.chat || []
-
-  // חלקי המשחק — כמשתנים לפריסה הדו-מצבית
-  const playersStrip = state.players.map((p, i) => (
-    <div key={p.id} style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      background: i === turnIdx && !winner ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
-      border: i === turnIdx && !winner ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-      borderRadius: 12, padding: '7px 12px',
-    }}>
-      <Avatar name={p.name} size={34} photoURL={p.id === me.uid ? profile?.photoURL : null} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
-        <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{p.rack.length} אריחים</div>
-      </div>
-      {i === turnIdx && !winner && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
-    </div>
-  ))
-
-  const boardEl = (
-    <BoardArea
-      board={draftBoard}
-      onSetClick={placeOnSet}
-      onTileClick={returnTileToRack}
-      placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
-    />
-  )
-  const statusEl = (
-    <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
-      {message || statusText}
-    </div>
-  )
-  const waitingEl = (!isMyTurn && !winner) ? (
-    <div style={{ textAlign: 'center', color: CREAM, fontSize: 14, marginTop: 12, opacity: .8 }}>⏳ ממתין לתורך…</div>
-  ) : null
-  const meldHintEl = (isMyTurn && !winner && !state.players[myIndex].hasMelded) ? (
-    <div style={{ textAlign: 'center', fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
-      💡 לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
-    </div>
-  ) : null
-
-  // בלוק הצ'אט לעמודה הימנית (רק באונליין)
-  const chatBlock = (
-    <RummiChatColumn roomId={roomId} me={me} opponent={opponent} chatMsgs={chatMsgs} />
-  )
-
-  const winnerModal = winner ? (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '30px 26px 22px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{winner.id === me.uid ? '🎉' : '🎴'}</div>
-        <div className="h-display" style={{ fontSize: 28, color: winner.id === me.uid ? '#4F6B4A' : '#B89048', marginBottom: 6 }}>
-          {winner.id === me.uid ? 'ניצחת!' : `${winner.name} ניצח!`}
-        </div>
-        <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600 }}>
-          {winner.id === me.uid ? 'כל הכבוד — נפטרת מכל האריחים!' : 'משחק יפה — אפשר לשחק שוב'}
-        </div>
-        <button onClick={handleLeave} className="big-btn big-btn--primary" style={{ width: '100%' }}>חזרה לזירה</button>
-      </div>
-    </div>
-  ) : null
-
   return (
-    <LandscapeStage>
-      <RummiGameLayout
-        header={<RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} />}
-        players={playersStrip}
-        poolCount={state.pool.length}
-        board={boardEl}
-        status={statusEl}
-        meldHint={meldHintEl}
-        aiThinking={waitingEl}
-        rack={<PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} />}
-        newTile={(lastDrawn && lastDrawn.forIdx === myIndex) ? <NewTileBanner tile={lastDrawn.tile} /> : null}
-        showActions={isMyTurn && !winner}
-        onReset={handleResetDraft}
-        onDraw={handleDraw}
-        onEndTurn={handleEndTurn}
-        onSort={handleSortRack}
-        chat={chatBlock}
-        modals={winnerModal}
-      />
-      {/* התראת צ'אט צפה (כשהחלון סגור) */}
-      <ChatToast msgs={chatMsgs} meUid={me.uid} />
-    </LandscapeStage>
-  )
-}
+    <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} />
 
-// עמודת צ'אט למשחק אונליין — כפתור שפותח את חלון הצ'אט
-function RummiChatColumn({ roomId, me, opponent, chatMsgs }) {
-  const [open, setOpen] = useState(false)
-  const [seen, setSeen] = useState(chatMsgs.length)
-  const unread = open ? 0 : Math.max(0, chatMsgs.length - seen)
-  useEffect(() => { if (open) setSeen(chatMsgs.length) }, [open, chatMsgs.length])
+      {/* פס שחקנים — קבוע למעלה */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
+        {state.players.map((p, i) => (
+          <div key={p.id} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: i === turnIdx && !winner ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
+            border: i === turnIdx && !winner ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
+            borderRadius: 12, padding: '7px 12px',
+          }}>
+            <Avatar name={p.name} size={34} photoURL={p.id === me.uid ? profile?.photoURL : null} />
+            <div>
+              <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
+              <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{p.rack.length} אריחים</div>
+            </div>
+            {i === turnIdx && !winner && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
+          </div>
+        ))}
+      </div>
 
-  return (
-    <>
-      <button onClick={() => setOpen(true)} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        background: 'linear-gradient(180deg,#6b4528,#4a2e16)', border: '1px solid #C9A24A',
-        borderRadius: 10, padding: '9px', color: '#F0D9A0', fontSize: 13, fontWeight: 800,
-        fontFamily: 'inherit', cursor: 'pointer', position: 'relative',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12)',
-      }}>
-        💬 צ'אט
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: -6, insetInlineStart: -6,
-            background: '#E8484F', color: 'white', fontSize: 11, fontWeight: 800,
-            minWidth: 18, height: 18, borderRadius: 9, padding: '0 4px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid #1c1108',
-          }}>{unread}</span>
+      {/* מונה אריחים בקופה */}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: 'rgba(0,0,0,.25)', border: `1px solid ${state.pool.length <= 5 ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
+          borderRadius: 999, padding: '5px 14px',
+        }}>
+          <span style={{ fontSize: 15 }}>🎴</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: state.pool.length <= 5 ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{state.pool.length}</span>
+        </div>
+      </div>
+
+      {/* השולחן — גמיש, גולל בפנים אם צריך */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
+        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <BoardArea
+            board={draftBoard}
+            onSetClick={placeOnSet}
+            onTileClick={returnTileToRack}
+            placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
+          />
+        </div>
+      </div>
+
+      {/* אזור תחתון קבוע */}
+      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
+        <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
+          {message || statusText}
+        </div>
+
+        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} />
+
+        {lastDrawn && lastDrawn.forIdx === myIndex && <NewTileBanner tile={lastDrawn.tile} />}
+
+        {!isMyTurn && !winner && (
+          <div style={{ textAlign: 'center', color: CREAM, fontSize: 14, marginTop: 12, opacity: .8 }}>⏳ ממתין לתורך…</div>
         )}
-      </button>
-      {open && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setOpen(false)} sendFn={sendRummikubChat} />}
-    </>
+
+        {isMyTurn && !winner && !state.players[myIndex].hasMelded && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
+            💡 לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
+          </div>
+        )}
+
+        {isMyTurn && !winner && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <RummiButton ghost label="↩ אפס" onClick={handleResetDraft} />
+            <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
+            <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
+          </div>
+        )}
+      </div>
+
+      {winner && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '30px 26px 22px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>{winner.id === me.uid ? '🎉' : '🎴'}</div>
+            <div className="h-display" style={{ fontSize: 28, color: winner.id === me.uid ? '#4F6B4A' : '#B89048', marginBottom: 6 }}>
+              {winner.id === me.uid ? 'ניצחת!' : `${winner.name} ניצח!`}
+            </div>
+            <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600 }}>
+              {winner.id === me.uid ? 'כל הכבוד — נפטרת מכל האריחים!' : 'משחק יפה — אפשר לשחק שוב'}
+            </div>
+            <button onClick={handleLeave} className="big-btn big-btn--primary" style={{ width: '100%' }}>חזרה לזירה</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

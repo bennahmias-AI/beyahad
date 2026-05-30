@@ -14,14 +14,12 @@ import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import LandscapeStage from '../components/LandscapeStage.jsx'
 import {
   initGame, isValidSet, isBoardValid, sumSetsValue, rackValue,
   drawTile, commitTurn, aiTakeTurn, MELD_MIN,
   sortSetForDisplay, drawOrResolve, finalStandings, sortRack,
 } from '../utils/rummikubEngine.js'
 import RummikubOnline from './RummikubOnline.jsx'
-import { RummiGameLayout, PoolCounter } from './RummikubShared.jsx'
 
 // ── פלטת צבעים (תואמת לדמו שאושר) ──────────────────────
 const WOOD_DEEP   = 'linear-gradient(155deg,#5c3c22 0%,#43290f 55%,#321d0b 100%)'
@@ -428,82 +426,82 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
     : isAITurn ? `${player.name} חושב…`
     : (mode === 'ai' ? 'תורך' : `תור ${player.name}`)
 
-  // חלקי המשחק כמשתנים — כך אפשר לסדר אותם אחרת לאורך ולרוחב
-  const playersStrip = state.players.map((p, i) => (
-    <OpponentChip key={p.id} player={p} active={i === turnIdx && !winner} photoURL={p.id === 'you' ? profile?.photoURL : null} />
-  ))
-  const boardEl = (
-    <BoardArea
-      board={draftBoard}
-      onSetClick={placeOnSet}
-      onTileClick={returnTileToRack}
-      selectedTileId={selectedTileId}
-      placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
-    />
-  )
-  const statusEl = (
-    <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
-      {message || statusText}
-    </div>
-  )
-  const aiThinkingEl = isAITurn ? (
-    <div style={{ textAlign: 'center', padding: '20px', color: CREAM, fontSize: 15 }}>{player.name} משחק… 🤔</div>
-  ) : null
-  const meldHintEl = (!isAITurn && !winner && !player.hasMelded) ? (
-    <div style={{ textAlign: 'center', fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
-      💡 לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
-    </div>
-  ) : null
-
-  const gameModals = winner ? (
-    <EndModal
-      mode={mode}
-      state={state}
-      winnerName={winner.name}
-      youWon={mode === 'ai' && state.winner === 0}
-      onPlayAgain={restart}
-      onExit={onExit}
-    />
-  ) : null
-
-  const header = (
-    <>
+  return (
+    <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <RummiHeader title="רמיקוב" onBack={onBack} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
-    </>
-  )
 
-  return (
-    <LandscapeStage>
-      <RummiGameLayout
-        header={header}
-        players={playersStrip}
-        poolCount={state.pool.length}
-        board={boardEl}
-        status={statusEl}
-        aiThinking={aiThinkingEl}
-        meldHint={meldHintEl}
-        rack={(!isAITurn && !winner) ? (
-          <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} />
-        ) : null}
-        newTile={(!isAITurn && !winner && lastDrawn && lastDrawn.forIdx === turnIdx) ? (
+      {/* פס שחקנים — קבוע למעלה */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
+        {state.players.map((p, i) => (
+          <OpponentChip key={p.id} player={p} active={i === turnIdx && !winner} photoURL={p.id === 'you' ? profile?.photoURL : null} />
+        ))}
+      </div>
+
+      {/* מונה אריחים בקופה */}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
+        <PoolCounter count={state.pool.length} />
+      </div>
+
+      {/* השולחן — גמיש, תופס את המרחב שנותר וגולל בפנים אם צריך */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
+        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <BoardArea
+            board={draftBoard}
+            onSetClick={placeOnSet}
+            onTileClick={returnTileToRack}
+            selectedTileId={selectedTileId}
+            placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
+          />
+        </div>
+      </div>
+
+      {/* אזור תחתון קבוע — הודעה, היד, והכפתורים תמיד גלויים */}
+      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
+        <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
+          {message || statusText}
+        </div>
+
+        {!isAITurn && !winner && (
+          <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} />
+        )}
+        {/* הודעה על האריח החדש שנשלף */}
+        {!isAITurn && !winner && lastDrawn && lastDrawn.forIdx === turnIdx && (
           <NewTileBanner tile={lastDrawn.tile} />
-        ) : null}
-        showActions={!isAITurn && !winner}
-        onReset={handleResetDraft}
-        onDraw={handleDraw}
-        onEndTurn={handleEndTurn}
-        onSort={handleSortRack}
-        modals={gameModals}
-      />
-    </LandscapeStage>
+        )}
+        {isAITurn && (
+          <div style={{ textAlign: 'center', padding: '20px', color: CREAM, fontSize: 15 }}>{player.name} משחק… 🤔</div>
+        )}
+
+        {!isAITurn && !winner && !player.hasMelded && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
+            💡 לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
+          </div>
+        )}
+
+        {!isAITurn && !winner && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <RummiButton ghost label="↩ אפס" onClick={handleResetDraft} />
+            <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
+            <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
+          </div>
+        )}
+      </div>
+
+      {winner && (
+        <EndModal
+          mode={mode}
+          state={state}
+          winnerName={winner.name}
+          youWon={mode === 'ai' && state.winner === 0}
+          onPlayAgain={restart}
+          onExit={onExit}
+        />
+      )}
+    </div>
   )
 }
-
-// ═════════════════════════════════════════════════════════
-// (פריסת המשחק RummiGameLayout + PoolCounter עברו ל-RummikubShared.jsx
-//  כדי שישמשו גם את המשחק המקומי וגם את האונליין)
-// ═════════════════════════════════════════════════════════
 
 function OpponentChip({ player, active, photoURL }) {
   return (
@@ -534,7 +532,21 @@ function OpponentChip({ player, active, photoURL }) {
   )
 }
 
-// מונה האריחים שנותרו בקופה — עבר ל-RummikubShared.jsx
+// מונה האריחים שנותרו בקופה (כמה אפשר עוד לשלוף)
+function PoolCounter({ count }) {
+  const low = count <= 5
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      background: 'rgba(0,0,0,.25)', border: `1px solid ${low ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
+      borderRadius: 999, padding: '5px 14px',
+    }}>
+      <span style={{ fontSize: 15 }}>🎴</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
+      <span style={{ fontSize: 16, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
+    </div>
+  )
+}
 
 function BoardArea({ board, onSetClick, onTileClick, selectedTileId, placing }) {
   return (
