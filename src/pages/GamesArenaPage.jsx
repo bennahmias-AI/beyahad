@@ -81,7 +81,7 @@ const GAMES = [
     name: 'מלך הזירה',
     description: 'דו-קרב טריוויה',
     emoji: '👑',
-    players: '2 שחקנים',
+    players: '2-3 שחקנים',
     color: '#4A2A66', // אוברגין מלכותי
     status: 'available',
   },

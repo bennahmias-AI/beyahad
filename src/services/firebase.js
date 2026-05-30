@@ -996,14 +996,14 @@ export async function findOrCreateRummikubMatch({ player, maxPlayers = 4 }) {
 //     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
 //     gameStateJson: מצב המשחק (שאלות, תשובות, ניקוד), roomType, isPrivate, inviteCode
 
-export async function createArenaRoom({ host, roomType }) {
+export async function createArenaRoom({ host, roomType, maxPlayers = 2 }) {
   const inviteCode = roomType === 'private' ? generateInviteCode() : null
   const ref = await addDoc(collection(db, 'arenaRooms'), {
     hostUid: host.uid,
     players: [{ uid: host.uid, name: host.name || 'משתמש' }],
     status: 'waiting',
     gameStateJson: '',
-    maxPlayers: 2,
+    maxPlayers,
     roomType,
     isPrivate: roomType === 'private',
     inviteCode,
@@ -1021,7 +1021,7 @@ export async function joinArenaRoom(roomId, player) {
   if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
   const players = data.players || []
   if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
-  if (players.length >= 2) throw new Error('החדר מלא')
+  if (players.length >= (data.maxPlayers || 2)) throw new Error('החדר מלא')
   await updateDoc(ref, {
     players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
     updatedAt: serverTimestamp(),
@@ -1072,8 +1072,9 @@ export async function sendArenaChat(roomId, message) {
   }
 }
 
-// מתאמה רנדומלית למלך הזירה — מצטרף לחדר ממתין או יוצר חדש.
-export async function findOrCreateArenaMatch({ player }) {
+// מתאמה רנדומלית למלך הזירה — מצטרף לחדר ממתין (עם אותו מספר שחקנים מבוקש)
+// או יוצר חדש. maxPlayers קובע לכמה שחקנים החדר ממתין (2 או 3).
+export async function findOrCreateArenaMatch({ player, maxPlayers = 2 }) {
   const q = query(
     collection(db, 'arenaRooms'),
     where('status', '==', 'waiting'),
@@ -1083,8 +1084,9 @@ export async function findOrCreateArenaMatch({ player }) {
   const room = snap.docs.find(d => {
     const data = d.data()
     if (data.isPrivate) return false
+    if ((data.maxPlayers || 2) !== maxPlayers) return false
     const players = data.players || []
-    if (players.length >= 2) return false
+    if (players.length >= (data.maxPlayers || 2)) return false
     if (players.some(p => p.uid === player.uid)) return false
     return true
   })
@@ -1092,7 +1094,7 @@ export async function findOrCreateArenaMatch({ player }) {
     await joinArenaRoom(room.id, player)
     return { roomId: room.id, isHost: false }
   }
-  const { roomId } = await createArenaRoom({ host: player, roomType: 'random' })
+  const { roomId } = await createArenaRoom({ host: player, roomType: 'random', maxPlayers })
   return { roomId, isHost: true }
 }
 

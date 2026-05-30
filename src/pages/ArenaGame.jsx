@@ -84,6 +84,7 @@ function fmtPoints(n) {
 export default function ArenaGame({ onBack, initialRoomId }) {
   const { authUser, profile } = useUserStore()
   const [mode, setMode] = useState(initialRoomId ? 'friend' : null)
+  const [numPlayers, setNumPlayers] = useState(2)
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
   useEffect(() => { if (initialRoomId) { setMode('friend'); setRoomId(initialRoomId) } }, [initialRoomId])
@@ -91,11 +92,13 @@ export default function ArenaGame({ onBack, initialRoomId }) {
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
 
   if (!mode) {
-    return <ModeSelectScreen onBack={onBack} onSelectRandom={() => setMode('random')} onSelectFriend={() => setMode('friend')} />
+    return <ModeSelectScreen onBack={onBack}
+      onSelectRandom={(n) => { setNumPlayers(n); setMode('random') }}
+      onSelectFriend={(n) => { setNumPlayers(n); setMode('friend') }} />
   }
 
   if (!roomId) {
-    return <Lobby mode={mode} me={me} onBack={() => setMode(null)} onReady={(id) => setRoomId(id)} />
+    return <Lobby mode={mode} me={me} numPlayers={numPlayers} onBack={() => setMode(null)} onReady={(id) => setRoomId(id)} />
   }
   return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); setMode(null) }} onExit={onBack} />
 }
@@ -131,10 +134,13 @@ function ArenaHeader({ title, onBack, onMenu, menuOpen, menuItems }) {
 // מסך בחירת מצב — רנדומלי / חברים
 // ════════════════════════════════════════════════════════
 function ModeSelectScreen({ onBack, onSelectRandom, onSelectFriend }) {
+  // step: 'mode' → בחירת יריב (רנדומלי/חבר) ; 'random-count'/'friend-count' → כמה שחקנים
+  const [step, setStep] = useState('mode')
+
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
-        <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <button className="screen-header__back" onClick={step === 'mode' ? onBack : () => setStep('mode')} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
         <div className="screen-header__title">מלך הזירה</div>
       </div>
 
@@ -144,13 +150,53 @@ function ModeSelectScreen({ onBack, onSelectRandom, onSelectFriend }) {
             <GameIcon id="arena" size={52} />
           </div>
           <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>מלך הזירה</div>
-          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>דו-קרב טריוויה — מי שיענה נכון על יותר שאלות מנצח!</div>
+          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>קרב טריוויה — מי שיענה נכון על יותר שאלות מנצח!</div>
         </div>
 
-        <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו יריב:</h2>
-        <ModeButton onClick={onSelectRandom} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="יריב רנדומלי" description="התמודדו מול מישהו אקראי באפליקציה" />
-        <ModeButton onClick={onSelectFriend} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="הזמן חבר" description="התמודדו מול חבר מהרשימה שלכם" />
+        {step === 'mode' && (
+          <>
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו יריב:</h2>
+            <ModeButton onClick={() => setStep('random-count')} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="יריב רנדומלי" description="התמודדו מול אנשים אקראיים באפליקציה" />
+            <ModeButton onClick={() => setStep('friend-count')} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="הזמן חברים" description="התמודדו מול חברים מהרשימה שלכם" />
+          </>
+        )}
+
+        {step === 'random-count' && (
+          <>
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>כמה מתמודדים?</h2>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 12 }}>נחכה עד שיצטרפו מספיק אנשים, ואז הקרב יתחיל אוטומטית.</div>
+            <CountPicker options={[2, 3]} labels={['2 מתמודדים', '3 מתמודדים']} onPick={(n) => onSelectRandom(n)} />
+          </>
+        )}
+
+        {step === 'friend-count' && (
+          <>
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>כמה מתמודדים?</h2>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 12 }}>בחרו אם תשחקו אחד על אחד או שלושה.</div>
+            <CountPicker options={[2, 3]} labels={['2 מתמודדים (אתה + חבר)', '3 מתמודדים (אתה + 2 חברים)']} onPick={(n) => onSelectFriend(n)} />
+          </>
+        )}
       </div>
+    </div>
+  )
+}
+
+function CountPicker({ options, labels, onPick }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {options.map((n, i) => (
+        <button key={n} onClick={() => onPick(n)} style={{
+          width: '100%', textAlign: 'right', background: 'var(--surface)',
+          border: '1px solid var(--line)', borderRadius: 16, padding: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
+        }}>
+          <span className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>{labels[i]}</span>
+          <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center', background: 'linear-gradient(135deg,#4A2A66,#2A1438)', borderRadius: 10, padding: '5px 9px' }}>
+            {Array.from({ length: n }).map((_, k) => <GameIcon key={k} id="arena" size={20} />)}
+          </span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -173,7 +219,7 @@ function ModeButton({ onClick, iconId, gradient, label, description }) {
 // ════════════════════════════════════════════════════════
 // Lobby — חיפוש רנדומלי / רשימת חברים
 // ════════════════════════════════════════════════════════
-function Lobby({ mode, me, onBack, onReady }) {
+function Lobby({ mode, me, numPlayers = 2, onBack, onReady }) {
   const [phase, setPhase] = useState(mode === 'random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -192,7 +238,7 @@ function Lobby({ mode, me, onBack, onReady }) {
     ;(async () => {
       if (!me.uid) { setErrorMsg('צריך להיות מחובר'); setPhase('error'); return }
       try {
-        const { roomId } = await findOrCreateArenaMatch({ player: me })
+        const { roomId } = await findOrCreateArenaMatch({ player: me, maxPlayers: numPlayers })
         onReady(roomId)
       } catch (e) {
         console.error('arena match error:', e)
@@ -212,7 +258,7 @@ function Lobby({ mode, me, onBack, onReady }) {
     if (!me.uid) return
     setErrorMsg('')
     try {
-      const { roomId } = await createArenaRoom({ host: me, roomType: 'private' })
+      const { roomId } = await createArenaRoom({ host: me, roomType: 'private', maxPlayers: numPlayers })
       await sendGameInvite({
         from: me, to: { uid: friend.otherUid, name: friend.otherName },
         gameType: 'arena', roomId,
@@ -236,7 +282,7 @@ function Lobby({ mode, me, onBack, onReady }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
           <div style={{ fontSize: 72 }}>👑</div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>מחפש לך יריב...</div>
+            <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>{numPlayers >= 3 ? 'מחפש לך יריבים...' : 'מחפש לך יריב...'}</div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>💡 כשעוד מישהו ילחץ על "מלך הזירה"<br />תתחרו זה בזה</div>
@@ -406,10 +452,21 @@ function RoomScreen({ roomId, me, onBack, onExit }) {
 function WaitingRoom({ room, roomId, me, onBack }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
+  const maxPlayers = room.maxPlayers || 2
+  const isRandom = room.roomType === 'random'
   const startedRef = useRef(false)
+  const [friends, setFriends] = useState([])
+  const [inviteMsg, setInviteMsg] = useState('')
+
+  // מעקב אחרי חברים — רק במשחק חברים למארח (להזמנת מתמודד נוסף ל-3)
+  useEffect(() => {
+    if (isRandom || !isHost || !me.uid) return
+    const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
+    return () => unsub && unsub()
+  }, [isRandom, isHost, me.uid])
 
   const handleStart = async () => {
-    if (startedRef.current) return
+    if (startedRef.current || players.length < 2) return
     startedRef.current = true
     const questions = buildQuestions()
     const scores = {}
@@ -425,17 +482,32 @@ function WaitingRoom({ room, roomId, me, onBack }) {
     await startArenaGame(roomId, gameState)
   }
 
-  // כששני השחקנים פה — המארח מתחיל אוטומטית
+  // כשהחדר מתמלא למספר המבוקש — המארח מתחיל אוטומטית
   useEffect(() => {
-    if (isHost && players.length >= 2 && !startedRef.current) {
+    if (isHost && players.length >= maxPlayers && !startedRef.current) {
       handleStart()
     }
-  }, [isHost, players.length]) // eslint-disable-line
+  }, [isHost, players.length, maxPlayers]) // eslint-disable-line
 
   const handleLeave = async () => {
     if (isHost) await leaveArenaRoom(roomId)
     onBack()
   }
+
+  const inviteMore = async (friend) => {
+    try {
+      await sendGameInvite({ from: me, to: { uid: friend.otherUid, name: friend.otherName }, gameType: 'arena', roomId })
+      setInviteMsg(`הזמנה נשלחה ל${friend.otherName} ✓`)
+      setTimeout(() => setInviteMsg(''), 2500)
+    } catch (e) {
+      console.error('inviteMore error:', e)
+      setInviteMsg('לא הצלחנו לשלוח הזמנה')
+    }
+  }
+
+  const alreadyIn = new Set(players.map(p => p.uid))
+  const invitableFriends = (friends || []).filter(f => !alreadyIn.has(f.otherUid))
+  const canManualStart = players.length >= 2 && players.length < maxPlayers
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
@@ -444,10 +516,10 @@ function WaitingRoom({ room, roomId, me, onBack }) {
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>👑</div>
           <div className="h-display" style={{ fontSize: 22, color: GOLD }}>
-            ממתינים ליריב ({players.length}/2)
+            ממתינים למתמודדים ({players.length}/{maxPlayers})
           </div>
           <div style={{ marginTop: 8, fontSize: 14, color: CREAM, opacity: .85 }}>
-            {players.length >= 2 ? 'מתחילים… 🎉' : 'הדו-קרב יתחיל אוטומטית כשהיריב יצטרף'}
+            {players.length >= maxPlayers ? 'מתחילים… 🎉' : (isRandom ? 'הקרב יתחיל אוטומטית כשיצטרפו מספיק מתמודדים' : 'הקרב יתחיל אוטומטית כשכולם יצטרפו')}
           </div>
           {room.inviteCode && (
             <div style={{ marginTop: 10, fontSize: 14, color: CREAM }}>
@@ -470,21 +542,49 @@ function WaitingRoom({ room, roomId, me, onBack }) {
               {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
             </div>
           ))}
-          {players.length < 2 && (
-            <div style={{
+          {Array.from({ length: Math.max(0, maxPlayers - players.length) }).map((_, i) => (
+            <div key={`empty-${i}`} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               background: 'rgba(74,42,102,.25)', border: '1px dashed rgba(201,162,74,.4)',
               borderRadius: 14, padding: '12px 16px', color: 'rgba(243,226,190,.5)',
             }}>
               <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</div>
-              <div style={{ fontSize: 15 }}>ממתין ליריב…</div>
+              <div style={{ fontSize: 15 }}>ממתין למתמודד…</div>
             </div>
-          )}
+          ))}
         </div>
 
-        <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
-          ⏳ מחפשים יריב…
-        </div>
+        {isRandom ? (
+          <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
+            ⏳ מחפשים מתמודדים…
+          </div>
+        ) : isHost ? (
+          <>
+            {maxPlayers >= 3 && players.length < maxPlayers && invitableFriends.length > 0 && (
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, margin: '0 2px 10px' }}>הזמן עוד מתמודד</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {invitableFriends.map(f => <FriendRow key={f.docId} friend={f} online onInvite={() => inviteMore(f)} />)}
+                </div>
+              </div>
+            )}
+            {inviteMsg && (
+              <div style={{ textAlign: 'center', color: GOLD, fontSize: 14, fontWeight: 700, marginTop: 12 }}>{inviteMsg}</div>
+            )}
+            {canManualStart && (
+              <button onClick={handleStart} style={{
+                width: '100%', marginTop: 16, borderRadius: 14, padding: '15px', fontSize: 17,
+                fontWeight: 800, fontFamily: 'inherit', border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(180deg,#f2ce6a,#c9a24a)', color: '#3a2a08',
+                boxShadow: '0 4px 12px rgba(201,162,74,.4)',
+              }}>▶ התחל עכשיו ({players.length} מתמודדים)</button>
+            )}
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
+            ⏳ מחכים שכולם יצטרפו…
+          </div>
+        )}
       </div>
     </div>
   )
@@ -500,12 +600,14 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   const [selected, setSelected] = useState(null)      // הבחירה הזמנית שלי (לפני נעילה)
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
   const [chatOpen, setChatOpen] = useState(false)
+  const [revealCount, setRevealCount] = useState(3)
   const isHost = room.hostUid === me.uid
   const players = room.players || []
   const chat = room.chat || []
 
   const myIndex = state ? players.findIndex(p => p.uid === me.uid) : -1
-  const opponent = players.find(p => p.uid !== me.uid)
+  const others = players.filter(p => p.uid !== me.uid)
+  const opponent = others[0]   // לתאימות תצוגת 2 שחקנים
 
   const current = state?.current ?? 0
   const phase = state?.phase ?? 'question'
@@ -513,7 +615,6 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   const answersThisQ = (state?.answers?.[current]) || {}
   const myAnswer = answersThisQ[me.uid]
   const oppAnswer = opponent ? answersThisQ[opponent.uid] : null
-  const bothAnswered = myAnswer && oppAnswer
 
   // איפוס הבחירה המקומית כשמתחלפת שאלה
   useEffect(() => {
@@ -539,15 +640,18 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     return () => clearTimeout(t)
   }, [phase, timeLeft, myAnswer]) // eslint-disable-line
 
-  // המארח אחראי: כששני השחקנים ענו → מעבר לשלב חשיפה + עדכון ניקוד
+  // המארח אחראי: כשכל המתמודדים ענו → מעבר לשלב חשיפה + עדכון ניקוד
   useEffect(() => {
     if (!isHost || phase !== 'question') return
     const a = (state?.answers?.[current]) || {}
     const allAnswered = players.length >= 2 && players.every(p => a[p.uid])
-    if (allAnswered) {
-      revealAndScore()
-    }
-  }, [isHost, phase, room.gameStateJson]) // eslint-disable-line
+    if (allAnswered) { revealAndScore(); return }
+    // רשת ביטחון: אם מתמודד לא ענה (למשל התנתק) — חושפים אחרי הזמן + שהות
+    const startTs = state?.questionStartTs || Date.now()
+    const msLeft = (TIME_LIMIT + 4) * 1000 - (Date.now() - startTs)
+    const t = setTimeout(() => revealAndScore(), Math.max(500, msLeft))
+    return () => clearTimeout(t)
+  }, [isHost, phase, current, room.gameStateJson]) // eslint-disable-line
 
   function submitAnswer(choiceIndex) {
     if (!state || phase !== 'question' || myAnswer) return
@@ -560,6 +664,7 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   }
 
   function revealAndScore() {
+    if (!state || state.phase !== 'question') return
     const next = JSON.parse(JSON.stringify(state))
     const a = next.answers[current] || {}
     // מוסיפים נקודות לכל מי שענה נכון
@@ -570,6 +675,7 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
       }
     })
     next.phase = 'reveal'
+    next.revealTs = Date.now()
     updateArenaState(roomId, next)
   }
 
@@ -584,6 +690,30 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     }
     updateArenaState(roomId, next)
   }
+
+  // קידום אוטומטי אחרי חשיפה — ספירה לאחור 3·2·1 לכל המתמודדים.
+  // הספירה מבוססת על revealTs שנשמר במצב — כך היא זהה אצל כולם. המארח בלבד מקדם.
+  const advancedRef = useRef(-1)
+  const countSoundRef = useRef(-1)
+  useEffect(() => {
+    if (phase !== 'reveal') { setRevealCount(3); return }
+    const revealTs = state?.revealTs || Date.now()
+    const tick = () => {
+      const left = Math.max(0, Math.ceil(3 - (Date.now() - revealTs) / 1000))
+      setRevealCount(left)
+      if (left > 0 && countSoundRef.current !== left) {
+        countSoundRef.current = left
+        playTriviaSound('tick')
+      }
+      if (left <= 0 && isHost && advancedRef.current !== current) {
+        advancedRef.current = current
+        nextQuestion()
+      }
+    }
+    tick()
+    const t = setInterval(tick, 200)
+    return () => clearInterval(t)
+  }, [phase, current, room.gameStateJson]) // eslint-disable-line
 
   // צליל חשיפה — נכון/שגוי לפי התשובה שלי
   const revealSoundedRef = useRef(-1)
@@ -605,15 +735,16 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     else playTriviaSound('roundStart')                  // שאלה חדשה
   }, [phase, current]) // eslint-disable-line
 
-  // צליל "היריב ענה" — כשהיריב נועל תשובה ואני עדיין לא
-  const oppAnsweredRef = useRef(false)
+  // צליל "מתמודד ענה" — כשמישהו אחר נועל תשובה ואני עדיין לא
+  const oppAnsweredRef = useRef(0)
+  const othersAnsweredCount = others.filter(o => answersThisQ[o.uid]).length
   useEffect(() => {
-    if (phase !== 'question') { oppAnsweredRef.current = false; return }
-    if (oppAnswer && !oppAnsweredRef.current) {
-      oppAnsweredRef.current = true
+    if (phase !== 'question') { oppAnsweredRef.current = 0; return }
+    if (othersAnsweredCount > oppAnsweredRef.current) {
+      oppAnsweredRef.current = othersAnsweredCount
       if (!myAnswer) playTriviaSound('opponentAnswered')  // רק אם אני עוד לא עניתי (זה מה שיוצר מתח)
     }
-  }, [oppAnswer, phase]) // eslint-disable-line
+  }, [othersAnsweredCount, phase]) // eslint-disable-line
 
   // צליל סיום — ניצחון מלכותי / תיקו
   const endSoundedRef = useRef(false)
@@ -621,9 +752,10 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     if (phase === 'ended' && !endSoundedRef.current) {
       endSoundedRef.current = true
       const my = state?.scores?.[me.uid] || 0
-      const opp = opponent ? (state?.scores?.[opponent.uid] || 0) : 0
-      if (my === opp) playTriviaSound('tie')
-      else if (my > opp) playTriviaSound('victory')
+      const top = Math.max(...players.map(p => state?.scores?.[p.uid] || 0))
+      const topCount = players.filter(p => (state?.scores?.[p.uid] || 0) === top).length
+      if (my === top && topCount > 1) playTriviaSound('tie')
+      else if (my === top) playTriviaSound('victory')
       else playTriviaSound('wrong')
     }
   }, [phase]) // eslint-disable-line
@@ -640,7 +772,20 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   }, [chat.length]) // eslint-disable-line
 
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n); if (!n) warmTriviaAudio() }
-  const handleLeave = async () => { if (isHost) await leaveArenaRoom(roomId); onExit() }
+  const handleLeave = async () => {
+    try {
+      if (state && state.phase !== 'ended' && state.phase !== 'left') {
+        // מסמנים לשאר המתמודדים שעזבתי — הם יקבלו התראה
+        const next = JSON.parse(JSON.stringify(state))
+        next.phase = 'left'
+        next.leftName = me.name
+        await updateArenaState(roomId, next)
+      } else {
+        await leaveArenaRoom(roomId)
+      }
+    } catch (e) { /* ignore */ }
+    onExit()
+  }
 
   if (!state || !question) {
     return (
@@ -652,27 +797,49 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   }
 
   // ── מסך סיום ──────────────────────────────────────────
+  if (phase === 'left') {
+    return (
+      <div style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+        <ArenaHeader title="מלך הזירה" onBack={handleLeave} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '32px 26px 24px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ fontSize: 60, marginBottom: 12 }}>👋</div>
+            <div className="h-display" style={{ fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>
+              {state.leftName ? `${state.leftName} עזב את המשחק` : 'מתמודד עזב את המשחק'}
+            </div>
+            <div style={{ fontSize: 15, color: 'var(--ink-2)', marginBottom: 20, fontWeight: 600 }}>הקרב הסתיים. אפשר לחזור לזירה ולהתחיל משחק חדש.</div>
+            <button onClick={handleLeave} className="big-btn big-btn--primary" style={{ width: '100%' }}>חזרה לזירה</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (phase === 'ended') {
-    const myScore = state.scores[me.uid] || 0
-    const oppScore = opponent ? (state.scores[opponent.uid] || 0) : 0
-    const iWon = myScore > oppScore
-    const tie = myScore === oppScore
+    const ranking = players
+      .map(p => ({ uid: p.uid, name: p.name, score: state.scores[p.uid] || 0 }))
+      .sort((a, b) => b.score - a.score)
+    const topScore = ranking.length ? ranking[0].score : 0
+    const winners = ranking.filter(r => r.score === topScore)
+    const iWon = winners.some(w => w.uid === me.uid)
+    const tie = winners.length > 1
     return (
       <div style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
         <ArenaHeader title="מלך הזירה" onBack={handleLeave} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '30px 26px 22px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ fontSize: 64, marginBottom: 12 }}>{tie ? '🤝' : iWon ? '👑' : '🎖️'}</div>
-            <div className="h-display" style={{ fontSize: 28, color: tie ? '#B89048' : iWon ? '#4F6B4A' : '#7E2C2E', marginBottom: 6 }}>
-              {tie ? 'תיקו!' : iWon ? 'אתה מלך הזירה!' : `${opponent?.name || 'היריב'} ניצח`}
+            <div style={{ fontSize: 64, marginBottom: 12 }}>{tie && iWon ? '🤝' : iWon ? '👑' : '🎖️'}</div>
+            <div className="h-display" style={{ fontSize: 28, color: tie && iWon ? '#B89048' : iWon ? '#4F6B4A' : '#7E2C2E', marginBottom: 6 }}>
+              {tie && iWon ? 'תיקו בצמרת!' : iWon ? 'אתה מלך הזירה!' : `${ranking[0]?.name || 'היריב'} ניצח`}
             </div>
             <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 18, fontWeight: 600 }}>
-              {tie ? 'שוויון מוחלט — משחק צמוד!' : iWon ? 'כל הכבוד — צברת הכי הרבה נקודות!' : 'משחק יפה — בפעם הבאה תנצח'}
+              {iWon && !tie ? 'כל הכבוד — צברת הכי הרבה נקודות!' : tie && iWon ? 'שוויון בצמרת — משחק צמוד!' : 'משחק יפה — בפעם הבאה תנצח'}
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <ScorePill name={me.name + ' (אתה)'} score={myScore} highlight={iWon} />
-              <ScorePill name={opponent?.name || 'יריב'} score={oppScore} highlight={!iWon && !tie} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              {ranking.map((r, i) => (
+                <ResultRow key={r.uid} rank={i + 1} name={r.name + (r.uid === me.uid ? ' (אתה)' : '')} score={r.score} highlight={r.score === topScore} />
+              ))}
             </div>
 
             <button onClick={handleLeave} className="big-btn big-btn--primary" style={{ width: '100%' }}>חזרה לזירה</button>
@@ -690,11 +857,15 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     <div style={{ direction: 'rtl', background: BG_DEEP, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <ArenaHeader title="מלך הזירה" onBack={handleLeave} onMenu={toggleMute} menuOpen={false} />
 
-      {/* לוח ניקוד — שני השחקנים */}
-      <div style={{ display: 'flex', gap: 8, padding: '10px 12px 0', flexShrink: 0 }}>
+      {/* לוח ניקוד — כל המתמודדים */}
+      <div style={{ display: 'flex', gap: 8, padding: '10px 12px 0', flexShrink: 0, alignItems: 'stretch' }}>
         <PlayerScore name={me.name} score={myScore} you photoURL={profile?.photoURL} answered={!!myAnswer} phase={phase} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif" }}>VS</div>
-        <PlayerScore name={opponent?.name || 'יריב'} score={oppScore} answered={!!oppAnswer} phase={phase} />
+        {others.length === 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif" }}>VS</div>
+        )}
+        {others.map(o => (
+          <PlayerScore key={o.uid} name={o.name} score={state.scores[o.uid] || 0} answered={!!answersThisQ[o.uid]} phase={phase} />
+        ))}
       </div>
 
       {/* מד התקדמות + טיימר */}
@@ -725,25 +896,29 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
 
         {/* התשובות */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {question.options.map((opt, i) => (
-            <AnswerButton
-              key={i}
-              letter={['א', 'ב', 'ג', 'ד'][i]}
-              text={opt}
-              phase={phase}
-              isSelected={selected === i}
-              isMyAnswer={myAnswer && myAnswer.choice === i}
-              isCorrect={question.correct === i}
-              isOppAnswer={phase === 'reveal' && oppAnswer && oppAnswer.choice === i}
-              oppName={opponent?.name}
-              locked={!!myAnswer || phase === 'reveal'}
-              onClick={() => {
-                if (phase !== 'question' || myAnswer) return
-                playTriviaSound('select')
-                setSelected(i)
-              }}
-            />
-          ))}
+          {question.options.map((opt, i) => {
+            const pickedByNames = phase === 'reveal'
+              ? others.filter(o => answersThisQ[o.uid] && answersThisQ[o.uid].choice === i).map(o => o.name)
+              : []
+            return (
+              <AnswerButton
+                key={i}
+                letter={['א', 'ב', 'ג', 'ד'][i]}
+                text={opt}
+                phase={phase}
+                isSelected={selected === i}
+                isMyAnswer={myAnswer && myAnswer.choice === i}
+                isCorrect={question.correct === i}
+                pickedByNames={pickedByNames}
+                locked={!!myAnswer || phase === 'reveal'}
+                onClick={() => {
+                  if (phase !== 'question' || myAnswer) return
+                  playTriviaSound('select')
+                  setSelected(i)
+                }}
+              />
+            )
+          })}
         </div>
 
         {/* כפתור נעילה / מצב */}
@@ -770,11 +945,10 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
             <RevealPanel
               question={question}
               myAnswer={myAnswer}
-              oppAnswer={oppAnswer}
-              oppName={opponent?.name}
-              isHost={isHost}
+              others={others}
+              answers={answersThisQ}
+              countdown={revealCount}
               isLast={current + 1 >= NUM_QUESTIONS}
-              onNext={nextQuestion}
             />
           )}
         </div>
@@ -822,8 +996,7 @@ function ArenaChatFab({ chat = [], meUid, open, onOpen }) {
 }
 
 // ── כפתור תשובה ─────────────────────────────────────────
-function AnswerButton({ letter, text, phase, isSelected, isMyAnswer, isCorrect, isOppAnswer, oppName, locked, onClick }) {
-  let bg = 'var(--surface)'
+function AnswerButton({ letter, text, phase, isSelected, isMyAnswer, isCorrect, pickedByNames = [], locked, onClick }) {
   let border = '1px solid rgba(201,162,74,.35)'
   let color = CREAM
   let bgSurface = 'rgba(255,255,255,.06)'
@@ -849,37 +1022,41 @@ function AnswerButton({ letter, text, phase, isSelected, isMyAnswer, isCorrect, 
       }}>{letter}</span>
       <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color, lineHeight: 1.3 }}>{text}</span>
       {phase === 'reveal' && isCorrect && <span style={{ fontSize: 18 }}>✓</span>}
-      {phase === 'reveal' && isOppAnswer && (
-        <span style={{ fontSize: 11, fontWeight: 800, color: GOLD, background: 'rgba(0,0,0,.3)', padding: '3px 7px', borderRadius: 8, whiteSpace: 'nowrap' }}>{oppName}</span>
+      {phase === 'reveal' && pickedByNames.length > 0 && (
+        <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {pickedByNames.map((nm, k) => (
+            <span key={k} style={{ fontSize: 11, fontWeight: 800, color: GOLD, background: 'rgba(0,0,0,.3)', padding: '3px 7px', borderRadius: 8, whiteSpace: 'nowrap' }}>{nm}</span>
+          ))}
+        </span>
       )}
     </button>
   )
 }
 
 // ── פאנל חשיפה — תוצאת השאלה + כפתור הבא ──────────────
-function RevealPanel({ question, myAnswer, oppAnswer, oppName, isHost, isLast, onNext }) {
+function RevealPanel({ question, myAnswer, others = [], answers = {}, countdown, isLast }) {
   const iWasRight = myAnswer && myAnswer.choice === question.correct
-  const oppWasRight = oppAnswer && oppAnswer.choice === question.correct
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 15, fontWeight: 700, color: CREAM, marginBottom: 4 }}>
         {iWasRight ? `🎉 צדקת! +${fmtPoints(question.points)} נק׳` : (myAnswer?.choice == null ? '⏱ לא ענית בזמן' : '❌ טעית')}
       </div>
-      <div style={{ fontSize: 13, color: 'rgba(243,226,190,.75)', marginBottom: 14 }}>
-        {oppName}: {oppWasRight ? `צדק (+${fmtPoints(question.points)})` : (oppAnswer?.choice == null ? 'לא ענה בזמן' : 'טעה')}
+      {others.map(o => {
+        const ans = answers[o.uid]
+        const right = ans && ans.choice === question.correct
+        return (
+          <div key={o.uid} style={{ fontSize: 13, color: 'rgba(243,226,190,.75)', marginBottom: 2 }}>
+            {o.name}: {right ? `צדק (+${fmtPoints(question.points)})` : (ans?.choice == null ? 'לא ענה בזמן' : 'טעה')}
+          </div>
+        )
+      })}
+      <div style={{
+        marginTop: 14, padding: '14px', borderRadius: 14,
+        background: 'rgba(232,200,121,.12)', border: `1px solid ${GOLD_DEEP}`,
+        fontFamily: "'Suez One', serif", fontWeight: 800, color: GOLD, fontSize: 17,
+      }}>
+        {isLast ? 'התוצאות הסופיות בעוד' : 'השאלה הבאה בעוד'} {countdown}…
       </div>
-      {isHost ? (
-        <button onClick={onNext} style={{
-          width: '100%', borderRadius: 14, padding: '15px', fontSize: 17, fontWeight: 800,
-          fontFamily: 'inherit', border: 'none', cursor: 'pointer',
-          background: 'linear-gradient(180deg,#f2ce6a,#c9a24a)', color: '#3a2a08',
-          boxShadow: '0 4px 12px rgba(201,162,74,.4)',
-        }}>{isLast ? '🏁 לתוצאות הסופיות' : '← לשאלה הבאה'}</button>
-      ) : (
-        <div style={{ textAlign: 'center', color: CREAM, fontSize: 14, opacity: .8, padding: '8px' }}>
-          ⏳ ממתין שהיריב יעבור לשאלה הבאה…
-        </div>
-      )}
     </div>
   )
 }
@@ -903,15 +1080,18 @@ function PlayerScore({ name, score, you, photoURL, answered, phase }) {
 }
 
 // ── גלולת ניקוד במסך הסיום ──────────────────────────────
-function ScorePill({ name, score, highlight }) {
+function ResultRow({ rank, name, score, highlight }) {
+  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`
   return (
     <div style={{
-      flex: 1, background: highlight ? 'rgba(79,107,74,.15)' : 'var(--bg-app)',
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: highlight ? 'rgba(79,107,74,.15)' : 'var(--bg-app)',
       border: highlight ? '1px solid #4F6B4A' : '1px solid var(--line)',
-      borderRadius: 14, padding: '12px 10px', textAlign: 'center',
+      borderRadius: 14, padding: '12px 14px',
     }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: highlight ? '#4F6B4A' : 'var(--ink)', fontFamily: "'Suez One', serif" }}>{fmtPoints(score)}</div>
+      <span style={{ fontSize: 18, width: 28, textAlign: 'center', flexShrink: 0 }}>{medal}</span>
+      <span style={{ flex: 1, textAlign: 'right', fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <span style={{ fontSize: 18, fontWeight: 800, color: highlight ? '#4F6B4A' : 'var(--ink)', fontFamily: "'Suez One', serif" }}>{fmtPoints(score)}</span>
     </div>
   )
 }
