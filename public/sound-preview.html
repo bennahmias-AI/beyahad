@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מלך הזירה — תצוגת צלילים</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
+      background: linear-gradient(180deg, #2A1438 0%, #1A0C25 100%);
+      color: #F3E2BE;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 8px; }
+    .crown { font-size: 52px; }
+    h1 {
+      font-size: 26px; color: #E8C879; margin: 6px 0 4px;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .sub { font-size: 14px; color: rgba(243,226,190,.75); margin-bottom: 4px; line-height: 1.5; }
+    .hint {
+      background: rgba(232,200,121,.12); border: 1px solid #C9A24A;
+      border-radius: 12px; padding: 10px 14px; font-size: 13px;
+      text-align: center; margin: 16px 0 22px; line-height: 1.5;
+    }
+    .section-title {
+      font-size: 15px; font-weight: 800; color: #C9A24A;
+      margin: 24px 4px 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(201,162,74,.3); }
+    .card {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(74,42,102,.45); border: 1px solid rgba(201,162,74,.35);
+      border-radius: 16px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .card.new { border-color: #6CCB6C; }
+    .card-text { flex: 1; min-width: 0; }
+    .card-name { font-size: 16px; font-weight: 800; color: #F3E2BE; margin-bottom: 2px; }
+    .card-name .tag {
+      font-size: 10px; font-weight: 800; color: #1A0C25;
+      background: #6CCB6C; padding: 2px 7px; border-radius: 999px; margin-inline-start: 6px;
+      vertical-align: middle;
+    }
+    .card-name .tag.exists { background: #C9A24A; }
+    .card-desc { font-size: 13px; color: rgba(243,226,190,.7); line-height: 1.4; }
+    .play-btn {
+      flex-shrink: 0; width: 54px; height: 54px; border-radius: 50%;
+      background: linear-gradient(180deg, #f2ce6a, #c9a24a); border: none;
+      color: #3a2a08; font-size: 22px; cursor: pointer;
+      box-shadow: 0 4px 10px rgba(201,162,74,.4); transition: transform .1s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .play-btn:active { transform: scale(0.9); }
+    .play-all {
+      width: 100%; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 800;
+      background: linear-gradient(180deg, #7E2C2E, #5A1D1E); color: #fff; border: none;
+      cursor: pointer; margin-top: 18px;
+      box-shadow: 0 4px 12px rgba(126,44,46,.4);
+    }
+    .footer { text-align: center; font-size: 13px; color: rgba(243,226,190,.6); margin-top: 24px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="crown">👑</div>
+      <h1>תצוגת צלילים — מלך הזירה</h1>
+      <div class="sub">לחצו על ▶ ליד כל צליל כדי לשמוע אותו</div>
+    </div>
+
+    <div class="hint">💡 בפעם הראשונה לחצו על כפתור כלשהו כדי "להעיר" את הסאונד — בדפדפן הצליל מתחיל רק אחרי לחיצה</div>
+
+    <div class="section-title">צלילים קיימים (כבר במשחק)</div>
+    <div id="existing"></div>
+
+    <div class="section-title">צלילים חדשים שאפשר להוסיף</div>
+    <div id="new"></div>
+
+    <button class="play-all" id="playAll">🎵 נגן את כל החדשים ברצף</button>
+
+    <div class="footer">
+      סמנו לי אילו צלילים אהבתם — ואחבר אותם למשחק.<br />
+      (אפשר גם "כולם" או "רק החדשים שאהבתי: …")
+    </div>
+  </div>
+
+  <script>
+    let ready = false;
+    let bell, pluck, low, reverb, membrane;
+
+    function init() {
+      reverb = new Tone.Freeverb({ roomSize: 0.7, dampening: 3000, wet: 0.3 }).toDestination();
+      Tone.getDestination().volume.value = -5;
+      bell = new Tone.PolySynth(Tone.Synth).connect(reverb);
+      bell.set({ oscillator: { type: 'triangle' }, envelope: { attack: 0.004, decay: 0.5, sustain: 0.05, release: 1.3 } });
+      pluck = new Tone.PluckSynth({ attackNoise: 0.7, dampening: 3600, resonance: 0.93 }).connect(reverb);
+      low = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.03, decay: 0.4, sustain: 0.25, release: 0.8 } }).connect(reverb);
+      membrane = new Tone.MembraneSynth({ pitchDecay: 0.02, octaves: 4, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).connect(reverb);
+      ready = true;
+    }
+
+    const SOUNDS = {
+      // ── קיימים ──
+      select: (n) => pluck.triggerAttackRelease('C5', '8n', n),
+      lock: (n) => {
+        low.triggerAttackRelease('A1', '2n', n, 0.5);
+        bell.triggerAttackRelease('A3', '8n', n);
+        bell.triggerAttackRelease('F3', '4n', n + 0.18);
+      },
+      correct: (n) => {
+        bell.triggerAttackRelease('C5', '8n', n);
+        bell.triggerAttackRelease('E5', '8n', n + 0.1);
+        bell.triggerAttackRelease('G5', '8n', n + 0.2);
+        bell.triggerAttackRelease('C6', '4n', n + 0.3);
+      },
+      wrong: (n) => {
+        low.triggerAttackRelease('E2', '4n', n, 0.5);
+        bell.triggerAttackRelease('Eb4', '8n', n);
+        bell.triggerAttackRelease('C4', '4n', n + 0.18);
+        bell.triggerAttackRelease('A3', '2n', n + 0.36);
+      },
+      win: (n) => {
+        bell.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', n);
+        bell.triggerAttackRelease(['F4', 'A4', 'C5'], '8n', n + 0.22);
+        bell.triggerAttackRelease(['G4', 'B4', 'D5'], '8n', n + 0.44);
+        bell.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '2n', n + 0.66);
+        ['C6', 'E6', 'G6', 'C7'].forEach((note, i) => pluck.triggerAttackRelease(note, '8n', n + 0.66 + i * 0.06));
+      },
+      tick: (n) => bell.triggerAttackRelease('A5', '16n', n),
+
+      // ── חדשים ──
+      // נמצא יריב — צ'ימה עולה קסומה שמכריזה על תחילת קרב
+      matchFound: (n) => {
+        pluck.triggerAttackRelease('G4', '16n', n);
+        pluck.triggerAttackRelease('C5', '16n', n + 0.08);
+        bell.triggerAttackRelease(['E5', 'G5'], '8n', n + 0.16);
+        bell.triggerAttackRelease(['C6'], '4n', n + 0.3);
+      },
+      // שאלה חדשה — אקורד פתיחה רך, "מתחילים"
+      roundStart: (n) => {
+        bell.triggerAttackRelease(['D4', 'A4'], '8n', n);
+        bell.triggerAttackRelease(['F#4', 'D5'], '4n', n + 0.14);
+      },
+      // היריב נעל תשובה — נקישת תוף עדינה (מתח)
+      opponentAnswered: (n) => {
+        membrane.triggerAttackRelease('G2', '16n', n);
+        pluck.triggerAttackRelease('C4', '16n', n + 0.05);
+      },
+      // ספירה אחרונה — פעימה מתוחה (3 שניות אחרונות)
+      countdown: (n) => {
+        membrane.triggerAttackRelease('C2', '16n', n);
+        bell.triggerAttackRelease('E5', '32n', n);
+      },
+      // הודעת צ'אט — בועה רכה ועגולה
+      chatPop: (n) => {
+        pluck.triggerAttackRelease('E5', '16n', n);
+        pluck.triggerAttackRelease('A5', '16n', n + 0.06);
+      },
+      // ניצחון מלכותי — פאנפרה גדולה לסיום (מלך הזירה!)
+      victory: (n) => {
+        membrane.triggerAttackRelease('C2', '8n', n);
+        bell.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', n);
+        bell.triggerAttackRelease(['G4', 'C5', 'E5'], '8n', n + 0.2);
+        bell.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '4n', n + 0.4);
+        bell.triggerAttackRelease(['E5', 'G5', 'C6', 'E6'], '2n', n + 0.7);
+        ['G6', 'C7', 'E7'].forEach((note, i) => pluck.triggerAttackRelease(note, '16n', n + 0.7 + i * 0.07));
+      },
+      // תיקו — אקורד ניטרלי נעים
+      tie: (n) => {
+        bell.triggerAttackRelease(['D4', 'F4', 'A4'], '4n', n);
+        bell.triggerAttackRelease(['F4', 'A4', 'D5'], '4n', n + 0.3);
+      },
+    };
+
+    async function play(name) {
+      await Tone.start();
+      if (!ready) init();
+      const fn = SOUNDS[name];
+      if (fn) fn(Tone.now());
+    }
+
+    const EXISTING = [
+      { id: 'select', name: 'בחירת תשובה', desc: 'פריטת נבל רכה כשבוחרים תשובה' },
+      { id: 'lock', name: 'נעילת תשובה', desc: 'צליל עמוק עם פעמון — "ננעל"' },
+      { id: 'correct', name: 'תשובה נכונה', desc: 'פעמונים עולים חגיגיים' },
+      { id: 'wrong', name: 'תשובה שגויה', desc: 'אכזבה רכה יורדת במינור' },
+      { id: 'win', name: 'ניצחון', desc: 'פאנפרה עם נצנוץ נבל' },
+      { id: 'tick', name: 'תקתוק', desc: 'פעמון רך בספירה לאחור' },
+    ];
+
+    const NEW = [
+      { id: 'matchFound', name: 'נמצא יריב!', desc: 'צ\u2019ימה עולה קסומה כשהדו-קרב מתחיל' },
+      { id: 'roundStart', name: 'שאלה חדשה', desc: 'אקורד פתיחה רך לכל שאלה' },
+      { id: 'opponentAnswered', name: 'היריב ענה', desc: 'נקישה עדינה כשהיריב נעל תשובה (מתח)' },
+      { id: 'countdown', name: 'ספירה אחרונה', desc: 'פעימה מתוחה ל-3 שניות האחרונות' },
+      { id: 'chatPop', name: 'הודעת צ\u2019אט', desc: 'בועה רכה ועגולה כשמגיעה הודעה' },
+      { id: 'victory', name: 'ניצחון מלכותי', desc: 'פאנפרה גדולה לסיום — מלך הזירה!' },
+      { id: 'tie', name: 'תיקו', desc: 'אקורד ניטרלי-נעים לשוויון' },
+    ];
+
+    function makeCard(s, isNew) {
+      const card = document.createElement('div');
+      card.className = 'card' + (isNew ? ' new' : '');
+      card.innerHTML = `
+        <button class="play-btn">▶</button>
+        <div class="card-text">
+          <div class="card-name">${s.name}<span class="tag ${isNew ? '' : 'exists'}">${isNew ? 'חדש' : 'קיים'}</span></div>
+          <div class="card-desc">${s.desc}</div>
+        </div>`;
+      card.querySelector('.play-btn').addEventListener('click', () => play(s.id));
+      return card;
+    }
+
+    const existingEl = document.getElementById('existing');
+    const newEl = document.getElementById('new');
+    EXISTING.forEach(s => existingEl.appendChild(makeCard(s, false)));
+    NEW.forEach(s => newEl.appendChild(makeCard(s, true)));
+
+    document.getElementById('playAll').addEventListener('click', async () => {
+      await Tone.start();
+      if (!ready) init();
+      let t = Tone.now();
+      NEW.forEach(s => {
+        SOUNDS[s.id](t);
+        t += 1.2;
+      });
+    });
+  </script>
+</body>
+</html>

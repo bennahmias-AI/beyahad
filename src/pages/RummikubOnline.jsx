@@ -15,11 +15,12 @@ import { IconBackRTL } from '../icons/index.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
+import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
   updateRummikubState, watchRummikubRoom, leaveRummikubRoom,
   findOrCreateRummikubMatch, watchFriendships, sendGameInvite,
-  watchUser,
+  watchUser, sendRummikubChat,
 } from '../services/firebase.js'
 import {
   initGame, isBoardValid, drawTile, commitTurn, MELD_MIN,
@@ -27,13 +28,13 @@ import {
 } from '../utils/rummikubEngine.js'
 import {
   RummiHeaderShared, BoardArea, PlayerRack, RummiButton,
-  NewTileBanner, GOLD, GOLD_DEEP, CREAM,
+  NewTileBanner, PoolCounter, GOLD, GOLD_DEEP, CREAM,
 } from './RummikubShared.jsx'
 
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function RummikubOnline({ mode, initialRoomId, onBack, onExit }) {
+export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, onBack, onExit }) {
   const { authUser, profile } = useUserStore()
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -42,7 +43,7 @@ export default function RummikubOnline({ mode, initialRoomId, onBack, onExit }) 
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
 
   if (!roomId) {
-    return <Lobby mode={mode} me={me} onBack={onBack} onReady={(id) => setRoomId(id)} />
+    return <Lobby mode={mode} me={me} numPlayers={numPlayers} onBack={onBack} onReady={(id) => setRoomId(id)} />
   }
   return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); onBack() }} onExit={onExit} />
 }
@@ -50,7 +51,7 @@ export default function RummikubOnline({ mode, initialRoomId, onBack, onExit }) 
 // ════════════════════════════════════════════════════════
 // Lobby — חיפוש רנדומלי / רשימת חברים
 // ════════════════════════════════════════════════════════
-function Lobby({ mode, me, onBack, onReady }) {
+function Lobby({ mode, me, numPlayers = 4, onBack, onReady }) {
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -69,7 +70,7 @@ function Lobby({ mode, me, onBack, onReady }) {
     ;(async () => {
       if (!me.uid) { setErrorMsg('צריך להיות מחובר'); setPhase('error'); return }
       try {
-        const { roomId } = await findOrCreateRummikubMatch({ player: me })
+        const { roomId } = await findOrCreateRummikubMatch({ player: me, maxPlayers: numPlayers })
         onReady(roomId)
       } catch (e) {
         console.error('rummikub match error:', e)
@@ -145,6 +146,24 @@ function Lobby({ mode, me, onBack, onReady }) {
 }
 
 function FriendList({ friends, onInvite, onBack }) {
+  // מעקב חי אחרי מי מחובר — מרוכז כאן כדי לחלק לקטגוריות.
+  const [onlineMap, setOnlineMap] = useState({})
+
+  useEffect(() => {
+    if (!friends || friends.length === 0) return
+    const unsubs = friends.map(f => {
+      if (!f.otherUid) return null
+      return watchUser(f.otherUid, u => {
+        const seen = u?.lastSeenAt
+        const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
+        const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
+        const isOnline = Boolean(fresh) && ['available', 'busy'].includes(u?.status)
+        setOnlineMap(prev => ({ ...prev, [f.otherUid]: isOnline }))
+      })
+    })
+    return () => unsubs.forEach(u => u && u())
+  }, [friends])
+
   if (!friends || friends.length === 0) {
     return (
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '36px 24px', textAlign: 'center' }}>
@@ -155,29 +174,44 @@ function FriendList({ friends, onInvite, onBack }) {
       </div>
     )
   }
+
+  // מיינים: מחוברים קודם, אחר כך לא-מחוברים
+  const onlineFriends = friends.filter(f => onlineMap[f.otherUid])
+  const offlineFriends = friends.filter(f => !onlineMap[f.otherUid])
+
   return (
     <>
       <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>הזמינו חברים לשולחן</h2>
       <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 14 }}>אפשר להזמין עד 3 חברים. כשהם יצטרפו — תתחילו לשחק.</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {friends.map(f => <FriendRow key={f.docId} friend={f} onInvite={() => onInvite(f)} />)}
-      </div>
+
+      {onlineFriends.length > 0 && (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--success)', margin: '4px 2px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+            מחוברים עכשיו ({onlineFriends.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+            {onlineFriends.map(f => <FriendRow key={f.docId} friend={f} online onInvite={() => onInvite(f)} />)}
+          </div>
+        </>
+      )}
+
+      {offlineFriends.length > 0 && (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-3)', margin: '4px 2px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--ink-3)', display: 'inline-block' }} />
+            לא מחוברים ({offlineFriends.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {offlineFriends.map(f => <FriendRow key={f.docId} friend={f} online={false} onInvite={() => onInvite(f)} />)}
+          </div>
+        </>
+      )}
     </>
   )
 }
 
-function FriendRow({ friend, onInvite }) {
-  const [online, setOnline] = useState(false)
-  useEffect(() => {
-    if (!friend.otherUid) return
-    const unsub = watchUser(friend.otherUid, u => {
-      const seen = u?.lastSeenAt
-      const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
-      const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
-      setOnline(Boolean(fresh) && ['available', 'busy'].includes(u?.status))
-    })
-    return () => unsub && unsub()
-  }, [friend.otherUid])
+function FriendRow({ friend, online, onInvite }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
       <Avatar name={friend.otherName} size={50} online={online} />
@@ -187,7 +221,11 @@ function FriendRow({ friend, onInvite }) {
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      <button onClick={onInvite} style={{ background: 'var(--burgundy)', color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>🎮 הזמן</button>
+      <button onClick={onInvite} style={{
+        background: online ? 'var(--success)' : 'var(--burgundy)',
+        color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px',
+        fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+      }}>🎮 הזמן</button>
     </div>
   )
 }
@@ -248,13 +286,25 @@ function RoomScreen({ roomId, me, onBack, onExit }) {
 function WaitingRoom({ room, roomId, me, onBack }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
+  const maxPlayers = room.maxPlayers || 4
+  const isRandom = room.roomType === 'random'
   const canStart = players.length >= 2
+  const startedRef = useRef(false)
 
   const handleStart = async () => {
+    if (startedRef.current) return
+    startedRef.current = true
     const defs = players.map(p => ({ id: p.uid, name: p.name, isAI: false }))
     const state = initGame(defs)
     await startRummikubGame(roomId, state)
   }
+
+  // במשחק רנדומלי — כשהחדר מתמלא למספר המבוקש, המארח מתחיל אוטומטית.
+  useEffect(() => {
+    if (isRandom && isHost && players.length >= maxPlayers && !startedRef.current) {
+      handleStart()
+    }
+  }, [isRandom, isHost, players.length, maxPlayers]) // eslint-disable-line
 
   const handleLeave = async () => {
     if (isHost) await leaveRummikubRoom(roomId)
@@ -268,8 +318,15 @@ function WaitingRoom({ room, roomId, me, onBack }) {
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>🎴</div>
           <div className="h-display" style={{ fontSize: 22, color: GOLD }}>
-            {isHost ? 'מחכים לשחקנים' : 'הצטרפת לשולחן'}
+            {isRandom
+              ? `ממתינים לשחקנים (${players.length}/${maxPlayers})`
+              : (isHost ? 'מחכים לשחקנים' : 'הצטרפת לשולחן')}
           </div>
+          {isRandom && (
+            <div style={{ marginTop: 8, fontSize: 14, color: CREAM, opacity: .85 }}>
+              {players.length >= maxPlayers ? 'מתחילים… 🎉' : 'המשחק יתחיל אוטומטית כשיצטרפו מספיק אנשים'}
+            </div>
+          )}
           {room.inviteCode && (
             <div style={{ marginTop: 10, fontSize: 14, color: CREAM }}>
               קוד הזמנה: <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 800, color: GOLD, letterSpacing: 2 }}>{room.inviteCode}</span>
@@ -291,7 +348,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
               {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
             </div>
           ))}
-          {Array.from({ length: (room.maxPlayers || 4) - players.length }).map((_, i) => (
+          {Array.from({ length: maxPlayers - players.length }).map((_, i) => (
             <div key={`empty-${i}`} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               background: 'rgba(74,48,22,.25)', border: '1px dashed rgba(201,162,74,.4)',
@@ -303,7 +360,12 @@ function WaitingRoom({ room, roomId, me, onBack }) {
           ))}
         </div>
 
-        {isHost ? (
+        {/* במשחק רנדומלי אין כפתור התחלה — הכל אוטומטי. רק בחברים המארח מתחיל ידנית. */}
+        {isRandom ? (
+          <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
+            ⏳ מחפשים עוד שחקנים…
+          </div>
+        ) : isHost ? (
           <>
             <RummiButton gold label={canStart ? `✓ התחל משחק (${players.length})` : 'צריך לפחות 2 שחקנים'} onClick={canStart ? handleStart : () => {}} />
             <div style={{ height: 10 }} />
@@ -332,6 +394,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   const [selectedTileId, setSelectedTileId] = useState(null)
   const [message, setMessage] = useState('')
   const [lastDrawn, setLastDrawn] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const myIndex = state ? state.players.findIndex(p => p.id === me.uid) : -1
   const turnIdx = state?.turn ?? 0
@@ -370,7 +433,8 @@ function OnlineGame({ room, roomId, me, onBack }) {
     const fromRack = draftRack.find(t => t.id === selectedTileId)
     if (!fromRack) { setSelectedTileId(null); return }
     const nb = draftBoard.map(s => [...s])
-    if (setIndex === 'new') nb.push([fromRack])
+    // סט חדש נוסף בראש הלוח (unshift) כדי שיהיה תמיד גלוי למעלה בלי לגלול
+    if (setIndex === 'new') nb.unshift([fromRack])
     else nb[setIndex] = [...nb[setIndex], fromRack]
     setDraftBoard(nb)
     setDraftRack(draftRack.filter(t => t.id !== selectedTileId))
@@ -445,64 +509,74 @@ function OnlineGame({ room, roomId, me, onBack }) {
     ? (winner.id === me.uid ? 'ניצחת! 🎉' : `${winner.name} ניצח`)
     : isMyTurn ? 'תורך' : `תור ${state.players[turnIdx].name}`
 
+  // צ'אט האונליין — היריב לצורך ההתראות
+  const opponent = state.players.find(p => p.id !== me.uid)
+  const chatMsgs = room.chat || []
+  const newTileId = lastDrawn && lastDrawn.forIdx === myIndex ? lastDrawn.tile.id : null
+
+  // תפריט (☰) — אפס מהלך + יציאה
+  const menuItems = (
+    <>
+      {isMyTurn && !winner && <RummiMenuItem label="↩ אפס מהלך" onClick={() => { handleResetDraft(); setMenuOpen(false) }} />}
+      <RummiMenuItem label="↩ יציאה מהמשחק" onClick={() => { setMenuOpen(false); handleLeave() }} />
+    </>
+  )
+
   return (
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} />
+      <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
+      {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
-      {/* פס שחקנים — קבוע למעלה */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
-        {state.players.map((p, i) => (
-          <div key={p.id} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: i === turnIdx && !winner ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
-            border: i === turnIdx && !winner ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-            borderRadius: 12, padding: '7px 12px',
-          }}>
-            <Avatar name={p.name} size={34} photoURL={p.id === me.uid ? profile?.photoURL : null} />
-            <div>
-              <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
-              <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{p.rack.length} אריחים</div>
+      {/* פס שחקנים — תמיד שורה אחת, מתחלקת שווה לפי מספר השחקנים */}
+      <div style={{ display: 'flex', gap: 5, padding: '8px 8px 0', flexShrink: 0 }}>
+        {state.players.map((p, i) => {
+          const isActive = i === turnIdx && !winner
+          const compact = state.players.length >= 4
+          const avatarSize = compact ? 22 : 26
+          return (
+            <div key={p.id} style={{
+              flex: 1, minWidth: 0,
+              display: 'flex', flexDirection: compact ? 'column' : 'row',
+              alignItems: 'center', justifyContent: 'center', gap: compact ? 1 : 7,
+              background: isActive ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
+              border: isActive ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
+              borderRadius: 9, padding: compact ? '3px 4px' : '5px 8px',
+            }}>
+              <Avatar name={p.name} size={avatarSize} photoURL={p.id === me.uid ? profile?.photoURL : null} />
+              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: compact ? 'center' : 'flex-start' }}>
+                <div style={{ fontFamily: "'Suez One', serif", fontSize: 11, color: CREAM, lineHeight: 1.1, maxWidth: compact ? 56 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
+                <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800, lineHeight: 1.1 }}>{p.rack.length}{compact ? '' : ' אריחים'}</div>
+              </div>
             </div>
-            {i === turnIdx && !winner && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* מונה אריחים בקופה */}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: 'rgba(0,0,0,.25)', border: `1px solid ${state.pool.length <= 5 ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
-          borderRadius: 999, padding: '5px 14px',
-        }}>
-          <span style={{ fontSize: 15 }}>🎴</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
-          <span style={{ fontSize: 16, fontWeight: 800, color: state.pool.length <= 5 ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{state.pool.length}</span>
-        </div>
+      {/* שורה מאוחדת: השולחן · תורך/סטטוס · קופה */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px 4px', flexShrink: 0, gap: 8 }}>
+        <span style={{ fontSize: 13, color: GOLD_DEEP, fontWeight: 700, flexShrink: 0 }}>השולחן</span>
+        <span style={{ fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, color: message ? '#ffb3a0' : GOLD, textAlign: 'center', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {message || statusText}
+        </span>
+        <PoolCounter count={state.pool.length} />
       </div>
 
       {/* השולחן — גמיש, גולל בפנים אם צריך */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
-        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 12px' }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <BoardArea
             board={draftBoard}
             onSetClick={placeOnSet}
             onTileClick={returnTileToRack}
+            lastDrawnId={newTileId}
             placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
           />
         </div>
       </div>
 
       {/* אזור תחתון קבוע */}
-      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
-        <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
-          {message || statusText}
-        </div>
-
-        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} />
-
-        {lastDrawn && lastDrawn.forIdx === myIndex && <NewTileBanner tile={lastDrawn.tile} />}
+      <div style={{ flexShrink: 0, padding: '6px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
+        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} newTileId={newTileId} />
 
         {!isMyTurn && !winner && (
           <div style={{ textAlign: 'center', color: CREAM, fontSize: 14, marginTop: 12, opacity: .8 }}>⏳ ממתין לתורך…</div>
@@ -516,12 +590,21 @@ function OnlineGame({ room, roomId, me, onBack }) {
 
         {isMyTurn && !winner && (
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <RummiButton ghost label="↩ אפס" onClick={handleResetDraft} />
+            <RummiChatButton roomId={roomId} me={me} chatMsgs={chatMsgs} />
             <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
             <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
           </div>
         )}
+        {/* כשלא תורי — מציגים רק כפתור צ'אט (לא שלוף/סיים) */}
+        {!isMyTurn && !winner && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <RummiChatButton roomId={roomId} me={me} chatMsgs={chatMsgs} wide />
+          </div>
+        )}
       </div>
+
+      {/* התראת צ'אט צפה */}
+      <ChatToast msgs={chatMsgs} meUid={me.uid} />
 
       {winner && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
@@ -539,4 +622,42 @@ function OnlineGame({ room, roomId, me, onBack }) {
       )}
     </div>
   )
+}
+
+// כפתור צ'אט למשחק האונליין — עם מונה הודעות שלא נקראו, פותח את ChatPanel
+function RummiChatButton({ roomId, me, chatMsgs, wide }) {
+  const [open, setOpen] = useState(false)
+  const [seen, setSeen] = useState(chatMsgs.length)
+  const unread = open ? 0 : Math.max(0, chatMsgs.length - seen)
+  useEffect(() => { if (open) setSeen(chatMsgs.length) }, [open, chatMsgs.length])
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} style={{
+        flex: wide ? 1 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        background: 'linear-gradient(180deg,#6b4528,#4a2e16)', color: '#F0D9A0',
+        border: '1px solid #C9A24A', borderRadius: 13, padding: '13px 8px',
+        fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+        position: 'relative', whiteSpace: 'nowrap',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 4px 8px rgba(0,0,0,.5)',
+      }}>
+        💬 צ'אט
+        {unread > 0 && (
+          <span style={{
+            position: 'absolute', top: -7, insetInlineStart: -7,
+            background: '#E8484F', color: 'white', fontSize: 12, fontWeight: 800,
+            minWidth: 20, height: 20, borderRadius: 10, padding: '0 5px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #1c1108',
+          }}>{unread}</span>
+        )}
+      </button>
+      {open && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setOpen(false)} sendFn={sendRummikubChat} />}
+    </>
+  )
+}
+
+// פריט בתפריט ה☰ של המשחק האונליין
+function RummiMenuItem({ label, onClick }) {
+  return <button onClick={onClick} style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', color: CREAM, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', padding: '11px 12px', borderRadius: 8, cursor: 'pointer' }}>{label}</button>
 }

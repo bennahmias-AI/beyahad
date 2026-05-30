@@ -16,7 +16,7 @@ import * as Tone from 'tone'
 import { isMuted } from './gameSounds.js'
 
 let ready = false
-let bell, pluck, low, reverb
+let bell, pluck, low, reverb, membrane
 
 // אתחול הכלים — קורה פעם אחת, רק אחרי אינטראקציה של המשתמש (Tone.start).
 function init() {
@@ -37,6 +37,12 @@ function init() {
   low = new Tone.Synth({
     oscillator: { type: 'sine' },
     envelope: { attack: 0.03, decay: 0.4, sustain: 0.25, release: 0.8 },
+  }).connect(reverb)
+
+  // תוף קרום — נקישה רכה לתחושת מתח (היריב ענה / ספירה / קרב)
+  membrane = new Tone.MembraneSynth({
+    pitchDecay: 0.02, octaves: 4,
+    envelope: { attack: 0.001, decay: 0.2, sustain: 0 },
   }).connect(reverb)
 
   ready = true
@@ -88,6 +94,57 @@ const SOUNDS = {
 
   // ספירה לאחור — פעמון רך בכל אחת מה-5 השניות האחרונות
   tick: (n) => bell.triggerAttackRelease('A5', '16n', n),
+
+  // ═══ צלילים חדשים — מלך הזירה ═══
+
+  // נמצא יריב! — צ'ימה עולה קסומה שמכריזה על תחילת הדו-קרב
+  matchFound: (n) => {
+    pluck.triggerAttackRelease('G4', '16n', n)
+    pluck.triggerAttackRelease('C5', '16n', n + 0.08)
+    bell.triggerAttackRelease(['E5', 'G5'], '8n', n + 0.16)
+    bell.triggerAttackRelease('C6', '4n', n + 0.3)
+  },
+
+  // שאלה חדשה — אקורד פתיחה רך, "מתחילים"
+  roundStart: (n) => {
+    bell.triggerAttackRelease(['D4', 'A4'], '8n', n)
+    bell.triggerAttackRelease(['F#4', 'D5'], '4n', n + 0.14)
+  },
+
+  // היריב נעל תשובה — נקישת תוף עדינה (מוסיף מתח)
+  opponentAnswered: (n) => {
+    membrane.triggerAttackRelease('G2', '16n', n)
+    pluck.triggerAttackRelease('C4', '16n', n + 0.05)
+  },
+
+  // ספירה אחרונה — פעימה מתוחה ל-3 השניות האחרונות
+  countdown: (n) => {
+    membrane.triggerAttackRelease('C2', '16n', n)
+    bell.triggerAttackRelease('E5', '32n', n)
+  },
+
+  // הודעת צ'אט — בועה רכה ועגולה
+  chatPop: (n) => {
+    pluck.triggerAttackRelease('E5', '16n', n)
+    pluck.triggerAttackRelease('A5', '16n', n + 0.06)
+  },
+
+  // ניצחון מלכותי — פאנפרה גדולה לסיום (מלך הזירה!)
+  victory: (n) => {
+    membrane.triggerAttackRelease('C2', '8n', n)
+    bell.triggerAttackRelease(['C4', 'E4', 'G4'], '8n', n)
+    bell.triggerAttackRelease(['G4', 'C5', 'E5'], '8n', n + 0.2)
+    bell.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '4n', n + 0.4)
+    bell.triggerAttackRelease(['E5', 'G5', 'C6', 'E6'], '2n', n + 0.7)
+    ;['G6', 'C7', 'E7'].forEach((note, i) =>
+      pluck.triggerAttackRelease(note, '16n', n + 0.7 + i * 0.07))
+  },
+
+  // תיקו — אקורד ניטרלי-נעים
+  tie: (n) => {
+    bell.triggerAttackRelease(['D4', 'F4', 'A4'], '4n', n)
+    bell.triggerAttackRelease(['F4', 'A4', 'D5'], '4n', n + 0.3)
+  },
 }
 
 // מנגן צליל לפי שם. אסינכרוני — מפעיל את Tone (חייב מתוך אינטראקציה).

@@ -47,7 +47,7 @@ export default function RummikubGame({ onBack, initialRoomId }) {
         onBack={onBack}
         onSelectAI={(diff, n) => { setDifficulty(diff); setNumPlayers(n); setMode('ai') }}
         onSelectLocal={(n) => { setNumPlayers(n); setMode('local') }}
-        onSelectOnlineRandom={() => setMode('online-random')}
+        onSelectOnlineRandom={(n) => { setNumPlayers(n); setMode('online-random') }}
         onSelectOnlineFriend={() => setMode('online-friend')}
       />
     )
@@ -66,6 +66,7 @@ export default function RummikubGame({ onBack, initialRoomId }) {
   return (
     <RummikubOnline
       mode={mode}
+      numPlayers={numPlayers}
       initialRoomId={roomId}
       onBack={() => { setMode(null); setRoomId(null) }}
       onExit={onBack}
@@ -124,10 +125,19 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
         {step === 'mode' && (
           <>
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו איך לשחק:</h2>
-            <ModeButton onClick={onSelectOnlineRandom} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
+            <ModeButton onClick={() => setStep('random-setup')} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
             <ModeButton onClick={onSelectOnlineFriend} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" badge="חדש" />
             <ModeButton onClick={() => setStep('ai-setup')} iconId="vs-ai" gradient="linear-gradient(135deg, #2C5566, #173846)" label="נגד המחשב" description="שחקו לבד מול יריבי מחשב" />
             <ModeButton onClick={() => setStep('local-setup')} iconId="local-2p" gradient="linear-gradient(135deg, #B89048, #8A6A2E)" label="כמה שחקנים" description="2-4 שחקנים על אותו מכשיר" />
+          </>
+        )}
+
+        {step === 'random-setup' && (
+          <>
+            <BackLink onClick={() => setStep('mode')} />
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>עם כמה שחקנים תרצו לשחק?</h2>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 12 }}>נחכה עד שיצטרפו מספיק אנשים, ואז המשחק יתחיל אוטומטית.</div>
+            <CountPicker options={[2, 3, 4]} labels={['2 שחקנים', '3 שחקנים', '4 שחקנים']} onPick={(n) => onSelectOnlineRandom(n)} />
           </>
         )}
 
@@ -224,9 +234,13 @@ function JokerFace({ size = 24, color = JOKER_COLOR }) {
   )
 }
 
-function Tile({ tile, size = 'normal', selected, onClick, dim }) {
+function Tile({ tile, size = 'normal', selected, onClick, dim, scale = 1, highlight }) {
   const isBig = size === 'big'
-  const w = isBig ? 40 : 34, h = isBig ? 56 : 48
+  const baseW = isBig ? 40 : 34, baseH = isBig ? 56 : 48
+  const w = Math.round(baseW * scale), h = Math.round(baseH * scale)
+  const baseFont = isBig ? 23 : 20
+  const fontSize = Math.max(13, Math.round(baseFont * scale))
+  const jokerSize = Math.round((isBig ? 30 : 26) * scale)
   const color = tile.joker ? JOKER_COLOR : TILE_COLORS[tile.color]
 
   return (
@@ -235,21 +249,23 @@ function Tile({ tile, size = 'normal', selected, onClick, dim }) {
       style={{
         width: w, height: h, borderRadius: isBig ? 7 : 6, flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: isBig ? 23 : 20, fontWeight: 700, fontFamily: "'Suez One', serif",
+        fontSize, fontWeight: 700, fontFamily: "'Suez One', serif",
         color,
         background: 'linear-gradient(180deg,#fffdf6 0%,#f4ead2 60%,#e3d4b0 100%)',
         boxShadow: selected
           ? `inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 3px ${GOLD}, 0 5px 0 #b09a72, 0 8px 10px rgba(0,0,0,.55)`
+          : highlight
+          ? `inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 3px ${GOLD}, 0 0 10px 3px rgba(232,200,121,.85), 0 4px 0 #b09a72, 0 6px 8px rgba(0,0,0,.5)`
           : 'inset 0 1px 0 rgba(255,255,255,.9), inset 0 -3px 4px rgba(150,120,70,.35), inset -2px 0 3px rgba(150,120,70,.2), 0 4px 0 #b09a72, 0 6px 8px rgba(0,0,0,.5)',
         textShadow: '0 1px 0 rgba(255,255,255,.5)',
         cursor: onClick ? 'pointer' : 'default',
         opacity: dim ? 0.4 : 1,
         transform: selected ? 'translateY(-6px)' : 'none',
-        transition: 'transform .12s, box-shadow .12s',
+        transition: 'transform .12s, box-shadow .12s, width .15s, height .15s, font-size .15s',
         userSelect: 'none',
       }}
     >
-      {tile.joker ? <JokerFace size={isBig ? 30 : 26} /> : tile.num}
+      {tile.joker ? <JokerFace size={jokerSize} /> : tile.num}
     </span>
   )
 }
@@ -339,7 +355,8 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
     const fromRack = draftRack.find(t => t.id === selectedTileId)
     if (!fromRack) { setSelectedTileId(null); return }
     const nb = draftBoard.map(s => [...s])
-    if (setIndex === 'new') nb.push([fromRack])
+    // סט חדש נוסף בראש הלוח (unshift) כדי שיהיה תמיד גלוי למעלה בלי לגלול
+    if (setIndex === 'new') nb.unshift([fromRack])
     else nb[setIndex] = [...nb[setIndex], fromRack]
     setDraftBoard(nb)
     setDraftRack(draftRack.filter(t => t.id !== selectedTileId))
@@ -415,6 +432,7 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
 
   const menuItems = (
     <>
+      {!isAITurn && !winner && <MenuItem label="↩ אפס מהלך" onClick={() => { handleResetDraft(); setMenuOpen(false) }} />}
       <MenuItem label="🔄 משחק חדש" onClick={restart} />
       <MenuItem label={muted ? '🔇 הפעל סאונד' : '🔊 השתק סאונד'} onClick={toggleMute} />
       <MenuItem label="↩ החלף מצב" onClick={() => { setMenuOpen(false); onBack() }} />
@@ -431,44 +449,40 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
       <RummiHeader title="רמיקוב" onBack={onBack} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
-      {/* פס שחקנים — קבוע למעלה */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 12px 0', justifyContent: 'center', flexShrink: 0 }}>
+      {/* פס שחקנים — תמיד שורה אחת, מתחלקת שווה לפי מספר השחקנים */}
+      <div style={{ display: 'flex', gap: 5, padding: '8px 8px 0', flexShrink: 0 }}>
         {state.players.map((p, i) => (
-          <OpponentChip key={p.id} player={p} active={i === turnIdx && !winner} photoURL={p.id === 'you' ? profile?.photoURL : null} />
+          <OpponentChip key={p.id} player={p} active={i === turnIdx && !winner} photoURL={p.id === 'you' ? profile?.photoURL : null} compact={state.players.length >= 4} />
         ))}
       </div>
 
-      {/* מונה אריחים בקופה */}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 12px 0', flexShrink: 0 }}>
+      {/* שורה מאוחדת: השולחן (ימין) · תורך/סטטוס (אמצע) · קופה (שמאל) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px 4px', flexShrink: 0, gap: 8 }}>
+        <span style={{ fontSize: 13, color: GOLD_DEEP, fontWeight: 700, flexShrink: 0 }}>השולחן</span>
+        <span style={{ fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, color: message ? '#ffb3a0' : GOLD, textAlign: 'center', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {message || statusText}
+        </span>
         <PoolCounter count={state.pool.length} />
       </div>
 
       {/* השולחן — גמיש, תופס את המרחב שנותר וגולל בפנים אם צריך */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 0' }}>
-        <div style={{ fontSize: 12, color: GOLD_DEEP, fontWeight: 700, marginBottom: 6, textAlign: 'center', flexShrink: 0 }}>השולחן</div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 12px' }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <BoardArea
             board={draftBoard}
             onSetClick={placeOnSet}
             onTileClick={returnTileToRack}
             selectedTileId={selectedTileId}
+            lastDrawnId={lastDrawn && lastDrawn.forIdx === turnIdx ? lastDrawn.tile.id : null}
             placing={selectedTileId != null && draftRack.some(t => t.id === selectedTileId)}
           />
         </div>
       </div>
 
-      {/* אזור תחתון קבוע — הודעה, היד, והכפתורים תמיד גלויים */}
-      <div style={{ flexShrink: 0, padding: '4px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
-        <div style={{ textAlign: 'center', minHeight: 22, margin: '6px 0', fontFamily: "'Suez One', serif", fontSize: 17, fontWeight: 800, color: message ? '#ffb3a0' : GOLD }}>
-          {message || statusText}
-        </div>
-
+      {/* אזור תחתון קבוע — היד והכפתורים תמיד גלויים */}
+      <div style={{ flexShrink: 0, padding: '6px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
         {!isAITurn && !winner && (
-          <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} />
-        )}
-        {/* הודעה על האריח החדש שנשלף */}
-        {!isAITurn && !winner && lastDrawn && lastDrawn.forIdx === turnIdx && (
-          <NewTileBanner tile={lastDrawn.tile} />
+          <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} newTileId={lastDrawn && lastDrawn.forIdx === turnIdx ? lastDrawn.tile.id : null} />
         )}
         {isAITurn && (
           <div style={{ textAlign: 'center', padding: '20px', color: CREAM, fontSize: 15 }}>{player.name} משחק… 🤔</div>
@@ -482,7 +496,6 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
 
         {!isAITurn && !winner && (
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <RummiButton ghost label="↩ אפס" onClick={handleResetDraft} />
             <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
             <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
           </div>
@@ -503,82 +516,85 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
   )
 }
 
-function OpponentChip({ player, active, photoURL }) {
+function OpponentChip({ player, active, photoURL, compact }) {
+  // 4 שחקנים → פריסה אנכית צרה (פרצוף מעל שם); 2-3 → מלבן אופקי רחב יותר.
+  // בשני המקרים flex:1 + minWidth:0 — כך השורה לעולם לא בורחת.
+  const avatarSize = compact ? 22 : 26
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
+      flex: 1, minWidth: 0,
+      display: 'flex', flexDirection: compact ? 'column' : 'row',
+      alignItems: 'center', justifyContent: 'center', gap: compact ? 1 : 7,
       background: active ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
-      border: active ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-      borderRadius: 12, padding: '7px 12px',
-      boxShadow: active ? '0 0 12px rgba(232,200,121,.35)' : 'none',
+      border: active ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
+      borderRadius: 9, padding: compact ? '3px 4px' : '5px 8px',
+      boxShadow: active ? '0 0 10px rgba(232,200,121,.35)' : 'none',
     }}>
       {player.isAI ? (
         <div style={{
-          width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-          background: '#f4ead2', border: '1.5px solid #cbb98e',
+          width: avatarSize, height: avatarSize, borderRadius: '50%', flexShrink: 0,
+          background: '#f4ead2', border: '1px solid #cbb98e',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <JokerFace size={24} />
+          <JokerFace size={Math.round(avatarSize * 0.68)} />
         </div>
       ) : (
-        <Avatar name={player.name} size={34} photoURL={photoURL} />
+        <Avatar name={player.name} size={avatarSize} photoURL={photoURL} />
       )}
-      <div>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 14, color: CREAM, lineHeight: 1.1 }}>{player.name}</div>
-        <div style={{ fontSize: 11, color: GOLD_DEEP, fontWeight: 700 }}>{player.rack.length} אריחים</div>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: compact ? 'center' : 'flex-start' }}>
+        <div style={{ fontFamily: "'Suez One', serif", fontSize: 11, color: CREAM, lineHeight: 1.1, maxWidth: compact ? 56 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{player.name}</div>
+        <div style={{ fontSize: 10, color: active ? GOLD : GOLD_DEEP, fontWeight: 800, lineHeight: 1.1 }}>{player.rack.length}{compact ? '' : ' אריחים'}</div>
       </div>
-      {active && <span style={{ fontSize: 11, color: GOLD, fontWeight: 800 }}>● תור</span>}
     </div>
   )
 }
 
-// מונה האריחים שנותרו בקופה (כמה אפשר עוד לשלוף)
+// מונה האריחים שנותרו בקופה (כמה אפשר עוד לשלוף) — קומפקטי לשורה המאוחדת
 function PoolCounter({ count }) {
   const low = count <= 5
   return (
     <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 8,
+      display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
       background: 'rgba(0,0,0,.25)', border: `1px solid ${low ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
-      borderRadius: 999, padding: '5px 14px',
+      borderRadius: 999, padding: '3px 10px',
     }}>
-      <span style={{ fontSize: 15 }}>🎴</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>נשארו בקופה:</span>
-      <span style={{ fontSize: 16, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
+      <span style={{ fontSize: 12 }}>🎴</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: CREAM }}>בקופה:</span>
+      <span style={{ fontSize: 14, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
     </div>
   )
 }
 
-function BoardArea({ board, onSetClick, onTileClick, selectedTileId, placing }) {
+function BoardArea({ board, onSetClick, onTileClick, selectedTileId, placing, lastDrawnId }) {
+  // התכווצות אוטומטית — ככל שהלוח מתמלא, הקלפים מתכווצים
+  // כדי שייכנסו בלי לגלול. מתחיל גדול (כמו תמיד) וקטן במדרגות.
+  const tileCount = board.reduce((sum, set) => sum + set.length, 0)
+  let scale = 1
+  if (tileCount > 52) scale = 0.58
+  else if (tileCount > 42) scale = 0.65
+  else if (tileCount > 32) scale = 0.74
+  else if (tileCount > 22) scale = 0.84
+  else if (tileCount > 14) scale = 0.92
+
+  const gap = Math.round(12 * scale)
+  const setGap = Math.max(2, Math.round(4 * scale))
+  const setPad = Math.max(3, Math.round(6 * scale))
+  const boardPad = scale < 0.85 ? 8 : 14
+
   return (
     <div style={{
-      background: WOOD_DEEP, borderRadius: 14, padding: 14, minHeight: 150,
+      background: WOOD_DEEP, borderRadius: 14, padding: boardPad, minHeight: 150,
       borderTop: `2px solid #d8b878`, borderInline: '2px solid #8a5e2e', borderBottom: '4px solid #2a1808',
       boxShadow: 'inset 0 2px 10px rgba(0,0,0,.6), inset 0 -3px 8px rgba(0,0,0,.5), 0 8px 20px -6px rgba(0,0,0,.7)',
-      display: 'flex', flexWrap: 'wrap', gap: 12, alignContent: 'flex-start',
+      display: 'flex', flexWrap: 'wrap', gap, alignContent: 'flex-start',
+      transition: 'gap .15s, padding .15s',
     }}>
       {board.length === 0 && (
         <div style={{ width: '100%', textAlign: 'center', color: 'rgba(243,226,190,.5)', fontSize: 14, padding: '40px 0' }}>
           השולחן ריק — הניחו את הסט הראשון
         </div>
       )}
-      {board.map((set, i) => {
-        const valid = isValidSet(set)
-        const ordered = sortSetForDisplay(set)
-        return (
-          <div key={i} onClick={() => placing && onSetClick(i)} style={{
-            display: 'flex', flexWrap: 'wrap', gap: 4, padding: 6, borderRadius: 8,
-            direction: 'ltr',
-            background: 'rgba(0,0,0,.18)',
-            border: valid ? '1px solid rgba(232,200,121,.25)' : '2px solid #e0746a',
-            cursor: placing ? 'pointer' : 'default',
-            maxWidth: '100%',
-          }}>
-            {ordered.map(tile => (
-              <Tile key={tile.id} tile={tile} onClick={() => onTileClick(i, tile.id)} />
-            ))}
-          </div>
-        )
-      })}
+      {/* כפתור "סט חדש" — בראש הלוח, כך תמיד גלוי למעלה בלי לגלול */}
       {placing && (
         <div onClick={() => onSetClick('new')} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -587,11 +603,30 @@ function BoardArea({ board, onSetClick, onTileClick, selectedTileId, placing }) 
           cursor: 'pointer', fontSize: 13, fontWeight: 700,
         }}>+ סט חדש</div>
       )}
+      {board.map((set, i) => {
+        const valid = isValidSet(set)
+        const ordered = sortSetForDisplay(set)
+        return (
+          <div key={i} onClick={() => placing && onSetClick(i)} style={{
+            display: 'flex', flexWrap: 'wrap', gap: setGap, padding: setPad, borderRadius: 8,
+            direction: 'ltr',
+            background: 'rgba(0,0,0,.18)',
+            border: valid ? '1px solid rgba(232,200,121,.25)' : '2px solid #e0746a',
+            cursor: placing ? 'pointer' : 'default',
+            maxWidth: '100%',
+            transition: 'gap .15s, padding .15s',
+          }}>
+            {ordered.map(tile => (
+              <Tile key={tile.id} tile={tile} scale={scale} highlight={lastDrawnId === tile.id} onClick={() => onTileClick(i, tile.id)} />
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-function PlayerRack({ rack, selectedTileId, onTileClick, onSort }) {
+function PlayerRack({ rack, selectedTileId, onTileClick, onSort, newTileId }) {
   return (
     <div>
       {onSort && (
@@ -608,7 +643,7 @@ function PlayerRack({ rack, selectedTileId, onTileClick, onSort }) {
         direction: 'ltr',
       }}>
         {rack.map(tile => (
-          <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} onClick={() => onTileClick(tile.id)} />
+          <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} highlight={newTileId === tile.id} onClick={() => onTileClick(tile.id)} />
         ))}
       </div>
     </div>

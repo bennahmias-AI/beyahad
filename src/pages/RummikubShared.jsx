@@ -35,9 +35,14 @@ export function JokerFace({ size = 24, color = JOKER_COLOR }) {
   )
 }
 
-export function Tile({ tile, size = 'normal', selected, onClick, dim }) {
+export function Tile({ tile, size = 'normal', selected, onClick, dim, scale = 1, highlight }) {
   const isBig = size === 'big'
-  const w = isBig ? 40 : 34, h = isBig ? 56 : 48
+  // גדל בסיסי, מוכפל ב-scale (רק אריחי הלוח מתכווצים; היד תמיד scale=1)
+  const baseW = isBig ? 40 : 34, baseH = isBig ? 56 : 48
+  const w = Math.round(baseW * scale), h = Math.round(baseH * scale)
+  const baseFont = isBig ? 23 : 20
+  const fontSize = Math.max(13, Math.round(baseFont * scale))
+  const jokerSize = Math.round((isBig ? 30 : 26) * scale)
   const color = tile.joker ? JOKER_COLOR : TILE_COLORS[tile.color]
 
   return (
@@ -46,21 +51,23 @@ export function Tile({ tile, size = 'normal', selected, onClick, dim }) {
       style={{
         width: w, height: h, borderRadius: isBig ? 7 : 6, flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: isBig ? 23 : 20, fontWeight: 700, fontFamily: "'Suez One', serif",
+        fontSize, fontWeight: 700, fontFamily: "'Suez One', serif",
         color,
         background: 'linear-gradient(180deg,#fffdf6 0%,#f4ead2 60%,#e3d4b0 100%)',
         boxShadow: selected
           ? `inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 3px ${GOLD}, 0 5px 0 #b09a72, 0 8px 10px rgba(0,0,0,.55)`
+          : highlight
+          ? `inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 3px ${GOLD}, 0 0 10px 3px rgba(232,200,121,.85), 0 4px 0 #b09a72, 0 6px 8px rgba(0,0,0,.5)`
           : 'inset 0 1px 0 rgba(255,255,255,.9), inset 0 -3px 4px rgba(150,120,70,.35), inset -2px 0 3px rgba(150,120,70,.2), 0 4px 0 #b09a72, 0 6px 8px rgba(0,0,0,.5)',
         textShadow: '0 1px 0 rgba(255,255,255,.5)',
         cursor: onClick ? 'pointer' : 'default',
         opacity: dim ? 0.4 : 1,
         transform: selected ? 'translateY(-6px)' : 'none',
-        transition: 'transform .12s, box-shadow .12s',
+        transition: 'transform .12s, box-shadow .12s, width .15s, height .15s, font-size .15s',
         userSelect: 'none',
       }}
     >
-      {tile.joker ? <JokerFace size={isBig ? 30 : 26} /> : tile.num}
+      {tile.joker ? <JokerFace size={jokerSize} /> : tile.num}
     </span>
   )
 }
@@ -109,38 +116,37 @@ export function RummiHeaderShared({ title, onBack, onMenu, menuOpen, menuItems }
 // ════════════════════════════════════════════════════════
 // אזור השולחן (הסטים המונחים)
 // ════════════════════════════════════════════════════════
-export function BoardArea({ board, onSetClick, onTileClick, placing }) {
+export function BoardArea({ board, onSetClick, onTileClick, placing, lastDrawnId }) {
+  // התכווצות אוטומטית — ככל שהלוח מתמלא, הקלפים מתכווצים
+  // כדי שייכנסו בלי לגלול. מתחיל גדול (כמו תמיד) וקטן במדרגות.
+  const tileCount = board.reduce((sum, set) => sum + set.length, 0)
+  let scale = 1
+  if (tileCount > 52) scale = 0.58
+  else if (tileCount > 42) scale = 0.65
+  else if (tileCount > 32) scale = 0.74
+  else if (tileCount > 22) scale = 0.84
+  else if (tileCount > 14) scale = 0.92
+  // עד 14 אריחים — גודל מלא (scale=1)
+
+  const gap = Math.round(12 * scale)
+  const setGap = Math.max(2, Math.round(4 * scale))
+  const setPad = Math.max(3, Math.round(6 * scale))
+  const boardPad = scale < 0.85 ? 8 : 14
+
   return (
     <div style={{
-      background: WOOD_DEEP, borderRadius: 14, padding: 14, minHeight: 150,
+      background: WOOD_DEEP, borderRadius: 14, padding: boardPad, minHeight: 150,
       borderTop: `2px solid #d8b878`, borderInline: '2px solid #8a5e2e', borderBottom: '4px solid #2a1808',
       boxShadow: 'inset 0 2px 10px rgba(0,0,0,.6), inset 0 -3px 8px rgba(0,0,0,.5), 0 8px 20px -6px rgba(0,0,0,.7)',
-      display: 'flex', flexWrap: 'wrap', gap: 12, alignContent: 'flex-start',
+      display: 'flex', flexWrap: 'wrap', gap, alignContent: 'flex-start',
+      transition: 'gap .15s, padding .15s',
     }}>
       {board.length === 0 && (
         <div style={{ width: '100%', textAlign: 'center', color: 'rgba(243,226,190,.5)', fontSize: 14, padding: '40px 0' }}>
           השולחן ריק — הניחו את הסט הראשון
         </div>
       )}
-      {board.map((set, i) => {
-        const valid = isValidSet(set)
-        // מסדרים את הסט לתצוגה (רצף — לפי מספר; קבוצה — כרגיל)
-        const ordered = sortSetForDisplay(set)
-        return (
-          <div key={i} onClick={() => placing && onSetClick(i)} style={{
-            display: 'flex', flexWrap: 'wrap', gap: 4, padding: 6, borderRadius: 8,
-            direction: 'ltr',
-            background: 'rgba(0,0,0,.18)',
-            border: valid ? '1px solid rgba(232,200,121,.25)' : '2px solid #e0746a',
-            cursor: placing ? 'pointer' : 'default',
-            maxWidth: '100%',
-          }}>
-            {ordered.map(tile => (
-              <Tile key={tile.id} tile={tile} onClick={() => onTileClick(i, tile.id)} />
-            ))}
-          </div>
-        )
-      })}
+      {/* כפתור "סט חדש" — בראש הלוח, כך תמיד גלוי למעלה בלי לגלול */}
       {placing && (
         <div onClick={() => onSetClick('new')} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -149,6 +155,26 @@ export function BoardArea({ board, onSetClick, onTileClick, placing }) {
           cursor: 'pointer', fontSize: 13, fontWeight: 700,
         }}>+ סט חדש</div>
       )}
+      {board.map((set, i) => {
+        const valid = isValidSet(set)
+        // מסדרים את הסט לתצוגה (רצף — לפי מספר; קבוצה — כרגיל)
+        const ordered = sortSetForDisplay(set)
+        return (
+          <div key={i} onClick={() => placing && onSetClick(i)} style={{
+            display: 'flex', flexWrap: 'wrap', gap: setGap, padding: setPad, borderRadius: 8,
+            direction: 'ltr',
+            background: 'rgba(0,0,0,.18)',
+            border: valid ? '1px solid rgba(232,200,121,.25)' : '2px solid #e0746a',
+            cursor: placing ? 'pointer' : 'default',
+            maxWidth: '100%',
+            transition: 'gap .15s, padding .15s',
+          }}>
+            {ordered.map(tile => (
+              <Tile key={tile.id} tile={tile} scale={scale} highlight={lastDrawnId === tile.id} onClick={() => onTileClick(i, tile.id)} />
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -156,7 +182,7 @@ export function BoardArea({ board, onSetClick, onTileClick, placing }) {
 // ════════════════════════════════════════════════════════
 // מדף האריחים של השחקן
 // ════════════════════════════════════════════════════════
-export function PlayerRack({ rack, selectedTileId, onTileClick, onSort }) {
+export function PlayerRack({ rack, selectedTileId, onTileClick, onSort, newTileId }) {
   return (
     <div>
       {onSort && (
@@ -173,7 +199,7 @@ export function PlayerRack({ rack, selectedTileId, onTileClick, onSort }) {
         direction: 'ltr',
       }}>
         {rack.map(tile => (
-          <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} onClick={() => onTileClick(tile.id)} />
+          <Tile key={tile.id} tile={tile} size="big" selected={selectedTileId === tile.id} highlight={newTileId === tile.id} onClick={() => onTileClick(tile.id)} />
         ))}
       </div>
     </div>
@@ -227,6 +253,22 @@ export function NewTileBanner({ tile }) {
       <span style={{ fontSize: 14, fontWeight: 800, color: GOLD }}>
         {colorName ? `${label} ${colorName}` : label}
       </span>
+    </div>
+  )
+}
+
+// מונה האריחים שנותרו בקופה — קומפקטי לשורה המאוחדת
+export function PoolCounter({ count }) {
+  const low = count <= 5
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
+      background: 'rgba(0,0,0,.25)', border: `1px solid ${low ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
+      borderRadius: 999, padding: '3px 10px',
+    }}>
+      <span style={{ fontSize: 12 }}>🎴</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: CREAM }}>בקופה:</span>
+      <span style={{ fontSize: 14, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
     </div>
   )
 }

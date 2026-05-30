@@ -949,8 +949,21 @@ export async function leaveRummikubRoom(roomId) {
   catch (e) { console.error('leaveRummikubRoom error:', e) }
 }
 
-// מתאמה רנדומלית לרמיקוב — מצטרף לחדר ממתין או יוצר חדש.
-export async function findOrCreateRummikubMatch({ player }) {
+// שולח הודעת צ'אט בחדר רמיקוב (מתווסף למערך chat).
+export async function sendRummikubChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'rummikubRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendRummikubChat error:', e)
+  }
+}
+
+// מתאמה רנדומלית לרמיקוב — מצטרף לחדר ממתין (עם אותו מספר שחקנים מבוקש)
+// או יוצר חדש. maxPlayers קובע לכמה שחקנים החדר ממתין.
+// כשהחדר מתמלא בדיוק ל-maxPlayers — המשחק מתחיל אוטומטית (ראה צד הלקוח).
+export async function findOrCreateRummikubMatch({ player, maxPlayers = 4 }) {
   const q = query(
     collection(db, 'rummikubRooms'),
     where('status', '==', 'waiting'),
@@ -960,6 +973,7 @@ export async function findOrCreateRummikubMatch({ player }) {
   const room = snap.docs.find(d => {
     const data = d.data()
     if (data.isPrivate) return false
+    if ((data.maxPlayers || 4) !== maxPlayers) return false   // רק חדר עם אותו מספר שחקנים מבוקש
     const players = data.players || []
     if (players.length >= (data.maxPlayers || 4)) return false
     if (players.some(p => p.uid === player.uid)) return false
@@ -969,7 +983,116 @@ export async function findOrCreateRummikubMatch({ player }) {
     await joinRummikubRoom(room.id, player)
     return { roomId: room.id, isHost: false }
   }
-  const { roomId } = await createRummikubRoom({ host: player, roomType: 'random' })
+  const { roomId } = await createRummikubRoom({ host: player, roomType: 'random', maxPlayers })
+  return { roomId, isHost: true }
+}
+
+// ─── מלך הזירה — דו-קרב טריוויה אונליין (2 שחקנים) ─────
+// חידון 1-על-1: שני השחקנים מקבלים את אותן 20 השאלות, כל אחד
+// בוחר תשובה בלי לראות את של השני, עד 30 שניות לשאלה. כשנעל —
+// נחשפת התשובה ומי ענה מה. מי שצובר יותר נקודות מנצח.
+//
+//   arenaRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
+//     gameStateJson: מצב המשחק (שאלות, תשובות, ניקוד), roomType, isPrivate, inviteCode
+
+export async function createArenaRoom({ host, roomType }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const ref = await addDoc(collection(db, 'arenaRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    gameStateJson: '',
+    maxPlayers: 2,
+    roomType,
+    isPrivate: roomType === 'private',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+export async function joinArenaRoom(roomId, player) {
+  const ref = doc(db, 'arenaRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= 2) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
+export async function startArenaGame(roomId, gameState) {
+  await updateDoc(doc(db, 'arenaRooms', roomId), {
+    status: 'playing',
+    gameStateJson: JSON.stringify(gameState),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מעדכן את מצב המשחק (אחרי תשובה / מעבר שאלה).
+export async function updateArenaState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'arenaRooms', roomId), {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateArenaState error:', e)
+  }
+}
+
+export function watchArenaRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'arenaRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchArenaRoom error:', err) })
+}
+
+export async function leaveArenaRoom(roomId) {
+  try { await deleteDoc(doc(db, 'arenaRooms', roomId)) }
+  catch (e) { console.error('leaveArenaRoom error:', e) }
+}
+
+// שולח הודעת צ'אט בחדר מלך הזירה (מתווסף למערך chat).
+export async function sendArenaChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'arenaRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendArenaChat error:', e)
+  }
+}
+
+// מתאמה רנדומלית למלך הזירה — מצטרף לחדר ממתין או יוצר חדש.
+export async function findOrCreateArenaMatch({ player }) {
+  const q = query(
+    collection(db, 'arenaRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    const players = data.players || []
+    if (players.length >= 2) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinArenaRoom(room.id, player)
+    return { roomId: room.id, isHost: false }
+  }
+  const { roomId } = await createArenaRoom({ host: player, roomType: 'random' })
   return { roomId, isHost: true }
 }
 

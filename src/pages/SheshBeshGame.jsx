@@ -453,37 +453,68 @@ function FriendListScreen({ friends, onInvite, onGoFriends }) {
       </div>
     )
   }
+  return <FriendListBody friends={friends} onInvite={onInvite} />
+}
+
+function FriendListBody({ friends, onInvite }) {
+  const [onlineMap, setOnlineMap] = useState({})
+  useEffect(() => {
+    if (!friends || friends.length === 0) return
+    const unsubs = friends.map(f => {
+      if (!f.otherUid) return null
+      return watchUser(f.otherUid, u => {
+        const seen = u?.lastSeenAt
+        const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
+        const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
+        const isOnline = Boolean(fresh) && ['available', 'busy'].includes(u?.status)
+        setOnlineMap(prev => ({ ...prev, [f.otherUid]: isOnline }))
+      })
+    })
+    return () => unsubs.forEach(u => u && u())
+  }, [friends])
+  const onlineFriends = friends.filter(f => onlineMap[f.otherUid])
+  const offlineFriends = friends.filter(f => !onlineMap[f.otherUid])
   return (
     <>
       <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>בחרו חבר להזמין</h2>
       <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, marginBottom: 14 }}>נשלח לו הזמנה — וכשהחבר יאשר, המשחק יתחיל</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{friends.map(f => <FriendInviteRow key={f.docId} friend={f} onInvite={() => onInvite(f)} />)}</div>
+      {onlineFriends.length > 0 && (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--success)', margin: '4px 2px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+            מחוברים עכשיו ({onlineFriends.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+            {onlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} online onInvite={() => onInvite(f)} />)}
+          </div>
+        </>
+      )}
+      {offlineFriends.length > 0 && (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-3)', margin: '4px 2px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--ink-3)', display: 'inline-block' }} />
+            לא מחוברים ({offlineFriends.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {offlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} online={false} onInvite={() => onInvite(f)} />)}
+          </div>
+        </>
+      )}
     </>
   )
 }
 
-function FriendInviteRow({ friend, onInvite }) {
-  const [online, setOnline] = useState(false)
-  useEffect(() => {
-    if (!friend.otherUid) return
-    const unsub = watchUser(friend.otherUid, u => {
-      const seen = u?.lastSeenAt
-      const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
-      const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
-      setOnline(Boolean(fresh) && ['available', 'busy'].includes(u?.status))
-    })
-    return () => unsub && unsub()
-  }, [friend.otherUid])
+function FriendInviteRow({ friend, online, onInvite }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
       <Avatar name={friend.otherName} size={50} online={online} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>{friend.otherName}</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: online ? 'var(--success)' : 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-          {online && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ADE80' }} />}{online ? 'מחובר עכשיו' : 'לא מחובר'}
+        <div style={{ fontSize: 13, fontWeight: 700, color: online ? 'var(--success)' : 'var(--ink-3)' }}>
+          {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      <button onClick={onInvite} style={{ background: online ? 'var(--burgundy)' : 'var(--surface)', color: online ? 'white' : 'var(--ink)', border: online ? 'none' : '1px solid var(--line-strong)', borderRadius: 12, padding: '11px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>🎮 הזמן</button>
+      <button onClick={onInvite} style={{ background: online ? 'var(--success)' : 'var(--burgundy)', color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>הזמן</button>
     </div>
   )
 }

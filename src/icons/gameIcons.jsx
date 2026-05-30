@@ -318,6 +318,25 @@ function RummikubIcon({ size }) {
   )
 }
 
+// ── 👑 מלך הזירה — כתר מלכותי ──
+// כתר עם 3 קודקודים ואבנים — מסמל את מלך הטריוויה.
+function ArenaIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* גוף הכתר — חמשת קודקודים */}
+      <path d="M14 42 L12 22 L23 32 L32 18 L41 32 L52 22 L50 42 Z" fill={W} />
+      {/* בסיס הכתר */}
+      <rect x="14" y="44" width="36" height="6" rx="2" fill={W} />
+      {/* אבנים על קודקודי הכתר */}
+      <circle cx="12" cy="22" r="3" fill={W} />
+      <circle cx="32" cy="16" r="3.5" fill={W} />
+      <circle cx="52" cy="22" r="3" fill={W} />
+      {/* אבן אמצעית בגוף הכתר */}
+      <circle cx="32" cy="37" r="3" fill={DARK} fillOpacity="0.6" />
+    </IconWrap>
+  )
+}
+
 export function GameIcon({ id, size = 64 }) {
   switch (id) {
     case 'bingo':     return <BingoIcon size={size} />
@@ -328,6 +347,7 @@ export function GameIcon({ id, size = 64 }) {
     case 'trivia':    return <TriviaIcon size={size} />
     case 'memory':    return <MemoryIcon size={size} />
     case 'rummikub':  return <RummikubIcon size={size} />
+    case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
     // ── מצבי משחק של 4 בשורה ──
     case 'online-random':  return <OnlineRandomIcon size={size} />

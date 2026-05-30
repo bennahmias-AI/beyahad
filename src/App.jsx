@@ -19,6 +19,7 @@ import CheckersGame from './pages/CheckersGame.jsx'
 import SheshBeshGame from './pages/SheshBeshGame.jsx'
 import MillionaireGame from './pages/MillionaireGame.jsx'
 import RummikubGame from './pages/RummikubGame.jsx'
+import ArenaGame from './pages/ArenaGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import {
@@ -43,6 +44,7 @@ export default function App() {
   const [checkersRoom, setCheckersRoom] = useState(null)
   const [sheshbeshRoom, setSheshbeshRoom] = useState(null)
   const [rummikubRoom, setRummikubRoom] = useState(null)
+  const [arenaRoom, setArenaRoom] = useState(null)
 
   // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
   function handleInviteAccept({ roomId, gameType }) {
@@ -58,6 +60,9 @@ export default function App() {
     } else if (gameType === 'rummikub') {
       setRummikubRoom(roomId)
       setPage('rummikub-game')
+    } else if (gameType === 'arena') {
+      setArenaRoom(roomId)
+      setPage('arena-game')
     }
   }
 
@@ -159,6 +164,7 @@ export default function App() {
           onGoSheshbesh={() => { setSheshbeshRoom(null); setPage('sheshbesh-game') }}
           onGoTrivia={() => setPage('millionaire-game')}
           onGoRummikub={() => { setRummikubRoom(null); setPage('rummikub-game') }}
+          onGoArena={() => { setArenaRoom(null); setPage('arena-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
@@ -173,6 +179,12 @@ export default function App() {
         <RummikubGame
           initialRoomId={rummikubRoom}
           onBack={() => { setRummikubRoom(null); setPage('games') }}
+        />
+      )}
+      {page === 'arena-game' && (
+        <ArenaGame
+          initialRoomId={arenaRoom}
+          onBack={() => { setArenaRoom(null); setPage('games') }}
         />
       )}
       {page === 'connect4-game' && (

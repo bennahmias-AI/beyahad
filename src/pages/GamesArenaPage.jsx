@@ -76,6 +76,15 @@ const GAMES = [
     color: '#6B4427', // עץ אגוז
     status: 'available',
   },
+  {
+    id: 'arena',
+    name: 'מלך הזירה',
+    description: 'דו-קרב טריוויה',
+    emoji: '👑',
+    players: '2 שחקנים',
+    color: '#4A2A66', // אוברגין מלכותי
+    status: 'available',
+  },
   // ── בקרוב — משחקים שעוד לא בנינו ─────────────────────────
   {
     id: 'bingo',
@@ -97,7 +106,7 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -128,6 +137,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'rummikub' && onGoRummikub) {
       onGoRummikub()
+      return
+    }
+    if (game.id === 'arena' && onGoArena) {
+      onGoArena()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"
