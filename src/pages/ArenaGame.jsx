@@ -24,6 +24,7 @@ import { isMuted, setMuted } from '../utils/gameSounds.js'
 import { playTriviaSound, warmTriviaAudio } from '../utils/triviaSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 import { BANK } from '../utils/triviaQuestions.js'
 import {
   createArenaRoom, joinArenaRoom, startArenaGame, updateArenaState,
@@ -601,6 +602,7 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
   const [chatOpen, setChatOpen] = useState(false)
   const [revealCount, setRevealCount] = useState(3)
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const isHost = room.hostUid === me.uid
   const players = room.players || []
   const chat = room.chat || []
@@ -796,6 +798,16 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
     )
   }
 
+  // ── אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <div style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
+        <ArenaHeader title="מלך הזירה" onBack={handleLeave} />
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#4A2A66" accentDeep="#C9A24A" />
+      </div>
+    )
+  }
+
   // ── מסך סיום ──────────────────────────────────────────
   if (phase === 'left') {
     return (
@@ -854,17 +866,18 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   const oppScore = opponent ? (state.scores[opponent.uid] || 0) : 0
 
   return (
+    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: BG_DEEP, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <ArenaHeader title="מלך הזירה" onBack={handleLeave} onMenu={toggleMute} menuOpen={false} />
 
       {/* לוח ניקוד — כל המתמודדים */}
       <div style={{ display: 'flex', gap: 8, padding: '10px 12px 0', flexShrink: 0, alignItems: 'stretch' }}>
-        <PlayerScore name={me.name} score={myScore} you photoURL={profile?.photoURL} answered={!!myAnswer} phase={phase} />
+        <PlayerScore uid={me.uid} name={me.name} score={myScore} you photoURL={profile?.photoURL} answered={!!myAnswer} phase={phase} />
         {others.length === 1 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif" }}>VS</div>
         )}
         {others.map(o => (
-          <PlayerScore key={o.uid} name={o.name} score={state.scores[o.uid] || 0} answered={!!answersThisQ[o.uid]} phase={phase} />
+          <PlayerScore key={o.uid} uid={o.uid} name={o.name} score={state.scores[o.uid] || 0} answered={!!answersThisQ[o.uid]} phase={phase} />
         ))}
       </div>
 
@@ -964,7 +977,11 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
       {chatOpen && (
         <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} sendFn={sendArenaChat} />
       )}
+
+      {/* בקרת וידאו — מצלמה/מיקרופון (מוצג רק כשהווידאו פעיל) */}
+      <VideoControls style={{ position: 'absolute', insetInlineStart: 16, bottom: 16 }} />
     </div>
+    </GameVideoProvider>
   )
 }
 
@@ -1062,19 +1079,24 @@ function RevealPanel({ question, myAnswer, others = [], answers = {}, countdown,
 }
 
 // ── תצוגת ניקוד שחקן בראש המסך ──────────────────────────
-function PlayerScore({ name, score, you, photoURL, answered, phase }) {
+function PlayerScore({ uid, name, score, you, photoURL, answered, phase }) {
   return (
     <div style={{
-      flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8,
+      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       background: 'rgba(74,42,102,.5)', border: `1px solid ${answered && phase === 'question' ? '#6CCB6C' : 'rgba(201,162,74,.35)'}`,
-      borderRadius: 12, padding: '7px 10px',
+      borderRadius: 14, padding: '10px 8px', position: 'relative',
     }}>
-      <Avatar name={name} size={32} photoURL={photoURL} />
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 12, color: CREAM, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}{you ? ' (אתה)' : ''}</div>
-        <div style={{ fontSize: 15, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif", lineHeight: 1.1 }}>{fmtPoints(score)}</div>
+      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      {/* שורת שם — עם כפתורי שליטה משני הצדדים (רק על יריב) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+        {!you && <RemoteVideoToggles uid={uid} only="audio" size={32} />}
+        <div style={{ fontFamily: "'Suez One', serif", fontSize: 13, color: CREAM, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}{you ? ' (אתה)' : ''}</div>
+        {!you && <RemoteVideoToggles uid={uid} only="video" size={32} />}
       </div>
-      {phase === 'question' && answered && <span style={{ fontSize: 14, color: '#6CCB6C' }}>✓</span>}
+      <div style={{ fontSize: 16, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif", lineHeight: 1.2 }}>{fmtPoints(score)}</div>
+      {phase === 'question' && answered && (
+        <span style={{ position: 'absolute', top: 8, insetInlineEnd: 8, fontSize: 16, color: '#6CCB6C' }}>✓</span>
+      )}
     </div>
   )
 }
