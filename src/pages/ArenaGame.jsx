@@ -977,9 +977,6 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
       {chatOpen && (
         <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} sendFn={sendArenaChat} />
       )}
-
-      {/* בקרת וידאו — מצלמה/מיקרופון (מוצג רק כשהווידאו פעיל) */}
-      <VideoControls style={{ position: 'absolute', insetInlineStart: 16, bottom: 16 }} />
     </div>
     </GameVideoProvider>
   )
@@ -1087,11 +1084,12 @@ function PlayerScore({ uid, name, score, you, photoURL, answered, phase }) {
       borderRadius: 14, padding: '10px 8px', position: 'relative',
     }}>
       <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
-      {/* שורת שם — עם כפתורי שליטה משני הצדדים (רק על יריב) */}
+      {/* שורת שם — עם כפתורי שליטה משני הצדדים.
+          אצלי (you): מצלמה/מיק שלי. אצל יריב: השתקה/הסתרה מקומית. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
-        {!you && <RemoteVideoToggles uid={uid} only="audio" size={32} />}
+        {you ? <VideoControls only="mic" size={32} /> : <RemoteVideoToggles uid={uid} only="audio" size={32} />}
         <div style={{ fontFamily: "'Suez One', serif", fontSize: 13, color: CREAM, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}{you ? ' (אתה)' : ''}</div>
-        {!you && <RemoteVideoToggles uid={uid} only="video" size={32} />}
+        {you ? <VideoControls only="cam" size={32} /> : <RemoteVideoToggles uid={uid} only="video" size={32} />}
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif", lineHeight: 1.2 }}>{fmtPoints(score)}</div>
       {phase === 'question' && answered && (

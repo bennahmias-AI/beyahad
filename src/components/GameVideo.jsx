@@ -301,24 +301,37 @@ export function VideoStage({ players = [], height = 120, style }) {
 // ═══════════════════════════════════════════════════════════════
 // מוצג רק כשהווידאו פעיל. position נשלט ע"י ה-style שמועבר מבחוץ
 // (כל משחק ממקם אותו איפה שנוח לו).
-export function VideoControls({ style }) {
-  const { active, camOn, micOn, toggleCam, toggleMic } = useGameVideo()
-  if (!active) return null
+// props:
+//   style — מיקום (למצב צף). אם לא מועבר — יושב inline.
+//   size  — גודל כפתור (ברירת מחדל 46 לצף; העבר 32 ל-inline ליד השם).
+//   only  — 'cam' / 'mic' מציג כפתור בודד; אחרת שני הכפתורים.
+export function VideoControls({ style, size = 46, only }) {
+  const { active, present, camOn, micOn, toggleCam, toggleMic } = useGameVideo()
+  // מוצג כל עוד עברנו את מסך האישור — כך כפתורי ההדלקה קיימים גם
+  // למי שבחר להתחיל כבוי (החיבור עולה תוך שנייה ואז ההדלקה תופסת).
+  if (!active && !present) return null
 
   const btn = (on, onClick, onIcon, offIcon, label) => (
     <button onClick={onClick} aria-label={label} style={{
-      width: 46, height: 46, borderRadius: '50%', cursor: 'pointer',
+      width: size, height: size, borderRadius: '50%', cursor: 'pointer',
       background: on ? 'rgba(201,162,74,.9)' : 'rgba(255,255,255,.92)',
-      color: on ? '#fff' : '#7E2C2E', border: 'none', fontSize: 20,
+      color: on ? '#fff' : '#7E2C2E', border: 'none', fontSize: size * 0.44,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 3px 10px rgba(0,0,0,.4)',
+      flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,.4)',
     }}>{on ? onIcon : offIcon}</button>
   )
 
+  const camBtn = btn(camOn, toggleCam, '📹', '📵', camOn ? 'כבה מצלמה' : 'הפעל מצלמה')
+  const micBtn = btn(micOn, toggleMic, '🎙️', '🔇', micOn ? 'השתק מיקרופון' : 'הפעל מיקרופון')
+
+  // כפתור בודד (למצב inline ליד השם)
+  if (only === 'cam') return camBtn
+  if (only === 'mic') return micBtn
+
   return (
     <div style={{ display: 'flex', gap: 8, zIndex: 70, ...style }}>
-      {btn(camOn, toggleCam, '📹', '📵', camOn ? 'כבה מצלמה' : 'הפעל מצלמה')}
-      {btn(micOn, toggleMic, '🎙️', '🔇', micOn ? 'השתק מיקרופון' : 'הפעל מיקרופון')}
+      {camBtn}
+      {micBtn}
     </div>
   )
 }
