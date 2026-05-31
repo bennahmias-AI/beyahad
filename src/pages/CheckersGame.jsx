@@ -31,6 +31,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import GameSocialBar, { ChatToast } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const SIZE = 8
@@ -961,6 +962,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const lastMoveKeyRef = useRef(null)
   const finishedSoundRef = useRef(false)
 
@@ -1057,6 +1059,19 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     )
   }
 
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #3A2818 0%, #2A1C10 100%)' }}>
+        <div className="screen-header" style={{ background: 'transparent' }}>
+          <button className="screen-header__back" onClick={onBack} aria-label="חזרה" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}><IconBackRTL size={24} color="#E8C879" /></button>
+          <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה אונליין</div>
+        </div>
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A85E" />
+      </div>
+    )
+  }
+
   const legalMoves = isMyTurn ? getAllMoves(board, myNum) : []
 
   const handleCellTap = async (r, c) => {
@@ -1108,6 +1123,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   })()
 
   return (
+    <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameLayout
       onBack={handleLeave}
       statusText={statusText}
@@ -1126,6 +1142,10 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       isOnline={true}
       flip={myColor === 'P2'}
       chat={room.chat || []} meUid={myUid}
+      withVideo={true}
+      topUid={opponent?.uid}
+      bottomUid={myUid}
+      myPhoto={profile?.photoURL}
       socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark suppressToast />}
     >
       {winner && (
@@ -1141,6 +1161,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
           onConfirm={requestRematch} onCancel={cancelRematch} />
       )}
     </GameLayout>
+    </GameVideoProvider>
   )
 }
 
@@ -1151,6 +1172,7 @@ function GameLayout({
   onBack, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
   onReset, onChangeMode, isOnline, socialBar, children, chat = [], meUid, flip,
+  withVideo, topUid, bottomUid, myPhoto,
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
@@ -1171,10 +1193,19 @@ function GameLayout({
       </div>
 
       <div style={{ padding: '4px 16px 28px' }}>
-        {/* כרטיס יריב (למעלה) */}
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
-          <PlayerTag name={topName} active={topActive} dark />
-        </div>
+        {/* כרטיסי השחקנים (למעלה) */}
+        {withVideo ? (
+          // מצב וידאו — שני כרטיסי וידאו גדולים זה ליד זה (כמו ב-4 בשורה/מלך הזירה)
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'stretch' }}>
+            <CheckersVideoCard uid={bottomUid} name={bottomName} active={bottomActive} you photoURL={myPhoto} />
+            <CheckersVideoCard uid={topUid} name={topName} active={topActive} />
+          </div>
+        ) : (
+          // מצב רגיל — כרטיס יריב בודד למעלה
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
+            <PlayerTag name={topName} active={topActive} dark />
+          </div>
+        )}
 
         {/* הלוח */}
         <CheckersBoard
@@ -1200,9 +1231,9 @@ function GameLayout({
           <CapturedTray count={p2Captured} pieceColor="light" label="נאכלו" />
         </div>
 
-        {/* כרטיס "אתה" + כפתורים */}
+        {/* כרטיס "אתה" + כפתורים (במצב וידאו — רק כפתור השתקה, השחקנים כבר למעלה) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <PlayerTag name={bottomName} active={bottomActive} />
+          {!withVideo && <PlayerTag name={bottomName} active={bottomActive} />}
           <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'} style={{
             width: 46, height: 46, borderRadius: 12,
             background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)',
@@ -1233,8 +1264,32 @@ function GameLayout({
   )
 }
 
-function PlayerTag({ name, active, dark }) {
+// כרטיס וידאו לשחקן (סגנון דמקה — זהב/חום) — פרצוף גדול וכפתורי בקרה
+function CheckersVideoCard({ uid, name, active, you, photoURL }) {
   return (
+    <div style={{
+      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      background: active ? 'rgba(201,168,94,.22)' : 'rgba(255,255,255,.07)',
+      border: active ? '2px solid #C9A85E' : '1px solid rgba(255,255,255,.14)',
+      borderRadius: 14, padding: '10px 8px', transition: 'all .2s',
+    }}>
+      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      {/* שורת שם — כפתורי שליטה משני הצדדים */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+        {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
+        <div style={{
+          color: '#FBF7EE', fontWeight: 800, fontSize: 14, fontFamily: "'Suez One', serif",
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+        }}>{name}{you ? ' (אתה)' : ''}</div>
+        {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
+      </div>
+      {active && <span style={{ fontSize: 12, color: '#E8C879', fontWeight: 700 }}>● תור</span>}
+    </div>
+  )
+}
+
+function PlayerTag({ name, active, dark }) {
+    return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
       background: active ? 'rgba(201,168,94,.22)' : 'rgba(255,255,255,.07)',

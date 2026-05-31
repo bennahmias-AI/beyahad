@@ -28,6 +28,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import GameSocialBar from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const COLS = 7
@@ -1322,6 +1323,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
   const [lastDropped, setLastDropped] = useState(null)
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   // מעקב אחר מספר המהלכים האחרון — כדי להפעיל סאונד 'drop' רק כשיש מהלך חדש
   const lastMoveKeyRef = useRef(null)
   // מעקב האם כבר ניגנו סאונד סיום — כדי לא לנגן אותו פעמיים
@@ -1439,6 +1441,21 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     )
   }
 
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <div className="scroll-area" style={{ direction: 'rtl' }}>
+        <div className="screen-header">
+          <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
+            <IconBackRTL size={24} color="#1B2540" />
+          </button>
+          <div className="screen-header__title">4 בשורה</div>
+        </div>
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#7E2C2E" accentDeep="#5A1D1E" />
+      </div>
+    )
+  }
+
   // ביצוע מהלך — מעדכן את ה-doc ב-Firestore (ממיר את הלוח לפורמט שטוח)
   const handleColumnClick = async (col) => {
     if (!isMyTurn) return
@@ -1513,6 +1530,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const currentPlayerNum = currentTurn === 'P1' ? P1 : P2
 
   return (
+    <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameScreenLayout
       onBack={handleLeave}
       statusText={statusText}
@@ -1529,6 +1547,12 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
+      withVideo={true}
+      p1Uid={myColor === 'P1' ? myUid : opponent?.uid}
+      p2Uid={myColor === 'P2' ? myUid : opponent?.uid}
+      p1You={myColor === 'P1'}
+      p2You={myColor === 'P2'}
+      myPhoto={profile?.photoURL}
       socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} />}
     >
       {winner && (
@@ -1551,6 +1575,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
         />
       )}
     </GameScreenLayout>
+    </GameVideoProvider>
   )
 }
 
@@ -1561,6 +1586,7 @@ function GameScreenLayout({
   onBack, statusText, statusColor, p1Name, p2Name,
   currentPlayer, winner, board, winningCells, lastDropped,
   onColumnClick, disabled, onReset, onChangeMode, isOnline, socialBar, children,
+  withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto,
 }) {
   // מצב השתקה (נקרא מ-localStorage בכל מונט כדי להתעדכן אם המשתמש שינה במקום אחר)
   const [muted, setMutedState] = useState(() => isMuted())
@@ -1622,6 +1648,8 @@ function GameScreenLayout({
         <PlayersBar
           p1Name={p1Name} p2Name={p2Name}
           currentPlayer={currentPlayer} winner={winner}
+          withVideo={withVideo} p1Uid={p1Uid} p2Uid={p2Uid}
+          p1You={p1You} p2You={p2You} myPhoto={myPhoto}
         />
 
         {/* הלוח */}
@@ -1661,18 +1689,46 @@ function GameScreenLayout({
   )
 }
 
-function PlayersBar({ p1Name, p2Name, currentPlayer, winner }) {
+function PlayersBar({ p1Name, p2Name, currentPlayer, winner, withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto }) {
   const p1Active = !winner && currentPlayer === P1
   const p2Active = !winner && currentPlayer === P2
   return (
     <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-      <PlayerCard name={p1Name} color="#7E2C2E" active={p1Active} />
-      <PlayerCard name={p2Name} color="#B89048" active={p2Active} />
+      <PlayerCard name={p1Name} color="#7E2C2E" active={p1Active}
+        withVideo={withVideo} uid={p1Uid} you={p1You} photoURL={p1You ? myPhoto : undefined} />
+      <PlayerCard name={p2Name} color="#B89048" active={p2Active}
+        withVideo={withVideo} uid={p2Uid} you={p2You} photoURL={p2You ? myPhoto : undefined} />
     </div>
   )
 }
 
-function PlayerCard({ name, color, active }) {
+function PlayerCard({ name, color, active, withVideo, uid, you, photoURL }) {
+  // מצב וידאו — כרטיס אנכי עם פרצוף גדול וכפתורי בקרה (כמו במלך הזירה)
+  if (withVideo) {
+    return (
+      <div style={{
+        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        background: active ? color : 'var(--surface)',
+        border: active ? `2px solid ${color}` : '1px solid var(--line)',
+        borderRadius: 14, padding: '10px 8px', transition: 'all 0.2s',
+      }}>
+        <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+        {/* שורת שם — כפתורי שליטה משני הצדדים */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+          {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
+          <div style={{
+            fontSize: 14, fontWeight: 800,
+            color: active ? '#FBF7EE' : 'var(--ink)',
+            fontFamily: 'var(--font-display)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+          }}>{name}{you ? ' (אתה)' : ''}</div>
+          {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
+        </div>
+      </div>
+    )
+  }
+
+  // מצב רגיל (מקומי / AI) — עיגול צבעוני ושם בשורה
   return (
     <div style={{
       flex: 1,

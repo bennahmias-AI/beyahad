@@ -21,6 +21,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, AddFriendButton, ChatToast } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ════════════════════════════════════════════════════════
 // פלטת עץ ופליז (משותף לעיצוב)
@@ -635,6 +636,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
   const [undoTick, setUndoTick] = useState(0)
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const actionRef = useRef(null)
   const finishedSoundRef = useRef(false)
   const histRef = useRef([])
@@ -700,6 +702,19 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     )
   }
 
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #2c1d10 0%, #1c1108 100%)' }}>
+        <div style={{ background: WOOD_FRAME, borderBottom: `2px solid ${GOLD_DEEP}`, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <button onClick={onBack} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer' }}><IconBackRTL size={24} color={GOLD} /></button>
+          <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD }}>שש-בש אונליין</div>
+        </div>
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A24A" />
+      </div>
+    )
+  }
+
   const controllable = isMyTurn && state.phase === 'move'
   const effectiveSelected = (controllable && state.bar[myColor] > 0) ? 'bar' : selected
   const targets = (controllable && effectiveSelected != null) ? movesFrom(state, myColor, effectiveSelected) : []
@@ -738,6 +753,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const centerLabel = winner ? (winner === myColor ? 'ניצחת!' : 'הפסדת') : (isMyTurn ? 'תורך!' : 'תור היריב')
 
   return (
+    <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <SheshLayout
       isOnline={true} roomId={roomId} me={me ? { ...me, photoURL: profile?.photoURL } : { name: 'אתה' }} opponent={opponent}
       myColor={myColor} topActive={state.turn === oppColor && !winner} topOff={state.off[oppColor]} bottomActive={isMyTurn} bottomOff={state.off[myColor]}
@@ -747,10 +763,12 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       canUndo={controllable && histRef.current.length > 0} onUndo={undo}
       onReset={requestRematch} onLeave={handleLeave}
       chat={room.chat || []} addFriendNode={opponent?.uid ? <AddFriendButton me={me} opponent={opponent} compact /> : null}
+      withVideo={true} myUid={myUid} oppUid={opponent?.uid}
     >
       {winner && <OnlineEndModal result={winner === myColor ? 'win' : 'lose'} opponentName={opponent?.name || 'היריב'} iRequested={iRequested} oppRequested={oppRequested} onRematch={requestRematch} onFindOther={handleFindOther} onEnd={handleEnd} />}
       {!winner && (iRequested || oppRequested) && <RematchPrompt opponentName={opponent?.name || 'היריב'} iRequested={iRequested} onConfirm={requestRematch} onCancel={cancelRematch} />}
     </SheshLayout>
+    </GameVideoProvider>
   )
 }
 
@@ -773,6 +791,7 @@ function SheshLayout({
   state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel,
   canRoll, onRoll, showPass, onPass, canUndo, onUndo, onReset, onLeave,
   chat = [], addFriendNode = null, children,
+  withVideo, myUid, oppUid,
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -801,11 +820,20 @@ function SheshLayout({
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
       <div style={{ padding: '12px 12px 24px' }}>
-        {/* כרטיס יריב */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          {addFriendNode}
-          <PlayerCard name={opponent?.name || 'יריב'} photoURL={opponent?.photoURL} active={topActive} color={oppColor} align="right" />
-        </div>
+        {/* כרטיסי השחקנים */}
+        {withVideo ? (
+          // מצב וידאו — שני כרטיסי וידאו גדולים זה ליד זה (כמו בשאר המשחקים)
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'stretch' }}>
+            <SheshVideoCard uid={myUid} name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} you />
+            <SheshVideoCard uid={oppUid} name={opponent?.name || 'יריב'} active={topActive} addFriendNode={addFriendNode} />
+          </div>
+        ) : (
+          // מצב רגיל — כרטיס יריב בודד למעלה
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            {addFriendNode}
+            <PlayerCard name={opponent?.name || 'יריב'} photoURL={opponent?.photoURL} active={topActive} color={oppColor} align="right" />
+          </div>
+        )}
 
         {/* הלוח */}
         <SheshBoard
@@ -816,9 +844,9 @@ function SheshLayout({
 
         {isOnline && me?.uid && <ChatToast inline msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
 
-        {/* שורה תחתונה: שחקן + כפתורי זהב */}
+        {/* שורה תחתונה: שחקן + כפתורי זהב (במצב וידאו — השחקן כבר למעלה, רק כפתורים) */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginTop: 14 }}>
-          <PlayerCard name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />
+          {!withVideo && <PlayerCard name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />}
           <GoldButton
             primary={canRoll || showPass} disabled={!canRoll && !showPass}
             icon={showPass ? <IcCheck /> : <IcDice />} label={showPass ? 'סיים תור' : 'גלגל'}
@@ -855,6 +883,32 @@ function GoldButton({ icon, label, onClick, primary, disabled, badge }) {
       <span style={{ fontSize: 12, fontWeight: 800 }}>{label}</span>
       {badge > 0 && <span style={{ position: 'absolute', top: -7, insetInlineEnd: -6, background: '#E8484F', color: 'white', fontSize: 11, fontWeight: 800, minWidth: 19, height: 19, borderRadius: 10, padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #2c1d10' }}>{badge}</span>}
     </button>
+  )
+}
+
+// כרטיס וידאו לשחקן (סגנון עץ/זהב) — פרצוף גדול וכפתורי בקרה
+function SheshVideoCard({ uid, name, photoURL, active, you, addFriendNode }) {
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      background: active ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'linear-gradient(180deg,#4a3018,#352010)',
+      border: active ? `2px solid ${GOLD}` : '1px solid rgba(201,162,74,.4)',
+      borderRadius: 14, padding: '10px 8px',
+      boxShadow: active ? '0 0 12px rgba(232,200,121,.35)' : 'inset 0 1px 0 rgba(255,255,255,.08)',
+    }}>
+      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      {/* שורת שם — כפתורי שליטה משני הצדדים */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
+        {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
+        <div style={{
+          fontFamily: "'Suez One', serif", fontSize: 14, fontWeight: 700, color: CREAM,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+        }}>{name}{you ? ' (אתה)' : ''}</div>
+        {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
+      </div>
+      {active && <span style={{ fontSize: 11, fontWeight: 800, color: GOLD }}>● תור</span>}
+      {!you && addFriendNode}
+    </div>
   )
 }
 
