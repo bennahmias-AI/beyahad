@@ -30,7 +30,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import GameSocialBar, { ChatToast } from '../components/GameChat.jsx'
+import { ChatToast, ChatFab, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
@@ -1141,12 +1141,12 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onChangeMode={handleLeave}
       isOnline={true}
       flip={myColor === 'P2'}
-      chat={room.chat || []} meUid={myUid}
+      chat={room.chat || []} meUid={myUid} meName={me?.name} roomId={roomId}
       withVideo={true}
       topUid={opponent?.uid}
       bottomUid={myUid}
       myPhoto={profile?.photoURL}
-      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} dark suppressToast />}
+      addFriendNode={opponent?.uid ? <AddFriendButton me={me} opponent={opponent} compact /> : null}
     >
       {winner && (
         <OnlineEndModal
@@ -1171,10 +1171,11 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameLayout({
   onBack, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
-  onReset, onChangeMode, isOnline, socialBar, children, chat = [], meUid, flip,
-  withVideo, topUid, bottomUid, myPhoto,
+  onReset, onChangeMode, isOnline, children, chat = [], meUid, meName, roomId, flip,
+  withVideo, topUid, bottomUid, myPhoto, addFriendNode,
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
+  const [chatOpen, setChatOpen] = useState(false)
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
 
   // מונה כלים שנאכלו (12 מינוס מה שנשאר)
@@ -1198,7 +1199,7 @@ function GameLayout({
           // מצב וידאו — שני כרטיסי וידאו גדולים זה ליד זה (כמו ב-4 בשורה/מלך הזירה)
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'stretch' }}>
             <CheckersVideoCard uid={bottomUid} name={bottomName} active={bottomActive} you photoURL={myPhoto} />
-            <CheckersVideoCard uid={topUid} name={topName} active={topActive} />
+            <CheckersVideoCard uid={topUid} name={topName} active={topActive} addFriendNode={addFriendNode} />
           </div>
         ) : (
           // מצב רגיל — כרטיס יריב בודד למעלה
@@ -1242,7 +1243,7 @@ function GameLayout({
           }}>{muted ? '🔇' : '🔊'}</button>
         </div>
 
-        {isOnline && meUid && <ChatToast inline msgs={chat} meUid={meUid} />}
+        {isOnline && meUid && <ChatToast msgs={chat} meUid={meUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
           <button onClick={onReset} style={{
             flex: 1, background: '#C9A85E', color: '#2A1C10',
@@ -1255,17 +1256,17 @@ function GameLayout({
             fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
           }}>{isOnline ? '🚪 עזוב משחק' : 'החלף מצב'}</button>
         </div>
-
-        {socialBar}
       </div>
 
+      {isOnline && meUid && <ChatFab chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A85E" color="#E8C879" ringColor="#2A1C10" />}
+      {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>
   )
 }
 
 // כרטיס וידאו לשחקן (סגנון דמקה — זהב/חום) — פרצוף גדול וכפתורי בקרה
-function CheckersVideoCard({ uid, name, active, you, photoURL }) {
+function CheckersVideoCard({ uid, name, active, you, photoURL, addFriendNode }) {
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
@@ -1284,6 +1285,7 @@ function CheckersVideoCard({ uid, name, active, you, photoURL }) {
         {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
       </div>
       {active && <span style={{ fontSize: 12, color: '#E8C879', fontWeight: 700 }}>● תור</span>}
+      {!you && addFriendNode}
     </div>
   )
 }

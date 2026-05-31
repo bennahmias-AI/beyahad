@@ -67,17 +67,18 @@ export function AddFriendButton({ me, opponent, dark, compact = false }) {
 
   // גרסה קומפקטית — גלולה קטנה (לכרטיס היריב במשחק)
   if (compact) {
-    let clabel
-    if (status === 'loading') clabel = '...'
-    else if (status === 'accepted') clabel = '✓ חבר'
-    else if (status === 'pending') clabel = '⏳ נשלח'
-    else clabel = '➕ חבר'
+    // סימון ברור: ＋ למי שעדיין לא חבר (לחיצה שולחת בקשה) · ✓ למי שכבר חבר.
+    let clabel, isFriend = false
+    if (status === 'loading') clabel = '…'
+    else if (status === 'accepted') { clabel = '✓ חבר'; isFriend = true }
+    else if (status === 'pending') clabel = '✓ נשלח'
+    else clabel = '＋ הוסף'
     return (
       <button onClick={onClick} disabled={disabled} style={{
-        background: 'linear-gradient(180deg,#6b4528,#4a2e16)',
-        border: '1px solid #C9A24A', borderRadius: 10, padding: '5px 10px',
-        fontSize: 12, fontWeight: 800, fontFamily: 'inherit', color: '#F0D9A0',
-        cursor: disabled ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: disabled ? 0.85 : 1,
+        background: isFriend ? 'rgba(79,107,74,.85)' : 'linear-gradient(180deg,#6b4528,#4a2e16)',
+        border: `1px solid ${isFriend ? '#7FBF7A' : '#C9A24A'}`, borderRadius: 10, padding: '5px 11px',
+        fontSize: 12, fontWeight: 800, fontFamily: 'inherit', color: isFriend ? '#EAF7E8' : '#F0D9A0',
+        cursor: disabled ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: disabled ? 0.9 : 1,
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12)',
       }}>{clabel}</button>
     )
@@ -135,6 +136,43 @@ function ChatButton({ roomId, me, chat, dark, suppressToast = false }) {
         <ChatPanel roomId={roomId} me={me} msgs={msgs} onClose={() => setOpen(false)} />
       )}
     </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// כפתור צ'אט צף — עיגול בפינה התחתונה, בדיוק כמו ב"מלך הזירה".
+// משותף לכל משחקי האונליין; מקבל פלטת צבעים מותאמת לכל משחק.
+//   chat   = מערך ההודעות (לחישוב מונה שלא-נקראו)
+//   open   = האם חלון הצ'אט פתוח כרגע
+//   onOpen = נפתח בלחיצה
+// ═══════════════════════════════════════════════════════════
+export function ChatFab({
+  chat = [], open, onOpen,
+  bg = 'linear-gradient(180deg,#4A2A66,#2A1438)',
+  border = '#C9A24A', color = '#E8C879', ringColor = '#2A1438',
+}) {
+  const [seen, setSeen] = useState(chat.length)
+  useEffect(() => { if (open) setSeen(chat.length) }, [open, chat.length])
+  const unread = open ? 0 : Math.max(0, chat.length - seen)
+  return (
+    <button onClick={onOpen} aria-label="צ'אט" style={{
+      position: 'fixed', insetInlineEnd: 16, bottom: 16, zIndex: 1150,
+      width: 60, height: 60, borderRadius: '50%', cursor: 'pointer',
+      background: bg, border: `2px solid ${border}`, color, fontSize: 26,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: '0 4px 16px rgba(0,0,0,.5)', fontFamily: 'inherit',
+    }}>
+      💬
+      {unread > 0 && (
+        <span style={{
+          position: 'absolute', top: -4, insetInlineStart: -4,
+          background: '#E8484F', color: 'white', fontSize: 12, fontWeight: 800,
+          minWidth: 20, height: 20, borderRadius: 10, padding: '0 5px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: `2px solid ${ringColor}`,
+        }}>{unread}</span>
+      )}
+    </button>
   )
 }
 

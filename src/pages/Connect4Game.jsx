@@ -27,7 +27,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import GameSocialBar from '../components/GameChat.jsx'
+import { AddFriendButton, ChatFab, ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
@@ -1553,7 +1553,8 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       p1You={myColor === 'P1'}
       p2You={myColor === 'P2'}
       myPhoto={profile?.photoURL}
-      socialBar={<GameSocialBar roomId={roomId} me={me} opponent={opponent} chat={room.chat || []} />}
+      roomId={roomId} meUid={myUid} meName={me?.name} chat={room.chat || []}
+      addFriendNode={opponent?.uid ? <AddFriendButton me={me} opponent={opponent} compact /> : null}
     >
       {winner && (
         <OnlineEndModal
@@ -1585,11 +1586,13 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 function GameScreenLayout({
   onBack, statusText, statusColor, p1Name, p2Name,
   currentPlayer, winner, board, winningCells, lastDropped,
-  onColumnClick, disabled, onReset, onChangeMode, isOnline, socialBar, children,
+  onColumnClick, disabled, onReset, onChangeMode, isOnline, children,
   withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto,
+  roomId, meUid, meName, chat = [], addFriendNode,
 }) {
   // מצב השתקה (נקרא מ-localStorage בכל מונט כדי להתעדכן אם המשתמש שינה במקום אחר)
   const [muted, setMutedState] = useState(() => isMuted())
+  const [chatOpen, setChatOpen] = useState(false)
 
   const toggleMute = () => {
     const next = !muted
@@ -1650,6 +1653,7 @@ function GameScreenLayout({
           currentPlayer={currentPlayer} winner={winner}
           withVideo={withVideo} p1Uid={p1Uid} p2Uid={p2Uid}
           p1You={p1You} p2You={p2You} myPhoto={myPhoto}
+          addFriendNode={addFriendNode}
         />
 
         {/* הלוח */}
@@ -1680,29 +1684,33 @@ function GameScreenLayout({
             {isOnline ? '🚪 עזוב משחק' : 'החלף מצב'}
           </button>
         </div>
-
-        {socialBar}
       </div>
+
+      {isOnline && meUid && <ChatFab chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#7E2C2E,#5A1D1E)" border="#E8C879" color="#FBE7B0" ringColor="#1B2540" />}
+      {isOnline && meUid && <ChatToast msgs={chat} meUid={meUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
+      {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
 
       {children}
     </div>
   )
 }
 
-function PlayersBar({ p1Name, p2Name, currentPlayer, winner, withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto }) {
+function PlayersBar({ p1Name, p2Name, currentPlayer, winner, withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto, addFriendNode }) {
   const p1Active = !winner && currentPlayer === P1
   const p2Active = !winner && currentPlayer === P2
   return (
     <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
       <PlayerCard name={p1Name} color="#7E2C2E" active={p1Active}
-        withVideo={withVideo} uid={p1Uid} you={p1You} photoURL={p1You ? myPhoto : undefined} />
+        withVideo={withVideo} uid={p1Uid} you={p1You} photoURL={p1You ? myPhoto : undefined}
+        addFriendNode={!p1You ? addFriendNode : null} />
       <PlayerCard name={p2Name} color="#B89048" active={p2Active}
-        withVideo={withVideo} uid={p2Uid} you={p2You} photoURL={p2You ? myPhoto : undefined} />
+        withVideo={withVideo} uid={p2Uid} you={p2You} photoURL={p2You ? myPhoto : undefined}
+        addFriendNode={!p2You ? addFriendNode : null} />
     </div>
   )
 }
 
-function PlayerCard({ name, color, active, withVideo, uid, you, photoURL }) {
+function PlayerCard({ name, color, active, withVideo, uid, you, photoURL, addFriendNode }) {
   // מצב וידאו — כרטיס אנכי עם פרצוף גדול וכפתורי בקרה (כמו במלך הזירה)
   if (withVideo) {
     return (
@@ -1724,6 +1732,7 @@ function PlayerCard({ name, color, active, withVideo, uid, you, photoURL }) {
           }}>{name}{you ? ' (אתה)' : ''}</div>
           {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
         </div>
+        {!you && addFriendNode}
       </div>
     )
   }

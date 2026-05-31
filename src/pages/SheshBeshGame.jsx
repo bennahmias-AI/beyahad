@@ -20,7 +20,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatPanel, AddFriendButton, ChatToast } from '../components/GameChat.jsx'
+import { ChatPanel, AddFriendButton, ChatToast, ChatFab } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ════════════════════════════════════════════════════════
@@ -842,7 +842,7 @@ function SheshLayout({
           canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
         />
 
-        {isOnline && me?.uid && <ChatToast inline msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
+        {isOnline && me?.uid && <ChatToast msgs={chat} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
 
         {/* שורה תחתונה: שחקן + כפתורי זהב (במצב וידאו — השחקן כבר למעלה, רק כפתורים) */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginTop: 14 }}>
@@ -853,12 +853,11 @@ function SheshLayout({
             onClick={showPass ? onPass : onRoll}
           />
           <GoldButton disabled={!canUndo} icon={<IcUndo />} label="בטל" onClick={onUndo} />
-          {isOnline
-            ? <GoldButton icon={<IcChat />} label="צ'אט" onClick={() => setChatOpen(true)} badge={unread} />
-            : <GoldButton icon={<IcRefresh />} label="חדש" onClick={onReset} />}
+          {!isOnline && <GoldButton icon={<IcRefresh />} label="חדש" onClick={onReset} />}
         </div>
       </div>
 
+      {isOnline && me?.uid && <ChatFab chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A24A" color="#F0D9A0" ringColor="#2c1d10" />}
       {chatOpen && isOnline && me?.uid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>

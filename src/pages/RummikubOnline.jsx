@@ -15,8 +15,8 @@ import { IconBackRTL } from '../icons/index.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate } from '../components/GameVideo.jsx'
+import { ChatPanel, ChatToast, ChatFab } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate } from '../components/GameVideo.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
   updateRummikubState, watchRummikubRoom, leaveRummikubRoom,
@@ -397,6 +397,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   const [lastDrawn, setLastDrawn] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
+  const [chatOpen, setChatOpen] = useState(false)
 
   const myIndex = state ? state.players.findIndex(p => p.id === me.uid) : -1
   const turnIdx = state?.turn ?? 0
@@ -560,6 +561,10 @@ function OnlineGame({ room, roomId, me, onBack }) {
                 <div style={{ fontFamily: "'Suez One', serif", fontSize: 11, color: CREAM, lineHeight: 1.1, maxWidth: compact ? 56 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
                 <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800, lineHeight: 1.1 }}>{p.rack.length}{compact ? '' : ' אריחים'}</div>
               </div>
+              {/* בקרת וידאו על הכרטיס עצמו — מצלמה/מיק שלי · השתקה/הסתרה של האחרים (כמו בשאר המשחקים) */}
+              {p.id === me.uid
+                ? <VideoControls size={compact ? 22 : 26} />
+                : <RemoteVideoToggles uid={p.id} size={compact ? 22 : 26} />}
             </div>
           )
         })}
@@ -603,24 +608,16 @@ function OnlineGame({ room, roomId, me, onBack }) {
 
         {isMyTurn && !winner && (
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <RummiChatButton roomId={roomId} me={me} chatMsgs={chatMsgs} />
             <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
             <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
           </div>
         )}
-        {/* כשלא תורי — מציגים רק כפתור צ'אט (לא שלוף/סיים) */}
-        {!isMyTurn && !winner && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <RummiChatButton roomId={roomId} me={me} chatMsgs={chatMsgs} wide />
-          </div>
-        )}
       </div>
 
-      {/* התראת צ'אט צפה */}
-      <ChatToast msgs={chatMsgs} meUid={me.uid} />
-
-      {/* בקרת וידאו — מצלמה/מיקרופון שלי (כפתורים צפים — לא נוגע בשורת השחקנים) */}
-      <VideoControls style={{ position: 'absolute', insetInlineStart: 12, bottom: 92 }} size={40} />
+      {/* כפתור צ'אט צף + התראה (כמו ב"מלך הזירה") */}
+      <ChatFab chat={chatMsgs} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A24A" color="#F0D9A0" ringColor="#1c1108" />
+      <ChatToast msgs={chatMsgs} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />
+      {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendRummikubChat} />}
 
       {winner && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
@@ -637,6 +634,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
         </div>
       )}
     </div>
+    </GameVideoProvider>
   )
 }
 
