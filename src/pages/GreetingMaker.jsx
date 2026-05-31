@@ -178,7 +178,7 @@ const BG_CATEGORIES = [
   // ── קיימות (נוצרו ידנית — לא לגעת) ──
   { dir: 'SHABAT', label: 'שבת שלום', count: 30, ext: 'png', match: ['שבת'],
     textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
-  { dir: 'SHAVUA TOV', label: 'שבוע טוב', count: 5, ext: 'png', match: ['שבוע טוב', 'יום ראשון'],
+  { dir: 'SHAVUA TOV', label: 'שבוע טוב', count: 25, ext: 'png', match: ['שבוע טוב', 'יום ראשון'],
     textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
 
   // ── ימים ──
@@ -224,6 +224,10 @@ const BG_CATEGORIES = [
     textZone: 'top', ink: '#5A3D2B', accent: '#B89048' },
 ]
 
+// קטגוריית הפרחים הכללית (BEAHAVA) — מצטרפת כתוספת לסוף כל קטגוריה.
+// כך בכל ברכה המשתמש רואה קודם את הרקעים הספציפיים לברכה, ואז 10 תמונות פרחים.
+const FLOWERS_EXTRA = { dir: 'BEAHAVA', count: 10, ext: 'png', textZone: 'top', ink: '#5A3D2B', accent: '#B89048' }
+
 // בונה את רשימת הרקעים. קבצי public נגישים ישירות דרך /backgrounds/<dir>/<n>.<ext>
 function buildBackgrounds() {
   const list = []
@@ -240,6 +244,22 @@ function buildBackgrounds() {
         accent: cat.accent,
         label: cat.label,
       })
+    }
+    // תוספת פרחים כללית בסוף כל קטגוריה — חוץ מקטגוריית הפרחים עצמה (לא לשכפל).
+    if (cat.dir !== FLOWERS_EXTRA.dir) {
+      for (let n = 1; n <= FLOWERS_EXTRA.count; n++) {
+        list.push({
+          id: `${cat.dir}-flower-${n}`,
+          category: cat.dir,
+          categoryLabel: cat.label,
+          match: cat.match || [],
+          url: `/backgrounds/${encodeURIComponent(FLOWERS_EXTRA.dir)}/${n}.${FLOWERS_EXTRA.ext}`,
+          textZone: FLOWERS_EXTRA.textZone,
+          ink: FLOWERS_EXTRA.ink,
+          accent: FLOWERS_EXTRA.accent,
+          label: cat.label,
+        })
+      }
     }
   }
   return list

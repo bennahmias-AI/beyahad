@@ -23,7 +23,9 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { CATEGORIES } from './bg-prompts.js'
 
+// מנסה קודם .env.local ואם אין — נופל ל-.env (שם המפתח שמור)
 dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
 
 const API_KEY = process.env.GEMINI_API_KEY
 const MODEL = 'gemini-2.5-flash-image'
@@ -83,7 +85,22 @@ async function main() {
   let totalSkipped = 0
   let totalFailed = 0
 
-  for (const cat of CATEGORIES) {
+  // סינון לפי קטגוריה: אם הועבר ארגומנט בשורת הפקודה (למשל: node ... "SHAVUA TOV")
+  // — מייצר רק את הקטגוריה הזו. אחרת — כל הקטגוריות.
+  const onlyArg = process.argv.slice(2).join(' ').trim()
+  const cats = onlyArg
+    ? CATEGORIES.filter(c => c.dir.toLowerCase() === onlyArg.toLowerCase())
+    : CATEGORIES
+
+  if (onlyArg && cats.length === 0) {
+    console.error(`\n❌ לא נמצאה קטגוריה בשם "${onlyArg}". בדוק את שם התיקיה.\n`)
+    process.exit(1)
+  }
+  if (onlyArg) {
+    console.log(`🎯 מייצר רק את הקטגוריה: ${onlyArg}\n`)
+  }
+
+  for (const cat of cats) {
     const dir = path.join(BG_ROOT, cat.dir)
     fs.mkdirSync(dir, { recursive: true })
 

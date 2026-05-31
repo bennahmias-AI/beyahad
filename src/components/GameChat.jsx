@@ -176,6 +176,40 @@ export function ChatFab({
   )
 }
 
+// ══════════════════════════════════════════════════════════
+// אייקון צ'אט לכותרת — כפתור קטן עגול שיושב בשורת הכותרת העליונה.
+// מחליף את העיגול הצף — כך הצ'אט לא מסתיר את הלוח או כפתורי הפעולה.
+//   bg/border/color — מתאימים לכותרת (בהירה/כהה) של כל משחק.
+export function ChatHeaderButton({
+  chat = [], open, onOpen, size = 40,
+  bg = 'var(--surface)', border = 'var(--line)', color = 'var(--ink)',
+}) {
+  const [seen, setSeen] = useState(chat.length)
+  useEffect(() => { if (open) setSeen(chat.length) }, [open, chat.length])
+  const unread = open ? 0 : Math.max(0, chat.length - seen)
+  return (
+    <button onClick={onOpen} aria-label="צ'אט" style={{
+      position: 'relative', width: size, height: size, borderRadius: 12,
+      cursor: 'pointer', background: bg,
+      border: `1px solid ${border}`, color,
+      fontSize: Math.round(size * 0.5), padding: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'inherit', flexShrink: 0,
+    }}>
+      💬
+      {unread > 0 && (
+        <span style={{
+          position: 'absolute', top: -5, insetInlineStart: -5,
+          background: '#E8484F', color: 'white', fontSize: 11, fontWeight: 800,
+          minWidth: 18, height: 18, borderRadius: 9, padding: '0 4px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid #FBF7EE',
+        }}>{unread}</span>
+      )}
+    </button>
+  )
+}
+
 export function ChatPanel({ roomId, me, msgs, onClose, sendFn }) {
   const [text, setText] = useState('')
   const endRef = useRef(null)

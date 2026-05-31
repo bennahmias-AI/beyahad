@@ -64,6 +64,55 @@ const makeVariedCategory = (dir, label, theme, styleFn = realistic, places = PLA
 })
 
 export const CATEGORIES = [
+  // ═══════════ שבוע טוב — 10 פרחים ריאליסטיים (מתחיל מ-16.png, לא דורס את 1-15 הקיימות) ═══════════
+  {
+    dir: 'SHAVUA TOV',
+    label: 'שבוע טוב',
+    startFrom: 16,
+    variants: [
+      { prompt: realistic(
+        'a beautiful real bouquet of fresh colorful spring flowers — roses, tulips and daisies in pink, peach, yellow and white — arranged along the bottom, soft natural light, professional floral photography.',
+        'a bright soft-lit table with a fresh flower bouquet'
+      ), count: 1 },
+      { prompt: realistic(
+        'a real field of blooming wildflowers and red poppies stretching across the lower area, soft golden morning sunlight, dreamy shallow depth of field, fresh and peaceful.',
+        'a sunlit wildflower meadow at golden hour'
+      ), count: 1 },
+      { prompt: realistic(
+        'a lush real arrangement of pink and white peonies and roses overflowing from the lower corners, delicate petals, soft romantic natural light, elegant and abundant.',
+        'an elegant peony and rose arrangement close-up'
+      ), count: 1 },
+      { prompt: realistic(
+        'a real purple lavender field at the bottom under a soft bright sky, gentle natural light, calm and serene, professional landscape photography.',
+        'a blooming lavender field in soft daylight'
+      ), count: 1 },
+      { prompt: realistic(
+        'a charming real wicker basket overflowing with fresh garden flowers — sunflowers, roses, daisies and greenery — placed at the bottom, warm sunny natural light, cheerful and full.',
+        'a flower basket bursting with fresh blooms'
+      ), count: 1 },
+      { prompt: realistic(
+        'fresh real cherry blossom and almond branches with soft pink and white petals arching from the lower edges, bright airy natural light, delicate spring feeling.',
+        'blossoming spring branches against a soft bright sky'
+      ), count: 1 },
+      { prompt: realistic(
+        'a vibrant real summer garden in bloom across the lower half — orange marigolds, pink dahlias and blue cornflowers — rich greenery, warm sunny light, joyful and colorful.',
+        'a colorful blooming summer garden bed'
+      ), count: 1 },
+      { prompt: realistic(
+        'a soft real bouquet of white and cream roses with eucalyptus greenery along the bottom, gentle elegant natural light, delicate and refined, professional photography.',
+        'an elegant white rose bouquet in soft light'
+      ), count: 1 },
+      { prompt: realistic(
+        'a bright real sunflower field at the bottom under a clear soft sky, warm golden sunlight, cheerful and uplifting, professional landscape photography.',
+        'a sunflower field glowing in warm sunlight'
+      ), count: 1 },
+      { prompt: realistic(
+        'a real spring garden path lined with abundant colorful flowers along the lower edges, soft morning light, fresh dewy petals, peaceful and inviting.',
+        'a flower-lined garden path in gentle morning light'
+      ), count: 1 },
+    ],
+  },
+
   // ═══════════ שבת — 20 תוספות (16 ריאליסטי + 4 מצויר) ═══════════
   // מתחיל מ-11.png — 10 הראשונות לא יידרסו
   {

@@ -91,9 +91,9 @@ const GAMES = [
     name: 'בינגו',
     description: 'משחק קלאסי בקבוצה',
     emoji: '🎱',
-    players: 'עד 10 שחקנים',
+    players: 'לבד / עד 10 שחקנים',
     color: '#7E2C2E', // burgundy
-    status: 'coming-soon',
+    status: 'available',
   },
   {
     id: 'chess',
@@ -106,7 +106,7 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -141,6 +141,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'arena' && onGoArena) {
       onGoArena()
+      return
+    }
+    if (game.id === 'bingo' && onGoBingo) {
+      onGoBingo()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

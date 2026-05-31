@@ -1098,6 +1098,116 @@ export async function findOrCreateArenaMatch({ player, maxPlayers = 2 }) {
   return { roomId, isHost: true }
 }
 
+// ─── בינגו — חדרי משחק רב-משתתפים (עד 10) ─────────────
+// מודל זהה לרמיקוב/מלך-הזירה: חדר עם מארח, עד maxPlayers שחקנים,
+// gameStateJson מחזיק את מצב המשחק (כרטיסים, מספרים שיצאו, מנצח).
+// המארח הוא ה"מקריא" — רק הוא כותב את המספר הבא קדימה.
+//
+//   bingoRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
+//     gameStateJson, maxPlayers, roomType, isPrivate, inviteCode
+
+export async function createBingoRoom({ host, roomType, maxPlayers = 10 }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const ref = await addDoc(collection(db, 'bingoRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    gameStateJson: '',
+    maxPlayers,
+    roomType,
+    isPrivate: roomType === 'private',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+export async function joinBingoRoom(roomId, player) {
+  const ref = doc(db, 'bingoRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 10)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
+export async function startBingoGame(roomId, gameState) {
+  await updateDoc(doc(db, 'bingoRooms', roomId), {
+    status: 'playing',
+    gameStateJson: JSON.stringify(gameState),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מעדכן את מצב המשחק (מספר חדש שיצא / הכרזת מנצח).
+export async function updateBingoState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'bingoRooms', roomId), {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateBingoState error:', e)
+  }
+}
+
+export function watchBingoRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'bingoRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchBingoRoom error:', err) })
+}
+
+export async function leaveBingoRoom(roomId) {
+  try { await deleteDoc(doc(db, 'bingoRooms', roomId)) }
+  catch (e) { console.error('leaveBingoRoom error:', e) }
+}
+
+// שולח הודעת צ'אט בחדר בינגו (מתווסף למערך chat).
+export async function sendBingoChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'bingoRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendBingoChat error:', e)
+  }
+}
+
+// מתאמה רנדומלית לבינגו — מצטרף לחדר ממתין או יוצר חדש.
+// בבינגו אין צורך שהחדר יתמלא — המארח מתחיל ידנית כשמוכנים.
+export async function findOrCreateBingoMatch({ player, maxPlayers = 10 }) {
+  const q = query(
+    collection(db, 'bingoRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    const players = data.players || []
+    if (players.length >= (data.maxPlayers || 10)) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinBingoRoom(room.id, player)
+    return { roomId: room.id, isHost: false }
+  }
+  const { roomId } = await createBingoRoom({ host: player, roomType: 'random', maxPlayers })
+  return { roomId, isHost: true }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName, uid = '') {

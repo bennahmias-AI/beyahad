@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment files — לעולם לא להעלות לגיטהאב! מכילים מפתחות סודיים.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

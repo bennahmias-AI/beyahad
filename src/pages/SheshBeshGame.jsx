@@ -20,7 +20,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatPanel, AddFriendButton, ChatToast, ChatFab } from '../components/GameChat.jsx'
+import { ChatPanel, AddFriendButton, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ════════════════════════════════════════════════════════
@@ -809,6 +809,12 @@ function SheshLayout({
         <button onClick={onLeave} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4 }}><IconBackRTL size={24} color={GOLD} /></button>
         <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD, textShadow: '0 1px 2px rgba(0,0,0,.6)', letterSpacing: '.5px' }}>שש-בש {isOnline ? 'אונליין' : ''}</div>
         <button onClick={() => setMenuOpen(o => !o)} aria-label="תפריט" style={{ position: 'absolute', insetInlineEnd: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4 }}><IcMenu s={26} /></button>
+        {isOnline && me?.uid && (
+          <div style={{ position: 'absolute', insetInlineEnd: 54 }}>
+            <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}
+              bg="rgba(255,255,255,.12)" border="#C9A24A" color="#F0D9A0" size={38} />
+          </div>
+        )}
         {menuOpen && (
           <div style={{ position: 'absolute', top: '100%', insetInlineEnd: 10, marginTop: 6, background: '#2a1a0c', border: `1px solid ${GOLD_DEEP}`, borderRadius: 12, padding: 6, zIndex: 50, minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
             <MenuItem label={isOnline ? '🔄 משחק חדש' : '🔄 משחק חדש'} onClick={() => { setMenuOpen(false); onReset() }} />
@@ -857,7 +863,6 @@ function SheshLayout({
         </div>
       </div>
 
-      {isOnline && me?.uid && <ChatFab chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A24A" color="#F0D9A0" ringColor="#2c1d10" />}
       {chatOpen && isOnline && me?.uid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>

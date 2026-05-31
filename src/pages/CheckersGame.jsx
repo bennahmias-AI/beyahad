@@ -30,7 +30,7 @@ import {
 } from '../services/firebase.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatToast, ChatFab, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
+import { ChatToast, ChatHeaderButton, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
@@ -1191,6 +1191,10 @@ function GameLayout({
           <IconBackRTL size={24} color="#E8C879" />
         </button>
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה {isOnline ? 'אונליין' : ''}</div>
+        {isOnline && meUid && (
+          <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}
+            bg="rgba(255,255,255,.12)" border="rgba(255,255,255,.22)" color="#E8C879" />
+        )}
       </div>
 
       <div style={{ padding: '4px 16px 28px' }}>
@@ -1258,7 +1262,6 @@ function GameLayout({
         </div>
       </div>
 
-      {isOnline && meUid && <ChatFab chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A85E" color="#E8C879" ringColor="#2A1C10" />}
       {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
       {children}
     </div>
