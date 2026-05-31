@@ -31,7 +31,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatToast, ChatHeaderButton, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const SIZE = 8
@@ -1123,6 +1123,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   })()
 
   return (
+    <ProfilesProvider uids={(room.players || []).map(p => p.uid)} myUid={myUid}>
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameLayout
       onBack={handleLeave}
@@ -1162,6 +1163,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       )}
     </GameLayout>
     </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 
@@ -1270,6 +1272,8 @@ function GameLayout({
 
 // כרטיס וידאו לשחקן (סגנון דמקה — זהב/חום) — פרצוף גדול וכפתורי בקרה
 function CheckersVideoCard({ uid, name, active, you, photoURL, addFriendNode }) {
+  // שם מלא חי (שם + שם משפחה) — התמונה מטופלת ב-PlayerVideo
+  const { name: fullName } = usePlayerProfile(uid, name)
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
@@ -1277,14 +1281,14 @@ function CheckersVideoCard({ uid, name, active, you, photoURL, addFriendNode }) 
       border: active ? '2px solid #C9A85E' : '1px solid rgba(255,255,255,.14)',
       borderRadius: 14, padding: '10px 8px', transition: 'all .2s',
     }}>
-      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      <PlayerVideo uid={uid} name={fullName} size={92} photoURL={photoURL} />
       {/* שורת שם — כפתורי שליטה משני הצדדים */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
         {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
         <div style={{
           color: '#FBF7EE', fontWeight: 800, fontSize: 14, fontFamily: "'Suez One', serif",
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
-        }}>{name}{you ? ' (אתה)' : ''}</div>
+        }}>{fullName}{you ? ' (אתה)' : ''}</div>
         {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
       </div>
       {active && <span style={{ fontSize: 12, color: '#E8C879', fontWeight: 700 }}>● תור</span>}

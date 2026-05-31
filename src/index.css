@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Rubik:wght@500;600;700;800&display=swap');
+/* פונט ראשי חדש — huninn (Levfont), פונט עברי חמים וקריא */
+@import url('https://fonts.googleapis.com/css2?family=Huninn&display=swap');
 
 :root {
   /* ── Palette — Classic editorial: cream, navy, muted accents ── */
@@ -53,8 +55,8 @@
   --live:    #A33B30;
 
   /* ── Type ── */
-  --font-display: 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
-  --font-body:    'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
+  --font-display: 'Huninn', 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
+  --font-body:    'Huninn', 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
 
   --fs-display: 34px;
   --fs-h1: 28px;

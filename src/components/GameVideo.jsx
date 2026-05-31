@@ -29,7 +29,7 @@ import {
 } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import Avatar from './Avatar.jsx'
-import { fetchLiveKitToken } from '../services/firebase.js'
+import { fetchLiveKitToken, watchUser, watchFriendships } from '../services/firebase.js'
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-project.livekit.cloud'
 
@@ -44,6 +44,75 @@ export function useGameVideo() {
     toggleCam: () => {}, toggleMic: () => {}, tracksByUid: {}, tracksByName: {},
     mutedAudio: {}, hiddenVideo: {}, toggleMuteAudio: () => {}, toggleHideVideo: () => {},
   }
+}
+
+// ─── Profiles Context ─────────────────────────────
+// מחזיק מפה של פרופילים חיים לפי uid — תמונה ושם מלא.
+// נשלף מ-Firestore לכל שחקן במשחק (חבר או לא), כך תמיד
+// מוצגת התמונה והשם המעודכנים שלו, ללא תלות במה שנשמר בחדר.
+const ProfilesContext = createContext({ profiles: {}, friendUids: null, myUid: null })
+
+// עוטף אזור שמציג שחקנים. מקבל uids ומאזין לכל פרופיל.
+// myUid — ה-uid שלי, כדי לדעת מי חבר שלי (שם משפחה מוצג רק לחברים).
+export function ProfilesProvider({ uids = [], myUid = null, children }) {
+  const [profiles, setProfiles] = useState({})
+  const [friendUids, setFriendUids] = useState(null)  // Set של uids שהם חברים מאושרים
+  // מפתח יציב לרשימת ה-uids כדי לא לפתוח מחדש בכל רנדור
+  const key = [...new Set(uids.filter(Boolean))].sort().join(',')
+
+  useEffect(() => {
+    const list = key ? key.split(',') : []
+    if (list.length === 0) return
+    const unsubs = list.map(uid =>
+      watchUser(uid, (u) => {
+        setProfiles(prev => ({
+          ...prev,
+          [uid]: {
+            name: u?.name || '',
+            lastName: u?.lastName || '',
+            photoURL: u?.photoURL || null,
+          },
+        }))
+      })
+    )
+    return () => unsubs.forEach(fn => fn && fn())
+  }, [key])
+
+  // מי מהשחקנים חבר שלי — שם המשפחה יוצג רק לחברים (פרטיות)
+  useEffect(() => {
+    if (!myUid) { setFriendUids(new Set()); return }
+    const unsub = watchFriendships(myUid, ({ friends }) => {
+      setFriendUids(new Set((friends || []).map(f => f.otherUid)))
+    })
+    return () => unsub && unsub()
+  }, [myUid])
+
+  return (
+    <ProfilesContext.Provider value={{ profiles, friendUids, myUid }}>
+      {children}
+    </ProfilesContext.Provider>
+  )
+}
+
+// מחזיר את הפרופיל החי של שחקן לפי uid.
+// fallback — אם עוד לא נטען, מחזיר את ה-name/photoURL שהועברו (מהחדר).
+// פרטיות: שם המשפחה מוצג רק אם השחקן הוא חבר שלי (או אני עצמי).
+// מול שחקן רנדומלי — שם פרטי בלבד. התמונה תמיד מוצגת.
+export function usePlayerProfile(uid, fallbackName = '', fallbackPhoto = null) {
+  const ctx = useContext(ProfilesContext)
+  const profiles = ctx?.profiles || {}
+  const friendUids = ctx?.friendUids
+  const myUid = ctx?.myUid
+  const p = profiles?.[uid]
+  // שם משפחה רק לחבר או לעצמי (פרטיות מול רנדומליים)
+  const isFriendOrSelf = uid === myUid || (friendUids != null && friendUids.has(uid))
+  const first = p?.name || ''
+  const last = (isFriendOrSelf && p?.lastName) ? p.lastName : ''
+  const fullName = p
+    ? ([first, last].filter(Boolean).join(' ') || fallbackName)
+    : fallbackName
+  const photoURL = p?.photoURL ?? fallbackPhoto
+  return { name: fullName, photoURL }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -210,8 +279,10 @@ function VideoBridge({ me, startWithCam, children }) {
 // ═══════════════════════════════════════════════════════════════
 export function PlayerVideo({ uid, name, size = 42, photoURL, online }) {
   const { active, tracksByUid, tracksByName, hiddenVideo } = useGameVideo()
+  // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
+  const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
   // מנסים להתאים לפי uid (identity), ואם אין — לפי שם
-  const trackRef = active ? (tracksByUid?.[uid] || tracksByName?.[name]) : null
+  const trackRef = active ? (tracksByUid?.[uid] || tracksByName?.[name] || tracksByName?.[fullName]) : null
   const isHidden = hiddenVideo?.[uid]
   const hasVideo = trackRef && trackRef.publication && !trackRef.publication.isMuted && !isHidden
 
@@ -229,7 +300,7 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online }) {
       </div>
     )
   }
-  return <Avatar name={name} size={size} photoURL={photoURL} online={online} />
+  return <Avatar name={fullName} size={size} photoURL={livePhoto} online={online} />
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -237,61 +308,86 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online }) {
 // ═══════════════════════════════════════════════════════════
 // מציג ריבוע וידאו גדול לכל שחקן. מוצג רק כשהווידאו פעיל.
 // players: [{ uid, name, photoURL }] · height: גובה הריבועים (ברירת מחדל 120)
-export function VideoStage({ players = [], height = 120, style }) {
-  const { active, tracksByUid, tracksByName, myUid, mutedAudio, hiddenVideo, toggleMuteAudio, toggleHideVideo } = useGameVideo()
-  if (!active || players.length === 0) return null
+export function VideoStage({ players = [], height = 120, style, showSelfControls = false }) {
+  const ctx = useGameVideo()
+  if (!ctx.active || players.length === 0) return null
 
   return (
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center', padding: '0 12px', ...style }}>
-      {players.map(p => {
-        const trackRef = tracksByUid?.[p.uid] || tracksByName?.[p.name]
-        const isMine = p.uid === myUid || p.you
-        const isHidden = hiddenVideo?.[p.uid]
-        const isMuted = mutedAudio?.[p.uid]
-        const hasVideo = trackRef && trackRef.publication && !trackRef.publication.isMuted && !isHidden
-        return (
-          <div key={p.uid} style={{
-            flex: 1, maxWidth: 200, height, borderRadius: 16, overflow: 'hidden',
-            position: 'relative', background: '#1a1020',
-            border: '2px solid rgba(201,162,74,.55)', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
-          }}>
-            {hasVideo ? (
-              <VideoTrack trackRef={trackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Avatar name={p.name} size={Math.min(64, height - 40)} photoURL={p.photoURL} />
-              </div>
-            )}
-            {/* שם השחקן — פס תחתון */}
-            <div style={{
-              position: 'absolute', insetInline: 0, bottom: 0,
-              background: 'linear-gradient(0deg, rgba(0,0,0,.65), transparent)',
-              color: '#fff', fontSize: 12, fontWeight: 800, fontFamily: "'Suez One', serif",
-              padding: '10px 8px 5px', textAlign: 'center',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{p.name}{p.you ? ' (אתה)' : ''}</div>
-            {/* אינדיקציה שהמצלמה כבויה (רק אם לא הסתרתי ידנית) */}
-            {!hasVideo && !isHidden && (
-              <div style={{ position: 'absolute', top: 6, insetInlineEnd: 6, fontSize: 14, opacity: .75 }}>📵</div>
-            )}
-            {/* כפתורי שליטה מקומית על האחרים — רק על שחקנים אחרים (לא על עצמי) */}
-            {!isMine && (
-              <div style={{ position: 'absolute', top: 6, insetInlineStart: 6, display: 'flex', gap: 4 }}>
-                <button onClick={() => toggleMuteAudio(p.uid)} aria-label={isMuted ? 'בטל השתקה' : 'השתק'} style={{
-                  width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
-                  background: isMuted ? 'rgba(232,72,79,.92)' : 'rgba(0,0,0,.5)', color: '#fff',
-                  fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>{isMuted ? '🔇' : '🔊'}</button>
-                <button onClick={() => toggleHideVideo(p.uid)} aria-label={isHidden ? 'הצג וידאו' : 'הסתר וידאו'} style={{
-                  width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
-                  background: isHidden ? 'rgba(232,72,79,.92)' : 'rgba(0,0,0,.5)', color: '#fff',
-                  fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>{isHidden ? '🙈' : '👁️'}</button>
-              </div>
-            )}
-          </div>
-        )
-      })}
+      {players.map(p => (
+        <VideoTile key={p.uid} p={p} height={height} showSelfControls={showSelfControls} ctx={ctx} />
+      ))}
+    </div>
+  )
+}
+
+// ריבוע וידאו בודד — שולף את הפרופיל החי (תמונה + שם מלא).
+function VideoTile({ p, height, showSelfControls, ctx }) {
+  const { tracksByUid, tracksByName, myUid, camOn, micOn, toggleCam, toggleMic, present, active, mutedAudio, hiddenVideo, toggleMuteAudio, toggleHideVideo } = ctx
+  // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר מהחדר)
+  const { name, photoURL } = usePlayerProfile(p.uid, p.name, p.photoURL)
+  const trackRef = tracksByUid?.[p.uid] || tracksByName?.[p.name] || tracksByName?.[name]
+  const isMine = p.uid === myUid || p.you
+  const isHidden = hiddenVideo?.[p.uid]
+  const isMuted = mutedAudio?.[p.uid]
+  const hasVideo = trackRef && trackRef.publication && !trackRef.publication.isMuted && !isHidden
+  return (
+    <div style={{
+      flex: 1, maxWidth: 200, height, borderRadius: 16, overflow: 'hidden',
+      position: 'relative', background: '#1a1020',
+      border: '2px solid rgba(201,162,74,.55)', boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+    }}>
+      {hasVideo ? (
+        <VideoTrack trackRef={trackRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Avatar name={name} size={Math.min(64, height - 40)} photoURL={photoURL} />
+        </div>
+      )}
+      {/* שם השחקן — פס תחתון */}
+      <div style={{
+        position: 'absolute', insetInline: 0, bottom: 0,
+        background: 'linear-gradient(0deg, rgba(0,0,0,.65), transparent)',
+        color: '#fff', fontSize: 12, fontWeight: 800, fontFamily: "'Suez One', serif",
+        padding: '10px 8px 5px', textAlign: 'center',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{name}{p.you ? ' (אתה)' : ''}</div>
+      {/* אינדיקציה שהמצלמה כבויה (רק אם לא הסתרתי ידנית) */}
+      {!hasVideo && !isHidden && (
+        <div style={{ position: 'absolute', top: 6, insetInlineEnd: 6, fontSize: 14, opacity: .75 }}>📵</div>
+      )}
+      {/* כפתורי שליטה מקומית על האחרים — רק על שחקנים אחרים (לא על עצמי) */}
+      {!isMine && (
+        <div style={{ position: 'absolute', top: 6, insetInlineStart: 6, display: 'flex', gap: 4 }}>
+          <button onClick={() => toggleMuteAudio(p.uid)} aria-label={isMuted ? 'בטל השתקה' : 'השתק'} style={{
+            width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
+            background: isMuted ? 'rgba(232,72,79,.92)' : 'rgba(0,0,0,.5)', color: '#fff',
+            fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{isMuted ? '🔇' : '🔊'}</button>
+          <button onClick={() => toggleHideVideo(p.uid)} aria-label={isHidden ? 'הצג וידאו' : 'הסתר וידאו'} style={{
+            width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
+            background: isHidden ? 'rgba(232,72,79,.92)' : 'rgba(0,0,0,.5)', color: '#fff',
+            fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{isHidden ? '🙈' : '👁️'}</button>
+        </div>
+      )}
+      {/* כפתורי המצלמה/מיק שלי — בתוך הריבוע שלי (רק כש-showSelfControls פעיל) */}
+      {isMine && showSelfControls && (present || active) && (
+        <div style={{ position: 'absolute', top: 6, insetInlineStart: 6, display: 'flex', gap: 4 }}>
+          <button onClick={toggleCam} aria-label={camOn ? 'כבה מצלמה' : 'הפעל מצלמה'} style={{
+            width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
+            background: camOn ? 'rgba(201,162,74,.92)' : 'rgba(255,255,255,.92)',
+            color: camOn ? '#fff' : '#7E2C2E',
+            fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{camOn ? '📹' : '📵'}</button>
+          <button onClick={toggleMic} aria-label={micOn ? 'השתק מיקרופון' : 'הפעל מיקרופון'} style={{
+            width: 30, height: 30, borderRadius: '50%', cursor: 'pointer', border: 'none',
+            background: micOn ? 'rgba(201,162,74,.92)' : 'rgba(255,255,255,.92)',
+            color: micOn ? '#fff' : '#7E2C2E',
+            fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{micOn ? '🎙️' : '🔇'}</button>
+        </div>
+      )}
     </div>
   )
 }

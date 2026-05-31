@@ -17,7 +17,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize } from '../icons/index.jsx'
+import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
@@ -375,6 +375,9 @@ export default function GreetingMaker({ onBack }) {
     return [first, last].filter(Boolean).join(' ')
   })()
 
+  // פועל האיחול לפי מגדר — אישה "מאחלת", אחרת "מאחל" (ברירת מחדל למשתמשים ישנים ללא מגדר)
+  const senderVerb = profile?.gender === 'female' ? 'מאחלת' : 'מאחל'
+
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       {step === 'text' ? (
@@ -397,6 +400,7 @@ export default function GreetingMaker({ onBack }) {
           onBack={goBack}
           text={text} setText={setText}
           senderName={senderName}
+          senderVerb={senderVerb}
           showSender={showSender} setShowSender={setShowSender}
           templateId={templateId} setTemplateId={setTemplateId}
           paletteId={paletteId} setPaletteId={setPaletteId}
@@ -494,7 +498,7 @@ function TextStep({ text, setText, onNext }) {
 // STEP 2 — מסך עיצוב בסגנון Canva
 // ═══════════════════════════════════════════════════════════════
 function DesignStep({
-  onBack, text, setText, senderName,
+  onBack, text, setText, senderName, senderVerb = 'מאחל',
   showSender, setShowSender,
   templateId, setTemplateId,
   paletteId, setPaletteId, fontId, setFontId, sizeId, setSizeId,
@@ -623,7 +627,7 @@ function DesignStep({
   }
   const onDragEnd = () => { dragRef.current = null }
 
-  const svg = buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText, effect, textColor })
+  const svg = buildSVG({ text, cardName, senderVerb, tpl, palette, font, size, bg, offsetYText, effect, textColor })
 
   // תמונת תצוגה מקדימה לתבנית: משתמשת ברקע מתאים לטקסט הברכה אם יש.
   // התבנית המשתנה היא בסגנון (פונט/אפקט/צבע), אז מספיק לתת תצוגה
@@ -715,7 +719,7 @@ function DesignStep({
       ctx.strokeStyle = '#FFFFFF'
       ctx.lineWidth = 4
       ctx.lineJoin = 'round'
-      const senderText = `מאחל: ${cardName}`
+      const senderText = `${senderVerb}: ${cardName}`
       ctx.strokeText(senderText, W / 2, H - 80)
       ctx.fillText(senderText, W / 2, H - 80)
     }
@@ -828,16 +832,16 @@ function DesignStep({
           opacity: busy ? 0.6 : 1,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          📲 שתף
+          <IconShare size={18} color="#fff" /> שתף
         </button>
         <button onClick={handleSave} disabled={busy} aria-label="שמור" style={{
           width: 40, height: 40, borderRadius: 12,
           background: 'var(--surface)', border: '1px solid var(--line)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', fontSize: 18,
+          cursor: 'pointer',
           opacity: busy ? 0.6 : 1,
         }}>
-          📥
+          <IconDownload size={20} color="#1B2540" />
         </button>
       </div>
 
@@ -1045,7 +1049,7 @@ function DesignStep({
                       הצג מאחל על הברכה
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-3)', marginTop: 2 }}>
-                      מאחל: {senderName}
+                      {senderVerb}: {senderName}
                     </span>
                   </div>
                   <button
@@ -1564,7 +1568,7 @@ function buildTextWithEffect({ effectId, textLines, fontCss, fontWeight, fontSiz
   }
 }
 
-function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 0, effect, textColor }) {
+function buildSVG({ text, cardName, senderVerb = 'מאחל', tpl, palette, font, size, bg, offsetYText = 0, effect, textColor }) {
   const W = 1080, H = 1080
 
   // כשיש רקע תמונה — הוא גובר על הצבע/תבנית.
@@ -1633,7 +1637,7 @@ function buildSVG({ text, cardName, tpl, palette, font, size, bg, offsetYText = 
         font-family="${font.css}" font-size="28" font-weight="700"
         fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
         stroke-linejoin="round" text-anchor="middle"
-        direction="rtl">מאחל: ${escapeXML(cardName)}</text>` : ''}
+        direction="rtl">${escapeXML(senderVerb)}: ${escapeXML(cardName)}</text>` : ''}
 
   <!-- כיתוב שיווקי — קבוע בתחתית, לא זז עם הגרירה.
        כתב שחור עם קו-מתאר לבן (paint-order=stroke) כדי שיהיה קריא על כל רקע. -->

@@ -135,7 +135,7 @@ export default function MemoryGame({ onBack }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
-        <div className="screen-header__title">משחק זיכרון</div>
+        <div className="screen-header__title">משחק הזיכרון של מילי</div>
       </div>
 
       <div style={{ padding: '8px 16px 32px' }}>

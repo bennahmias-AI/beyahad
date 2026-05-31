@@ -153,6 +153,32 @@ function playLoseSound() {
   osc.stop(now + 0.4)
 }
 
+// סאונד כדור בינגו — פינג של פעמון קטן צלול (E6) עם נצנוץ עדין.
+// נעים לקהל מבוגר — לא חד ולא מבהיל, כמו "טינג" של רספשן.
+function playBingoBallSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
+
+  const now = ctx.currentTime
+  const layers = [
+    { freq: 1318.5, dur: 0.5, vol: 0.30 },  // E6 — הצליל העיקרי
+    { freq: 2637.0, dur: 0.4, vol: 0.09 },  // E7 — נצנוץ עדין
+  ]
+  layers.forEach(({ freq, dur, vol }) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(vol, now + 0.006)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+    osc.stop(now + dur)
+  })
+}
+
 // ────────────────────────────────────────────────
 // API ציבורי — מנגן סאונד לפי שם
 // ────────────────────────────────────────────────
@@ -163,6 +189,9 @@ export function playSound(soundName) {
     switch (soundName) {
       case 'drop':
         playDropSound()
+        break
+      case 'bingoBall':
+        playBingoBallSound()
         break
       case 'win':
         playWinSound()

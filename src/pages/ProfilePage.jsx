@@ -63,6 +63,7 @@ export default function ProfilePage({ onBack }) {
 
   const [firstName, setFirstName] = useState(profile?.name || '')
   const [lastName, setLastName]   = useState(profile?.lastName || '')
+  const [gender, setGender]       = useState(profile?.gender || '')
   const [phone, setPhone]         = useState(profile?.phone || '')
   const [photoURL, setPhotoURL]   = useState(profile?.photoURL || null)
   const [saving, setSaving]       = useState(false)
@@ -99,6 +100,7 @@ export default function ProfilePage({ onBack }) {
       const data = {
         name: firstName.trim(),
         lastName: lastName.trim(),
+        gender,
         phone: phone.trim(),
       }
       if (photoURL) data.photoURL = photoURL
@@ -199,6 +201,22 @@ export default function ProfilePage({ onBack }) {
             placeholder="שם המשפחה שלך"
             style={inputStyle}
           />
+        </Field>
+
+        <Field label="מגדר">
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[{ id: 'female', label: 'נקבה' }, { id: 'male', label: 'זכר' }].map(g => (
+              <button key={g.id} type="button" onClick={() => setGender(g.id)} style={{
+                flex: 1, padding: '13px 0', fontSize: 17, fontWeight: 700,
+                borderRadius: 14, border: '1px solid var(--line-strong)',
+                background: gender === g.id ? 'var(--burgundy)' : 'var(--surface)',
+                color: gender === g.id ? 'white' : 'var(--ink)',
+                fontFamily: 'inherit', cursor: 'pointer',
+              }}>
+                {g.label}
+              </button>
+            ))}
+          </div>
         </Field>
 
         <Field label="טלפון">

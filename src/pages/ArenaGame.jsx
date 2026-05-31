@@ -24,7 +24,7 @@ import { isMuted, setMuted } from '../utils/gameSounds.js'
 import { playTriviaSound, warmTriviaAudio } from '../utils/triviaSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import { BANK } from '../utils/triviaQuestions.js'
 import {
   createArenaRoom, joinArenaRoom, startArenaGame, updateArenaState,
@@ -450,6 +450,23 @@ function RoomScreen({ roomId, me, onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // חדר המתנה — שני שחקנים, התחלה אוטומטית כששניהם פה
 // ════════════════════════════════════════════════════════
+function ArenaWaitPlayer({ p, meUid, hostUid }) {
+  const { name, photoURL } = usePlayerProfile(p.uid, p.name)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: 'rgba(74,42,102,.5)', border: `1px solid ${GOLD_DEEP}`,
+      borderRadius: 14, padding: '12px 16px',
+    }}>
+      <Avatar name={name} size={42} photoURL={photoURL} />
+      <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
+        {name}{p.uid === meUid ? ' (אתה)' : ''}
+      </div>
+      {p.uid === hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
+    </div>
+  )
+}
+
 function WaitingRoom({ room, roomId, me, onBack }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
@@ -529,19 +546,10 @@ function WaitingRoom({ room, roomId, me, onBack }) {
           )}
         </div>
 
+        <ProfilesProvider uids={players.map(p => p.uid)} myUid={me.uid}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
           {players.map((p) => (
-            <div key={p.uid} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: 'rgba(74,42,102,.5)', border: `1px solid ${GOLD_DEEP}`,
-              borderRadius: 14, padding: '12px 16px',
-            }}>
-              <Avatar name={p.name} size={42} />
-              <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
-                {p.name}{p.uid === me.uid ? ' (אתה)' : ''}
-              </div>
-              {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
-            </div>
+            <ArenaWaitPlayer key={p.uid} p={p} meUid={me.uid} hostUid={room.hostUid} />
           ))}
           {Array.from({ length: Math.max(0, maxPlayers - players.length) }).map((_, i) => (
             <div key={`empty-${i}`} style={{
@@ -554,6 +562,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
             </div>
           ))}
         </div>
+        </ProfilesProvider>
 
         {isRandom ? (
           <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
@@ -866,6 +875,7 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
   const oppScore = opponent ? (state.scores[opponent.uid] || 0) : 0
 
   return (
+    <ProfilesProvider uids={players.map(p => p.uid)} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: BG_DEEP, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <ArenaHeader title="מלך הזירה" onBack={handleLeave} onMenu={toggleMute} menuOpen={false} />
@@ -979,6 +989,7 @@ function ArenaPlay({ room, roomId, me, onBack, onExit }) {
       )}
     </div>
     </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 
@@ -1077,18 +1088,19 @@ function RevealPanel({ question, myAnswer, others = [], answers = {}, countdown,
 
 // ── תצוגת ניקוד שחקן בראש המסך ──────────────────────────
 function PlayerScore({ uid, name, score, you, photoURL, answered, phase }) {
+  const { name: fullName } = usePlayerProfile(uid, name)
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       background: 'rgba(74,42,102,.5)', border: `1px solid ${answered && phase === 'question' ? '#6CCB6C' : 'rgba(201,162,74,.35)'}`,
       borderRadius: 14, padding: '10px 8px', position: 'relative',
     }}>
-      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      <PlayerVideo uid={uid} name={fullName} size={92} photoURL={photoURL} />
       {/* שורת שם — עם כפתורי שליטה משני הצדדים.
           אצלי (you): מצלמה/מיק שלי. אצל יריב: השתקה/הסתרה מקומית. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
         {you ? <VideoControls only="mic" size={32} /> : <RemoteVideoToggles uid={uid} only="audio" size={32} />}
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 13, color: CREAM, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}{you ? ' (אתה)' : ''}</div>
+        <div style={{ fontFamily: "'Suez One', serif", fontSize: 13, color: CREAM, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{fullName}{you ? ' (אתה)' : ''}</div>
         {you ? <VideoControls only="cam" size={32} /> : <RemoteVideoToggles uid={uid} only="video" size={32} />}
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: GOLD, fontFamily: "'Suez One', serif", lineHeight: 1.2 }}>{fmtPoints(score)}</div>

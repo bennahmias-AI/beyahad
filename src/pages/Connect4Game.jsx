@@ -28,7 +28,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { AddFriendButton, ChatHeaderButton, ChatPanel, ChatToast } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const COLS = 7
@@ -1530,6 +1530,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const currentPlayerNum = currentTurn === 'P1' ? P1 : P2
 
   return (
+    <ProfilesProvider uids={(room.players || []).map(p => p.uid)} myUid={myUid}>
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameScreenLayout
       onBack={handleLeave}
@@ -1577,6 +1578,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       )}
     </GameScreenLayout>
     </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 
@@ -1714,6 +1716,9 @@ function PlayersBar({ p1Name, p2Name, currentPlayer, winner, withVideo, p1Uid, p
 }
 
 function PlayerCard({ name, color, active, withVideo, uid, you, photoURL, addFriendNode }) {
+  // שם מלא חי (שם + שם משפחה) למצב האונליין — התמונה מטופלת ב-PlayerVideo
+  const live = usePlayerProfile(uid, name)
+  const displayName = withVideo ? live.name : name
   // מצב וידאו — כרטיס אנכי עם פרצוף גדול וכפתורי בקרה (כמו במלך הזירה)
   if (withVideo) {
     return (
@@ -1723,7 +1728,7 @@ function PlayerCard({ name, color, active, withVideo, uid, you, photoURL, addFri
         border: active ? `2px solid ${color}` : '1px solid var(--line)',
         borderRadius: 14, padding: '10px 8px', transition: 'all 0.2s',
       }}>
-        <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+        <PlayerVideo uid={uid} name={displayName} size={92} photoURL={photoURL} />
         {/* שורת שם — כפתורי שליטה משני הצדדים */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
           {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
@@ -1732,7 +1737,7 @@ function PlayerCard({ name, color, active, withVideo, uid, you, photoURL, addFri
             color: active ? '#FBF7EE' : 'var(--ink)',
             fontFamily: 'var(--font-display)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
-          }}>{name}{you ? ' (אתה)' : ''}</div>
+          }}>{displayName}{you ? ' (אתה)' : ''}</div>
           {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
         </div>
         {!you && addFriendNode}

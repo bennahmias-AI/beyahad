@@ -16,7 +16,7 @@ import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast, ChatFab } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate } from '../components/GameVideo.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
   updateRummikubState, watchRummikubRoom, leaveRummikubRoom,
@@ -342,19 +342,10 @@ function WaitingRoom({ room, roomId, me, onBack }) {
           )}
         </div>
 
+        <ProfilesProvider uids={players.map(p => p.uid)} myUid={me.uid}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
           {players.map((p) => (
-            <div key={p.uid} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: 'rgba(74,48,22,.6)', border: `1px solid ${GOLD_DEEP}`,
-              borderRadius: 14, padding: '12px 16px',
-            }}>
-              <Avatar name={p.name} size={42} />
-              <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
-                {p.name}{p.uid === me.uid ? ' (אתה)' : ''}
-              </div>
-              {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
-            </div>
+            <RummiWaitPlayer key={p.uid} p={p} meUid={me.uid} hostUid={room.hostUid} />
           ))}
           {Array.from({ length: maxPlayers - players.length }).map((_, i) => {
             const isInviteSlot = canInviteMore && i === 0
@@ -375,6 +366,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
             )
           })}
         </div>
+        </ProfilesProvider>
 
         {/* במשחק רנדומלי אין כפתור התחלה — הכל אוטומטי. רק בחברים המארח מתחיל ידנית. */}
         {isRandom ? (
@@ -454,6 +446,55 @@ function InvitePicker({ me, players, onInvite, onClose }) {
 // ════════════════════════════════════════════════════════
 // מסך המשחק המסונכרן
 // ════════════════════════════════════════════════════════
+// שורת שחקן בחדר ההמתנה — תמונה + שם (שם משפחה רק לחברים)
+function RummiWaitPlayer({ p, meUid, hostUid }) {
+  const { name, photoURL } = usePlayerProfile(p.uid, p.name)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: 'rgba(74,48,22,.6)', border: `1px solid ${GOLD_DEEP}`,
+      borderRadius: 14, padding: '12px 16px',
+    }}>
+      <Avatar name={name} size={42} photoURL={photoURL} />
+      <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
+        {name}{p.uid === meUid ? ' (אתה)' : ''}
+      </div>
+      {p.uid === hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
+    </div>
+  )
+}
+
+// כרטיס שחקן בפס — שולף תמונה ושם מלא חיים
+function RummiPlayerCard({ p, i, turnIdx, winner, me, players }) {
+  const { name } = usePlayerProfile(p.id, p.name)
+  const isActive = i === turnIdx && !winner
+  const compact = players.length >= 4
+  const avatarSize = compact ? 28 : 34
+  const ctrlSize = compact ? 24 : 26
+  return (
+    <div style={{
+      flex: 1, minWidth: 0,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'flex-start', gap: 4,
+      background: isActive ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
+      border: isActive ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
+      borderRadius: 11, padding: '7px 5px 6px',
+    }}>
+      <PlayerVideo uid={p.id} name={p.name} size={avatarSize} />
+      <div style={{ minWidth: 0, textAlign: 'center', lineHeight: 1.15 }}>
+        <div style={{ fontFamily: "'Suez One', serif", fontSize: compact ? 11 : 12, color: CREAM, maxWidth: compact ? 70 : 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}{p.id === me.uid ? ' (אתה)' : ''}</div>
+        <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800 }}>{p.rack.length} אריחים</div>
+      </div>
+      {/* כפתורי וידאו בשורה נפרדת מתחת לשם */}
+      <div style={{ marginTop: 1, paddingTop: 5, width: '100%', borderTop: '1px solid rgba(201,162,74,.18)', display: 'flex', justifyContent: 'center' }}>
+        {p.id === me.uid
+          ? <VideoControls size={ctrlSize} />
+          : <RemoteVideoToggles uid={p.id} size={ctrlSize} />}
+      </div>
+    </div>
+  )
+}
+
 function OnlineGame({ room, roomId, me, onBack }) {
   const { profile } = useUserStore()
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
@@ -603,6 +644,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   )
 
   return (
+    <ProfilesProvider uids={state.players.map(p => p.id)} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
@@ -610,34 +652,9 @@ function OnlineGame({ room, roomId, me, onBack }) {
 
       {/* פס שחקנים — כל כרטיס: אווטאר+שם למעלה, כפתורי וידאו בשורה נפרדת למטה (לא על השם) */}
       <div style={{ display: 'flex', gap: 5, padding: '8px 8px 0', flexShrink: 0, alignItems: 'stretch' }}>
-        {state.players.map((p, i) => {
-          const isActive = i === turnIdx && !winner
-          const compact = state.players.length >= 4
-          const avatarSize = compact ? 28 : 34
-          const ctrlSize = compact ? 24 : 26
-          return (
-            <div key={p.id} style={{
-              flex: 1, minWidth: 0,
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'flex-start', gap: 4,
-              background: isActive ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
-              border: isActive ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-              borderRadius: 11, padding: '7px 5px 6px',
-            }}>
-              <PlayerVideo uid={p.id} name={p.name} size={avatarSize} photoURL={p.id === me.uid ? profile?.photoURL : null} />
-              <div style={{ minWidth: 0, textAlign: 'center', lineHeight: 1.15 }}>
-                <div style={{ fontFamily: "'Suez One', serif", fontSize: compact ? 11 : 12, color: CREAM, maxWidth: compact ? 70 : 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
-                <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800 }}>{p.rack.length} אריחים</div>
-              </div>
-              {/* כפתורי וידאו בשורה נפרדת מתחת לשם — מצלמה/מיק שלי · השתקה/הסתרה של האחרים */}
-              <div style={{ marginTop: 1, paddingTop: 5, width: '100%', borderTop: '1px solid rgba(201,162,74,.18)', display: 'flex', justifyContent: 'center' }}>
-                {p.id === me.uid
-                  ? <VideoControls size={ctrlSize} />
-                  : <RemoteVideoToggles uid={p.id} size={ctrlSize} />}
-              </div>
-            </div>
-          )
-        })}
+        {state.players.map((p, i) => (
+          <RummiPlayerCard key={p.id} p={p} i={i} turnIdx={turnIdx} winner={winner} me={me} players={state.players} />
+        ))}
       </div>
 
       {/* שורה מאוחדת: השולחן · תורך/סטטוס · קופה */}
@@ -705,6 +722,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
       )}
     </div>
     </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 

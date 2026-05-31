@@ -25,24 +25,22 @@ function IconWrap({ size = 64, children }) {
   )
 }
 
-// ── 🎱 בינגו — כדור עם הכיתוב BINGO ──
-// כדור גדול לבן (כמו כדורי לוטו) עם הסרט הלבן המאופיין במרכז עליו כתוב BINGO.
+// ── 🎱 בינגו — גלגל הגרלה עם כדורים ──
+// מסגרת עגולה (כלוב הגרלה) עם קווי רשת דקים ושלושה כדורים ממוספרים בפנים.
 function BingoIcon({ size }) {
   return (
     <IconWrap size={size}>
-      {/* הכדור הראשי — לבן עם הילה כדורית */}
-      <circle cx="32" cy="32" r="22" fill={W} />
-      {/* הילת אור עליונה (נותנת תחושה תלת-ממדית) */}
-      <ellipse cx="26" cy="22" rx="8" ry="5" fill="rgba(255,255,255,0.6)" />
-      {/* צל תחתון (נותן עומק) */}
-      <ellipse cx="36" cy="44" rx="10" ry="5" fill={DARK} fillOpacity="0.08" />
-      {/* הסרט המרכזי שעליו כתוב BINGO */}
-      <path d="M11 30 A 22 22 0 0 0 53 30 L 53 34 A 22 22 0 0 1 11 34 Z"
-            fill={DARK} />
-      {/* הטקסט BINGO על הסרט */}
-      <text x="32" y="35.5" textAnchor="middle"
-            fontFamily="Arial, sans-serif"
-            fontSize="7" fontWeight="900" fill={W} letterSpacing="0.5">BINGO</text>
+      {/* מסגרת הכלוב — עיגול זהב + קווי רשת */}
+      <circle cx="32" cy="32" r="24" fill="none" stroke="#E8C879" strokeWidth="3" />
+      <line x1="32" y1="9" x2="32" y2="55" stroke="#C9A24A" strokeWidth="1.5" strokeOpacity="0.55" />
+      <line x1="9" y1="32" x2="55" y2="32" stroke="#C9A24A" strokeWidth="1.5" strokeOpacity="0.55" />
+      <path d="M15 15 A 24 24 0 0 1 49 15" fill="none" stroke="#C9A24A" strokeWidth="1.5" strokeOpacity="0.4" />
+      <circle cx="24" cy="26" r="7" fill={W} />
+      <text x="24" y="29" textAnchor="middle" fontFamily="Georgia, serif" fontSize="8" fontWeight="700" fill="#7E2C2E">5</text>
+      <circle cx="40" cy="28" r="7" fill="#E8C879" />
+      <text x="40" y="31" textAnchor="middle" fontFamily="Georgia, serif" fontSize="8" fontWeight="700" fill="#5A1D1E">9</text>
+      <circle cx="30" cy="40" r="7" fill={W} />
+      <text x="30" y="43" textAnchor="middle" fontFamily="Georgia, serif" fontSize="8" fontWeight="700" fill="#7E2C2E">2</text>
     </IconWrap>
   )
 }

@@ -11,6 +11,7 @@ export default function AuthPage() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [name, setName]         = useState('')
+  const [gender, setGender]     = useState('')   // 'male' | 'female'
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
@@ -18,6 +19,7 @@ export default function AuthPage() {
     setError('')
     if (!email || !password) { setError('נא למלא מייל וסיסמה'); return }
     if (mode === 'register' && !name.trim()) { setError('נא להזין שם'); return }
+    if (mode === 'register' && !gender) { setError('נא לבחור מגדר'); return }
     setLoading(true)
     try {
       if (mode === 'register') {
@@ -25,11 +27,11 @@ export default function AuthPage() {
         // Write the profile with the real name. merge:true so this never
         // gets wiped by a later skeleton write from useAuth.
         await createOrUpdateUser(cred.user.uid, {
-          name: name.trim(), phone: '', status: 'available', interests: [],
+          name: name.trim(), gender, phone: '', status: 'available', interests: [],
         })
         // Write the name a second time defensively, in case useAuth's
         // skeleton write landed in between. merge:true keeps it safe.
-        await createOrUpdateUser(cred.user.uid, { name: name.trim() })
+        await createOrUpdateUser(cred.user.uid, { name: name.trim(), gender })
       } else {
         await signInWithEmailAndPassword(auth, email, password)
       }
@@ -102,6 +104,25 @@ export default function AuthPage() {
             <input value={name} onChange={e => setName(e.target.value)}
               placeholder="מרים" dir="rtl"
               style={{ ...inputStyle, textAlign: 'right' }}/>
+          </div>
+        )}
+        {mode === 'register' && (
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, textAlign: 'right' }}>מגדר</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ id: 'female', label: 'נקבה' }, { id: 'male', label: 'זכר' }].map(g => (
+                <button key={g.id} type="button" onClick={() => setGender(g.id)} style={{
+                  flex: 1, padding: '13px 0', fontSize: 18, fontWeight: 700,
+                  borderRadius: 14, border: `3px solid ${colors.ink}`,
+                  background: gender === g.id ? colors.burgundy : colors.bgApp,
+                  color: gender === g.id ? 'white' : colors.ink,
+                  boxShadow: gender === g.id ? `0 3px 0 ${colors.burgundyDeep}` : 'none',
+                  fontFamily: 'inherit', cursor: 'pointer', minHeight: 'unset',
+                }}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <div>

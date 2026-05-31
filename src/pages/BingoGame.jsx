@@ -18,8 +18,10 @@ import { IconBackRTL } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
+import { playTriviaSound } from '../utils/triviaSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
+import { GameVideoProvider, VideoStage, VideoConsentGate, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import {
   createCard, createDrawOrder, findBingo,
   letterForNumber, FREE_INDEX, ALL_LETTERS, allMarkedWereCalled,
@@ -88,7 +90,7 @@ function ModeSelectScreen({ onBack, onSelectSolo, onSelectOnlineRandom, onSelect
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
-        <div className="screen-header__title">בינגו</div>
+        <div className="screen-header__title">הבינגו של אמי</div>
       </div>
 
       <div style={{ padding: '8px 20px 32px' }}>
@@ -97,8 +99,8 @@ function ModeSelectScreen({ onBack, onSelectSolo, onSelectOnlineRandom, onSelect
           borderRadius: 20, padding: '20px 18px', color: '#FBF7EE', marginBottom: 24,
           boxShadow: '0 8px 20px -6px rgba(126,44,46,.4)', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>🎱</div>
-          <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>בינגו</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><GameIcon id="bingo" size={48} /></div>
+          <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>הבינגו של אמי</div>
           <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>
             סמנו את המספרים שיוצאים — מי שמשלים שורה ראשון, צועק בינגו!
           </div>
@@ -292,7 +294,7 @@ function BingoShell({ onBack, isOnline, chatNode, children }) {
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
         </button>
-        <div className="screen-header__title" style={{ color: '#FBF7EE' }}>בינגו {isOnline ? 'אונליין' : ''}</div>
+        <div className="screen-header__title" style={{ color: '#FBF7EE' }}>הבינגו של אמי {isOnline ? 'אונליין' : ''}</div>
         {chatNode}
       </div>
       <div style={{ padding: '4px 14px 28px' }}>
@@ -343,7 +345,7 @@ function SoloGameScreen({ onBack, onExit }) {
     if (drawIdx >= drawOrder.length - 1) return
     const t = setTimeout(() => {
       setDrawIdx(i => i + 1)
-      playSound('drop')
+      playSound('bingoBall')
     }, drawIdx < 0 ? 800 : 3500)
     return () => clearTimeout(t)
   }, [drawIdx, won, paused, drawOrder.length])
@@ -363,7 +365,7 @@ function SoloGameScreen({ onBack, onExit }) {
     if (line) {
       setWinningLine(line)
       setWon(true)
-      playSound('win')
+      playTriviaSound('victory')   // פאנפרה חגיגית כמו במיליונר
     } else {
       setMissed(true)
       playSound('lose')
@@ -498,7 +500,7 @@ function OnlineLobby({ mode, onBack, onReady }) {
           }}>←</button>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-          <div style={{ fontSize: 72 }}>🎱</div>
+          <GameIcon id="bingo" size={84} />
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>מחפש לך שולחן...</div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
@@ -661,11 +663,25 @@ function OnlineGameScreen({ roomId, onBack, onExit }) {
   return <OnlinePlay room={room} roomId={roomId} me={me} profile={profile} onBack={onBack} onExit={onExit} />
 }
 
-// חדר המתנה — רשימת שחקנים + כפתור התחלה למארח
+// חדר המתנה — רשימת שחקנים + הזמנת עוד חברים + כפתור התחלה למארח
 function WaitingRoom({ room, roomId, me, onBack }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
+  const maxPlayers = room.maxPlayers || 10
+  const isRandom = room.roomType === 'random'
   const startedRef = useRef(false)
+  const [showInvite, setShowInvite] = useState(false)
+  // במשחק עם חברים — כל מי שכבר בחדר יכול להזמין עוד
+  const canInviteMore = !isRandom && players.length < maxPlayers
+
+  const handleInviteMore = async (friend) => {
+    try {
+      await sendGameInvite({
+        from: me, to: { uid: friend.otherUid, name: friend.otherName },
+        gameType: 'bingo', roomId,
+      })
+    } catch (e) { console.error('invite more error:', e) }
+  }
 
   const handleStart = async () => {
     if (startedRef.current) return
@@ -691,30 +707,33 @@ function WaitingRoom({ room, roomId, me, onBack }) {
   return (
     <BingoShell onBack={handleLeave} isOnline>
       <div style={{ textAlign: 'center', marginBottom: 20, marginTop: 6 }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>🎱</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="bingo" size={56} /></div>
         <div className="h-display" style={{ fontSize: 22, color: GOLD }}>
           {isHost ? 'מחכים לשחקנים' : 'הצטרפת לשולחן'}
         </div>
         <div style={{ marginTop: 8, fontSize: 14, color: CREAM, opacity: .85 }}>
-          {isHost ? 'אפשר להתחיל מ-2 שחקנים' : 'מחכים שהמארח יתחיל'}
+          {isHost ? 'הזמינו חברים והתחילו מ-2 שחקנים' : 'מחכים שהמארח יתחיל'}
         </div>
       </div>
 
+      <ProfilesProvider uids={players.map(p => p.uid)} myUid={me.uid}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
         {players.map((p) => (
-          <div key={p.uid} style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            background: 'rgba(255,255,255,.08)', border: `1px solid ${GOLD_DEEP}`,
-            borderRadius: 14, padding: '12px 16px',
-          }}>
-            <Avatar name={p.name} size={42} />
-            <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
-              {p.name}{p.uid === me.uid ? ' (אתה)' : ''}
-            </div>
-            {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מקריא</span>}
-          </div>
+          <BingoWaitPlayer key={p.uid} p={p} meUid={me.uid} hostUid={room.hostUid} />
         ))}
+        {/* סלוט ריק אחד עם כפתור "הזמן עוד חבר" (רק במשחק עם חברים) */}
+        {canInviteMore && (
+          <div onClick={() => setShowInvite(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: 'rgba(255,255,255,.06)', border: `1px solid ${GOLD_DEEP}`,
+            borderRadius: 14, padding: '12px 16px', cursor: 'pointer', color: CREAM,
+          }}>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', background: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#3E1213' }}>＋</div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>הזמן עוד חבר</div>
+          </div>
+        )}
       </div>
+      </ProfilesProvider>
 
       {isHost ? (
         <BingoButton label={players.length >= 2 ? `▶ התחל משחק (${players.length})` : 'צריך לפחות 2 שחקנים'}
@@ -724,7 +743,95 @@ function WaitingRoom({ room, roomId, me, onBack }) {
           ⏳ מחכים שהמארח יתחיל את המשחק…
         </div>
       )}
+
+      {showInvite && (
+        <BingoInvitePicker me={me} players={players} onClose={() => setShowInvite(false)} onInvite={handleInviteMore} />
+      )}
     </BingoShell>
+  )
+}
+
+// חלון הזמנת חברים נוספים מתוך חדר ההמתנה
+function BingoInvitePicker({ me, players, onInvite, onClose }) {
+  const [friends, setFriends] = useState([])
+  const [invited, setInvited] = useState({})
+
+  useEffect(() => {
+    if (!me.uid) return
+    const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
+    return () => unsub && unsub()
+  }, [me.uid])
+
+  const inRoom = new Set(players.map(p => p.uid))
+  const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
+
+  const pick = (f) => {
+    setInvited(prev => ({ ...prev, [f.otherUid]: true }))
+    onInvite(f)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(40,10,11,.72)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', direction: 'rtl' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '72vh', overflowY: 'auto', padding: '20px 18px 28px', boxShadow: '0 -8px 30px rgba(0,0,0,.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>הזמן חבר לשולחן</div>
+          <button onClick={onClose} aria-label="סגור" style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--line)', color: 'var(--ink)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+        </div>
+        {available.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '26px 0', fontSize: 15 }}>אין חברים נוספים זמינים להזמנה</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {available.map(f => (
+              <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Avatar name={f.otherName} size={46} />
+                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.otherName}</div>
+                <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
+                  background: invited[f.otherUid] ? 'var(--success)' : 'var(--burgundy)',
+                  color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
+                  fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
+                  cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                }}>{invited[f.otherUid] ? '✓ נשלח' : '🎮 הזמן'}</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// שורת שחקן בחדר ההמתנה — תמונה + שם (שם משפחה רק לחברים)
+function BingoWaitPlayer({ p, meUid, hostUid }) {
+  const { name, photoURL } = usePlayerProfile(p.uid, p.name)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: 'rgba(255,255,255,.08)', border: `1px solid ${GOLD_DEEP}`,
+      borderRadius: 14, padding: '12px 16px',
+    }}>
+      <Avatar name={name} size={42} photoURL={photoURL} />
+      <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
+        {name}{p.uid === meUid ? ' (אתה)' : ''}
+      </div>
+      {p.uid === hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מקריא</span>}
+    </div>
+  )
+}
+
+// תג שחקן בפס השחקנים — שולף תמונה ושם מלא חיים
+function PlayerChip({ p, meUid, hostUid }) {
+  const { name, photoURL } = usePlayerProfile(p.uid, p.name, p.uid === meUid ? undefined : null)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      background: 'rgba(255,255,255,.08)', border: '1px solid rgba(201,162,74,.3)',
+      borderRadius: 999, padding: '4px 10px 4px 4px',
+    }}>
+      <Avatar name={name} size={24} photoURL={photoURL} />
+      <span style={{ fontSize: 12, fontWeight: 700, color: CREAM }}>
+        {name}{p.uid === meUid ? ' (אתה)' : ''}{p.uid === hostUid ? ' 👑' : ''}
+      </span>
+    </div>
   )
 }
 
@@ -735,6 +842,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
   const [missed, setMissed] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [muted, setMutedState] = useState(() => isMuted())
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const lastDrawRef = useRef(-1)
 
   const isHost = room.hostUid === me.uid
@@ -751,16 +859,17 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
   useEffect(() => {
     if (drawIdx > lastDrawRef.current) {
       lastDrawRef.current = drawIdx
-      if (drawIdx >= 0) playSound('drop')
+      if (drawIdx >= 0) playSound('bingoBall')
     }
   }, [drawIdx])
 
-  // סאונד ניצחון/הפסד
+  // סאונד ניצחון/הפסד — המנצח שומע פאנפרה חגיגית (כמו במיליונר)
   const finishedRef = useRef(false)
   useEffect(() => {
     if (winner && !finishedRef.current) {
       finishedRef.current = true
-      playSound(winner.uid === me.uid ? 'win' : 'lose')
+      if (winner.uid === me.uid) playTriviaSound('victory')
+      else playSound('lose')
     }
   }, [winner, me.uid])
 
@@ -770,7 +879,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
   useEffect(() => {
     if (!isHost || winner) return
     if (drawIdx >= drawOrder.length - 1) return
-    const delay = drawIdx < 0 ? 1500 : 5000   // המספר הראשון מעט מהר יותר
+    const delay = drawIdx < 0 ? 1500 : 8000   // המספר הראשון מעט מהר יותר
     const t = setTimeout(() => {
       updateBingoState(roomId, { ...state, drawIdx: drawIdx + 1 })
     }, delay)
@@ -781,6 +890,15 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
     return (
       <BingoShell onBack={onBack} isOnline>
         <div style={{ padding: 24, textAlign: 'center', color: CREAM }}>טוען את המשחק...</div>
+      </BingoShell>
+    )
+  }
+
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <BingoShell onBack={onBack} isOnline>
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#5A1D1E" accentDeep="#C9A24A" />
       </BingoShell>
     )
   }
@@ -805,7 +923,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
         ...state,
         winner: { uid: me.uid, name: me.name, line },
       })
-      playSound('win')
+      // צליל הניצחון מנוגן דרך ה-effect כשה-winner מתעדכן (לכל השחקנים)
     } else {
       setMissed(true)
       playSound('lose')
@@ -818,13 +936,27 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
 
   const winningLine = winner && winner.uid === me.uid ? winner.line : null
 
+  // רשימת השחקנים לרצועת הוידאו (גלריה)
+  const videoPlayers = (state.players || []).map(p => ({
+    uid: p.uid, name: p.name,
+    photoURL: p.uid === me.uid ? profile?.photoURL : null,
+    you: p.uid === me.uid,
+  }))
+  // כל ה-uids של השחקנים — לשליפת תמונה ושם מלא חיים
+  const playerUids = (state.players || []).map(p => p.uid)
+
   const chatNode = (
     <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}
       bg="rgba(255,255,255,.12)" border="rgba(255,255,255,.22)" color="#E8C879" />
   )
 
   return (
+    <ProfilesProvider uids={playerUids} myUid={me.uid}>
+    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <BingoShell onBack={handleLeave} isOnline chatNode={chatNode}>
+      {/* רצועת וידאו בראש המסך — גלריה של כל השחקנים (כפתורי המצלמה/מיק שלי בתוך הריבוע שלי) */}
+      <VideoStage players={videoPlayers} height={96} showSelfControls style={{ marginBottom: 12 }} />
+
       {/* המספר הנוכחי + מה שיצא */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
@@ -843,16 +975,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
       {/* פס שחקנים */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
         {(state.players || []).map(p => (
-          <div key={p.uid} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'rgba(255,255,255,.08)', border: '1px solid rgba(201,162,74,.3)',
-            borderRadius: 999, padding: '4px 10px 4px 4px',
-          }}>
-            <Avatar name={p.name} size={24} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: CREAM }}>
-              {p.name}{p.uid === me.uid ? ' (אתה)' : ''}{p.uid === room.hostUid ? ' 👑' : ''}
-            </span>
-          </div>
+          <PlayerChip key={p.uid} p={p} meUid={me.uid} hostUid={room.hostUid} />
         ))}
       </div>
 
@@ -893,6 +1016,8 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
         />
       )}
     </BingoShell>
+    </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 

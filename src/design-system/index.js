@@ -12,8 +12,8 @@ export const colors = {
 }
 
 export const fonts = {
-  display: "'Assistant', 'Rubik', system-ui, sans-serif",
-  body: "'Assistant', 'Rubik', system-ui, -apple-system, sans-serif",
+  display: "'Huninn', 'Assistant', 'Rubik', system-ui, sans-serif",
+  body: "'Huninn', 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif",
 }
 
 const AVATAR_POOL = ['#7E2C2E','#4F6B4A','#B89048','#6B3A4F','#2C5566','#7B4A2C','#3D3458','#7A5C18']

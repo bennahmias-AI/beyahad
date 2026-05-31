@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchIncomingInvites, acceptGameInvite, declineGameInvite,
-  joinRummikubRoom, joinArenaRoom, deleteGameInvite,
+  joinRummikubRoom, joinArenaRoom, joinBingoRoom, deleteGameInvite,
 } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
 
@@ -26,6 +26,7 @@ const GAME_NAMES = {
   sheshbesh: 'שש-בש',
   rummikub: 'רמיקוב',
   arena: 'מלך הזירה',
+  bingo: 'הבינגו של אמי',
 }
 
 // איקון אמוג'י לתצוגה לפי סוג המשחק
@@ -35,6 +36,7 @@ const GAME_EMOJIS = {
   sheshbesh: '🎲',
   rummikub: '🎴',
   arena: '👑',
+  bingo: '🎱',
 }
 
 export default function GameInviteListener({ onAccept }) {
@@ -73,6 +75,11 @@ export default function GameInviteListener({ onAccept }) {
       } else if (invite.gameType === 'arena') {
         // מלך הזירה משתמש בתשתית נפרדת (arenaRooms)
         await joinArenaRoom(invite.roomId, player)
+        await deleteGameInvite(invite.id)
+        roomId = invite.roomId
+      } else if (invite.gameType === 'bingo') {
+        // בינגו משתמש בתשתית נפרדת (bingoRooms)
+        await joinBingoRoom(invite.roomId, player)
         await deleteGameInvite(invite.id)
         roomId = invite.roomId
       } else {

@@ -75,7 +75,7 @@ export default function FriendsPage({ onBack, onCallFriend }) {
                       borderRadius: 16, padding: '14px 16px',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                        <Avatar name={req.otherName} size={48} />
+                        <LiveAvatar uid={req.otherUid} name={req.otherName} size={48} />
                         <div style={{ flex: 1 }}>
                           <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>
                             {req.otherName}
@@ -155,7 +155,7 @@ export default function FriendsPage({ onBack, onCallFriend }) {
                       borderRadius: 14, padding: '12px 14px',
                       display: 'flex', alignItems: 'center', gap: 12,
                     }}>
-                      <Avatar name={req.otherName} size={42} />
+                      <LiveAvatar uid={req.otherUid} name={req.otherName} size={42} />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
                           {req.otherName}
@@ -185,9 +185,22 @@ export default function FriendsPage({ onBack, onCallFriend }) {
   )
 }
 
+// אווטאר חי לבקשות חברות — שולף תמונת פרופיל לפי uid.
+// שם משפחה לא מוצג כאן — עדיין לא חברים מאושרים (פרטיות).
+function LiveAvatar({ uid, name, size, online }) {
+  const [photoURL, setPhotoURL] = useState(null)
+  useEffect(() => {
+    if (!uid) return
+    const unsub = watchUser(uid, u => setPhotoURL(u?.photoURL || null))
+    return () => unsub && unsub()
+  }, [uid])
+  return <Avatar name={name} size={size} photoURL={photoURL} online={online} />
+}
+
 // ── one friend row — watches that friend's live online status ──
 function FriendRow({ friend, onCall, onRemove }) {
   const [online, setOnline] = useState(false)
+  const [prof, setProf] = useState(null)  // פרופיל חי: { name, lastName, photoURL }
 
   useEffect(() => {
     if (!friend.otherUid) return
@@ -197,9 +210,16 @@ function FriendRow({ friend, onCall, onRemove }) {
       const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
       const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
       setOnline(Boolean(fresh) && ['available', 'busy'].includes(u?.status))
+      setProf({ name: u?.name || '', lastName: u?.lastName || '', photoURL: u?.photoURL || null })
     })
     return () => unsub && unsub()
   }, [friend.otherUid])
+
+  // חבר מאושר — מציגים שם מלא (שם + שם משפחה) ותמונת פרופיל אם הגדיר
+  const fullName = prof
+    ? ([prof.name, prof.lastName].filter(Boolean).join(' ') || friend.otherName)
+    : friend.otherName
+  const photoURL = prof?.photoURL || null
 
   return (
     <div style={{
@@ -208,10 +228,10 @@ function FriendRow({ friend, onCall, onRemove }) {
       borderRadius: 16, padding: '14px 16px',
       display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <Avatar name={friend.otherName} size={50} online={online} />
+      <Avatar name={fullName} size={50} online={online} photoURL={photoURL} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>
-          {friend.otherName}
+          {fullName}
         </div>
         <div style={{
           fontSize: 13, fontWeight: 700,
