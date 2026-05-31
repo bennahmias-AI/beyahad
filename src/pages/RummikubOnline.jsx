@@ -16,6 +16,7 @@ import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate } from '../components/GameVideo.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
   updateRummikubState, watchRummikubRoom, leaveRummikubRoom,
@@ -395,6 +396,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   const [message, setMessage] = useState('')
   const [lastDrawn, setLastDrawn] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
 
   const myIndex = state ? state.players.findIndex(p => p.id === me.uid) : -1
   const turnIdx = state?.turn ?? 0
@@ -414,6 +416,16 @@ function OnlineGame({ room, roomId, me, onBack }) {
       <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', minHeight: '100%' }}>
         <RummiHeaderShared title="רמיקוב" onBack={onBack} />
         <div style={{ padding: 24, textAlign: 'center', color: CREAM }}>טוען את המשחק...</div>
+      </div>
+    )
+  }
+
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
+  if (videoChoice === null) {
+    return (
+      <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', minHeight: '100%' }}>
+        <RummiHeaderShared title="רמיקוב אונליין" onBack={onBack} />
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A24A" />
       </div>
     )
   }
@@ -523,6 +535,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   )
 
   return (
+    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
@@ -542,7 +555,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
               border: isActive ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
               borderRadius: 9, padding: compact ? '3px 4px' : '5px 8px',
             }}>
-              <Avatar name={p.name} size={avatarSize} photoURL={p.id === me.uid ? profile?.photoURL : null} />
+              <PlayerVideo uid={p.id} name={p.name} size={avatarSize} photoURL={p.id === me.uid ? profile?.photoURL : null} />
               <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: compact ? 'center' : 'flex-start' }}>
                 <div style={{ fontFamily: "'Suez One', serif", fontSize: 11, color: CREAM, lineHeight: 1.1, maxWidth: compact ? 56 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
                 <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800, lineHeight: 1.1 }}>{p.rack.length}{compact ? '' : ' אריחים'}</div>
@@ -605,6 +618,9 @@ function OnlineGame({ room, roomId, me, onBack }) {
 
       {/* התראת צ'אט צפה */}
       <ChatToast msgs={chatMsgs} meUid={me.uid} />
+
+      {/* בקרת וידאו — מצלמה/מיקרופון שלי (כפתורים צפים — לא נוגע בשורת השחקנים) */}
+      <VideoControls style={{ position: 'absolute', insetInlineStart: 12, bottom: 92 }} size={40} />
 
       {winner && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
