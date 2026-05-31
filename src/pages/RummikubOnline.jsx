@@ -291,6 +291,18 @@ function WaitingRoom({ room, roomId, me, onBack }) {
   const isRandom = room.roomType === 'random'
   const canStart = players.length >= 2
   const startedRef = useRef(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const canInviteMore = !isRandom && players.length < maxPlayers
+
+  // כל מי שכבר בחדר יכול להזמין עוד חברים (לא רק המארח)
+  const handleInviteMore = async (friend) => {
+    try {
+      await sendGameInvite({
+        from: me, to: { uid: friend.otherUid, name: friend.otherName },
+        gameType: 'rummikub', roomId,
+      })
+    } catch (e) { console.error('invite more error:', e) }
+  }
 
   const handleStart = async () => {
     if (startedRef.current) return
@@ -328,11 +340,6 @@ function WaitingRoom({ room, roomId, me, onBack }) {
               {players.length >= maxPlayers ? 'מתחילים… 🎉' : 'המשחק יתחיל אוטומטית כשיצטרפו מספיק אנשים'}
             </div>
           )}
-          {room.inviteCode && (
-            <div style={{ marginTop: 10, fontSize: 14, color: CREAM }}>
-              קוד הזמנה: <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 800, color: GOLD, letterSpacing: 2 }}>{room.inviteCode}</span>
-            </div>
-          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
@@ -349,16 +356,24 @@ function WaitingRoom({ room, roomId, me, onBack }) {
               {p.uid === room.hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
             </div>
           ))}
-          {Array.from({ length: maxPlayers - players.length }).map((_, i) => (
-            <div key={`empty-${i}`} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: 'rgba(74,48,22,.25)', border: '1px dashed rgba(201,162,74,.4)',
-              borderRadius: 14, padding: '12px 16px', color: 'rgba(243,226,190,.5)',
-            }}>
-              <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>＋</div>
-              <div style={{ fontSize: 15 }}>ממתין לשחקן…</div>
-            </div>
-          ))}
+          {Array.from({ length: maxPlayers - players.length }).map((_, i) => {
+            const isInviteSlot = canInviteMore && i === 0
+            return (
+              <div key={`empty-${i}`}
+                onClick={isInviteSlot ? () => setShowInvite(true) : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: isInviteSlot ? 'rgba(74,48,22,.55)' : 'rgba(74,48,22,.25)',
+                  border: isInviteSlot ? `1px solid ${GOLD_DEEP}` : '1px dashed rgba(201,162,74,.4)',
+                  borderRadius: 14, padding: '12px 16px',
+                  color: isInviteSlot ? CREAM : 'rgba(243,226,190,.5)',
+                  cursor: isInviteSlot ? 'pointer' : 'default',
+                }}>
+                <div style={{ width: 42, height: 42, borderRadius: '50%', background: isInviteSlot ? GOLD : 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: isInviteSlot ? '#2c1d10' : 'inherit' }}>＋</div>
+                <div style={{ fontSize: 15, fontWeight: isInviteSlot ? 800 : 400 }}>{isInviteSlot ? 'הזמן עוד חבר' : 'ממתין לשחקן…'}</div>
+              </div>
+            )
+          })}
         </div>
 
         {/* במשחק רנדומלי אין כפתור התחלה — הכל אוטומטי. רק בחברים המארח מתחיל ידנית. */}
@@ -377,6 +392,58 @@ function WaitingRoom({ room, roomId, me, onBack }) {
         ) : (
           <div style={{ textAlign: 'center', color: CREAM, fontSize: 15, padding: '12px' }}>
             ⏳ מחכים שהמארח יתחיל את המשחק…
+          </div>
+        )}
+      </div>
+
+      {showInvite && (
+        <InvitePicker me={me} players={players} onClose={() => setShowInvite(false)} onInvite={handleInviteMore} />
+      )}
+    </div>
+  )
+}
+
+function InvitePicker({ me, players, onInvite, onClose }) {
+  const [friends, setFriends] = useState([])
+  const [invited, setInvited] = useState({})
+
+  useEffect(() => {
+    if (!me.uid) return
+    const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
+    return () => unsub && unsub()
+  }, [me.uid])
+
+  const inRoom = new Set(players.map(p => p.uid))
+  const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
+
+  const pick = (f) => {
+    setInvited(prev => ({ ...prev, [f.otherUid]: true }))
+    onInvite(f)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(20,15,8,.72)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', direction: 'rtl' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '72vh', overflowY: 'auto', padding: '20px 18px 28px', boxShadow: '0 -8px 30px rgba(0,0,0,.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>הזמן חבר לשולחן</div>
+          <button onClick={onClose} aria-label="סגור" style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--line)', color: 'var(--ink)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+        </div>
+        {available.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '26px 0', fontSize: 15 }}>אין חברים נוספים זמינים להזמנה</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {available.map(f => (
+              <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Avatar name={f.otherName} size={46} />
+                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.otherName}</div>
+                <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
+                  background: invited[f.otherUid] ? 'var(--success)' : 'var(--burgundy)',
+                  color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
+                  fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
+                  cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                }}>{invited[f.otherUid] ? '✓ נשלח' : '🎮 הזמן'}</button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -541,30 +608,33 @@ function OnlineGame({ room, roomId, me, onBack }) {
       <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
-      {/* פס שחקנים — תמיד שורה אחת, מתחלקת שווה לפי מספר השחקנים */}
-      <div style={{ display: 'flex', gap: 5, padding: '8px 8px 0', flexShrink: 0 }}>
+      {/* פס שחקנים — כל כרטיס: אווטאר+שם למעלה, כפתורי וידאו בשורה נפרדת למטה (לא על השם) */}
+      <div style={{ display: 'flex', gap: 5, padding: '8px 8px 0', flexShrink: 0, alignItems: 'stretch' }}>
         {state.players.map((p, i) => {
           const isActive = i === turnIdx && !winner
           const compact = state.players.length >= 4
-          const avatarSize = compact ? 22 : 26
+          const avatarSize = compact ? 28 : 34
+          const ctrlSize = compact ? 24 : 26
           return (
             <div key={p.id} style={{
               flex: 1, minWidth: 0,
-              display: 'flex', flexDirection: compact ? 'column' : 'row',
-              alignItems: 'center', justifyContent: 'center', gap: compact ? 1 : 7,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'flex-start', gap: 4,
               background: isActive ? 'linear-gradient(180deg,#6e4a28,#4a2e16)' : 'rgba(74,48,22,.6)',
               border: isActive ? `1.5px solid ${GOLD}` : '1px solid rgba(201,162,74,.35)',
-              borderRadius: 9, padding: compact ? '3px 4px' : '5px 8px',
+              borderRadius: 11, padding: '7px 5px 6px',
             }}>
               <PlayerVideo uid={p.id} name={p.name} size={avatarSize} photoURL={p.id === me.uid ? profile?.photoURL : null} />
-              <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: compact ? 'center' : 'flex-start' }}>
-                <div style={{ fontFamily: "'Suez One', serif", fontSize: 11, color: CREAM, lineHeight: 1.1, maxWidth: compact ? 56 : 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
-                <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800, lineHeight: 1.1 }}>{p.rack.length}{compact ? '' : ' אריחים'}</div>
+              <div style={{ minWidth: 0, textAlign: 'center', lineHeight: 1.15 }}>
+                <div style={{ fontFamily: "'Suez One', serif", fontSize: compact ? 11 : 12, color: CREAM, maxWidth: compact ? 70 : 92, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}{p.id === me.uid ? ' (אתה)' : ''}</div>
+                <div style={{ fontSize: 10, color: isActive ? GOLD : GOLD_DEEP, fontWeight: 800 }}>{p.rack.length} אריחים</div>
               </div>
-              {/* בקרת וידאו על הכרטיס עצמו — מצלמה/מיק שלי · השתקה/הסתרה של האחרים (כמו בשאר המשחקים) */}
-              {p.id === me.uid
-                ? <VideoControls size={compact ? 22 : 26} />
-                : <RemoteVideoToggles uid={p.id} size={compact ? 22 : 26} />}
+              {/* כפתורי וידאו בשורה נפרדת מתחת לשם — מצלמה/מיק שלי · השתקה/הסתרה של האחרים */}
+              <div style={{ marginTop: 1, paddingTop: 5, width: '100%', borderTop: '1px solid rgba(201,162,74,.18)', display: 'flex', justifyContent: 'center' }}>
+                {p.id === me.uid
+                  ? <VideoControls size={ctrlSize} />
+                  : <RemoteVideoToggles uid={p.id} size={ctrlSize} />}
+              </div>
             </div>
           )
         })}
