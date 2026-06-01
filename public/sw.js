@@ -7,7 +7,7 @@
 // LiveKit / Firebase — אלה תמיד צריכים רשת חיה.
 // ─────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'beyahad-v1'
+const CACHE_NAME = 'beyahad-v2'
 const APP_SHELL = [
   '/',
   '/index.html',

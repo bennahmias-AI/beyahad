@@ -24,6 +24,7 @@ import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
+import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM,
@@ -153,7 +154,7 @@ export default function App() {
       <div className="app-shell" style={{
         alignItems: 'center', justifyContent: 'center', gap: 16,
       }}>
-        <div style={{ fontSize: 52 }}>🤝</div>
+        <AppLogo size={88} />
         <div style={{ fontFamily: "'Assistant', sans-serif", fontWeight: 800, fontSize: 28, color: colors.burgundy }}>ביחד</div>
         <div style={{ fontSize: 16, color: colors.ink2 }}>טוענת...</div>
       </div>

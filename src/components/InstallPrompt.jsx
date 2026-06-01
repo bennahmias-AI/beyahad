@@ -10,6 +10,7 @@
 //   האפליקציה כבר מותקנת.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
+import AppLogo from './AppLogo.jsx'
 
 const SNOOZE_KEY = 'beyahad_install_snooze'
 const SNOOZE_DAYS = 30
@@ -91,10 +92,9 @@ export default function InstallPrompt() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14,
-            background: 'linear-gradient(135deg, #8A4D6A, #6B3A4F)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, flexShrink: 0,
-          }}>🤝</div>
+            flexShrink: 0, overflow: 'hidden',
+          }}><AppLogo size={52} rounded={14} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>
               התקינו את ביחד

@@ -5,6 +5,7 @@ import {
 } from 'firebase/auth'
 import { auth, createOrUpdateUser } from '../services/firebase.js'
 import { colors } from '../design-system/index.js'
+import AppLogo from '../components/AppLogo.jsx'
 
 export default function AuthPage() {
   const [mode, setMode]         = useState('login')
@@ -79,11 +80,13 @@ export default function AuthPage() {
       {/* כותרת + לוגו */}
       <div style={{ textAlign: 'center', marginBottom: 26 }}>
         <div style={{
-          width: 66, height: 66, margin: '0 auto', borderRadius: 20,
-          background: colors.burgundy,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34,
+          width: 66, height: 66, margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: `0 8px 18px -6px ${colors.burgundy}66`,
-        }}>🤝</div>
+          borderRadius: 20,
+        }}>
+          <AppLogo size={66} />
+        </div>
         <div style={{
           marginTop: 12, fontSize: 28, lineHeight: 1,
           fontFamily: "'Suez One', serif", color: colors.ink,

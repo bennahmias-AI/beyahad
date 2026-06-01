@@ -4,30 +4,39 @@
       <stop offset="0" stop-color="#8A4D6A"/>
       <stop offset="1" stop-color="#6B3A4F"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.6">
-      <stop offset="0" stop-color="#E8C879" stop-opacity="0.35"/>
+    <radialGradient id="glow" cx="0.5" cy="0.38" r="0.62">
+      <stop offset="0" stop-color="#E8C879" stop-opacity="0.32"/>
       <stop offset="1" stop-color="#E8C879" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
   <!-- background -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="115" fill="url(#glow)"/>
 
-  <!-- two overlapping hearts / people — "togetherness" -->
-  <g transform="translate(256,250)">
-    <!-- left figure -->
-    <circle cx="-58" cy="-46" r="46" fill="#E8C879"/>
-    <path d="M -58 12 C -120 12 -132 78 -128 124 L 12 124 C 4 70 -8 12 -58 12 Z" fill="#E8C879"/>
-    <!-- right figure -->
-    <circle cx="58" cy="-46" r="46" fill="#FBF7EE"/>
-    <path d="M 58 12 C 120 12 132 78 128 124 L -12 124 C -4 70 8 12 58 12 Z" fill="#FBF7EE"/>
+  <!-- ── content kept inside a centered safe zone (~78%) so maskable
+       cropping on Android never clips the figures or heart ── -->
+
+  <!-- small heart above, centered -->
+  <path d="M 256 120
+    C 238 96 202 99 202 132
+    C 202 159 256 188 256 188
+    C 256 188 310 159 310 132
+    C 310 99 274 96 256 120 Z" fill="#E8896A"/>
+
+  <!-- two figures — "togetherness" -->
+  <g transform="translate(256,288)">
+    <!-- left figure (mustard) -->
+    <circle cx="-56" cy="-42" r="44" fill="#E8C879"/>
+    <path d="M -56 12
+             C -112 12 -124 74 -120 116
+             L 8 116
+             C 4 64 -8 12 -56 12 Z" fill="#E8C879"/>
+    <!-- right figure (cream) -->
+    <circle cx="56" cy="-42" r="44" fill="#FBF7EE"/>
+    <path d="M 56 12
+             C 112 12 124 74 120 116
+             L -8 116
+             C -4 64 8 12 56 12 Z" fill="#FBF7EE"/>
   </g>
-
-  <!-- small heart above -->
-  <path d="M 256 92
-    C 240 70 208 72 208 102
-    C 208 126 256 152 256 152
-    C 256 152 304 126 304 102
-    C 304 72 272 70 256 92 Z" fill="#E8896A"/>
 </svg>

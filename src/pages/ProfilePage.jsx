@@ -12,6 +12,7 @@ import { useState, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { createOrUpdateUser, getUser } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import AvatarPicker from '../components/AvatarPicker.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
 // כיווץ תמונה לתמונת פרופיל.
@@ -68,6 +69,7 @@ export default function ProfilePage({ onBack }) {
   const [photoURL, setPhotoURL]   = useState(profile?.photoURL || null)
   const [saving, setSaving]       = useState(false)
   const [msg, setMsg]             = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const email = authUser?.email || profile?.email || ''
 
@@ -155,21 +157,40 @@ export default function ProfilePage({ onBack }) {
               📷
             </button>
           </div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            style={{
-              marginTop: 12, fontSize: 15, fontWeight: 700,
-              color: 'var(--burgundy)', fontFamily: 'inherit',
-            }}
-          >
-            {photoURL ? 'החלף תמונה' : 'הוסף תמונת פרופיל'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={{
+                fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+                color: 'var(--burgundy)', background: 'var(--burgundy-soft)',
+                border: 'none', borderRadius: 999, padding: '9px 18px',
+              }}
+            >
+              📷 {photoURL ? 'החלף תמונה' : 'העלה תמונה'}
+            </button>
+            <button
+              onClick={() => setPickerOpen(true)}
+              style={{
+                fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+                color: 'var(--ink)', background: 'var(--surface-2)',
+                border: '1px solid var(--line)', borderRadius: 999, padding: '9px 18px',
+              }}
+            >
+              😊 בחר דמות
+            </button>
+          </div>
+          {!gender && (
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginTop: 6, textAlign: 'center' }}>
+              💡 בחרו מגדר למטה כדי לראות דמויות מתאימות
+            </div>
+          )}
           {photoURL && (
             <button
               onClick={() => setPhotoURL(null)}
               style={{
-                marginTop: 4, fontSize: 13, fontWeight: 600,
-                color: 'var(--ink-3)', fontFamily: 'inherit',
+                marginTop: 8, fontSize: 13, fontWeight: 600,
+                color: 'var(--ink-3)', fontFamily: 'inherit', cursor: 'pointer',
+                background: 'none', border: 'none',
               }}
             >
               הסר תמונה
@@ -260,6 +281,16 @@ export default function ProfilePage({ onBack }) {
           </div>
         )}
       </div>
+
+      {/* מודאל בחירת אווטר מובנה — מסונן לפי המגדר שנבחר */}
+      {pickerOpen && (
+        <AvatarPicker
+          current={photoURL}
+          gender={gender}
+          onPick={(val) => { setPhotoURL(val); setPickerOpen(false); setMsg('') }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }
