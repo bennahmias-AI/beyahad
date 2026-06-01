@@ -51,13 +51,21 @@ export default function AuthPage() {
     }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '14px 18px',
-    fontSize: 20, fontWeight: 600,
-    border: `3px solid ${colors.ink}`,
-    borderRadius: 14,
-    background: colors.bgApp,
+  // שדה עם קו תחתון בלבד (underline) — נקי ואוורירי, פונט גדול לנגישות
+  const underlineInput = {
+    width: '100%', boxSizing: 'border-box',
+    padding: '12px 2px 11px',
+    fontSize: 19, fontWeight: 500,
+    border: 'none', borderBottom: `2px solid ${colors.lineStrong}`,
+    background: 'transparent',
     fontFamily: 'inherit',
+    color: colors.ink,
+    outline: 'none',
+  }
+
+  const fieldLabel = {
+    fontSize: 14, fontWeight: 700, marginBottom: 6,
+    textAlign: 'right', color: colors.ink2,
   }
 
   return (
@@ -65,96 +73,128 @@ export default function AuthPage() {
       height: '100%',
       background: `linear-gradient(180deg, ${colors.bgPage} 0%, ${colors.bgApp} 100%)`,
       display: 'flex', flexDirection: 'column',
-      padding: '32px 24px', overflowY: 'auto',
+      padding: '30px 24px 40px', overflowY: 'auto',
+      direction: 'rtl',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      {/* כותרת + לוגו */}
+      <div style={{ textAlign: 'center', marginBottom: 26 }}>
         <div style={{
-          width: 80, height: 80, margin: '0 auto', borderRadius: 24,
-          background: colors.burgundy, border: `3px solid ${colors.ink}`,
-          boxShadow: `0 6px 0 ${colors.burgundyDeep}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42,
+          width: 66, height: 66, margin: '0 auto', borderRadius: 20,
+          background: colors.burgundy,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34,
+          boxShadow: `0 8px 18px -6px ${colors.burgundy}66`,
         }}>🤝</div>
-        <div style={{ marginTop: 10, fontSize: 28, fontFamily: "'Suez One', serif", color: colors.burgundy }}>ביחד</div>
-        <div style={{ fontSize: 15, color: colors.ink2, marginTop: 4 }}>מערכת נגד בדידות</div>
+        <div style={{
+          marginTop: 12, fontSize: 28, lineHeight: 1,
+          fontFamily: "'Suez One', serif", color: colors.ink,
+        }}>
+          {mode === 'register' ? 'ברוכים הבאים' : 'שמחים לראותך'}
+        </div>
+        <div style={{ fontSize: 15, color: colors.ink2, marginTop: 6 }}>
+          {mode === 'register' ? 'פתחו חשבון חדש ב' : 'התחברו לחשבון שלכם ב'}
+          <span style={{ color: colors.burgundy, fontWeight: 700 }}>ביחד</span>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {['login','register'].map(m => (
-          <button key={m} onClick={() => { setMode(m); setError('') }} style={{
-            flex: 1, padding: '12px 0', fontSize: 18, fontWeight: 700,
-            borderRadius: 12, border: `3px solid ${colors.ink}`,
-            background: mode === m ? colors.burgundy : colors.surface,
-            color: mode === m ? 'white' : colors.ink,
-            boxShadow: mode === m ? `0 4px 0 ${colors.ink}` : 'none',
-            minHeight: 'unset',
-          }}>
-            {m === 'login' ? 'כניסה' : 'הרשמה'}
-          </button>
-        ))}
-      </div>
-
+      {/* טאבים — קו תחתון */}
       <div style={{
-        background: colors.surface, border: `3px solid ${colors.ink}`,
-        borderRadius: 22, padding: 22, boxShadow: `0 5px 0 ${colors.ink}`,
-        display: 'flex', flexDirection: 'column', gap: 14,
+        display: 'flex', gap: 24, justifyContent: 'center',
+        borderBottom: `1px solid ${colors.line}`, marginBottom: 22,
       }}>
+        {[{ id: 'login', label: 'כניסה' }, { id: 'register', label: 'הרשמה' }].map(t => {
+          const active = mode === t.id
+          return (
+            <button key={t.id} onClick={() => { setMode(t.id); setError('') }} style={{
+              padding: '0 2px 12px', fontSize: 17, fontWeight: 700,
+              fontFamily: 'inherit', cursor: 'pointer',
+              background: 'none', border: 'none',
+              color: active ? colors.burgundy : colors.ink3,
+              borderBottom: active ? `3px solid ${colors.burgundy}` : '3px solid transparent',
+              marginBottom: -1.5,
+              minHeight: 'unset', minWidth: 'unset',
+            }}>
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* שדות */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {mode === 'register' && (
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, textAlign: 'right' }}>שם פרטי</div>
+            <div style={fieldLabel}>שם פרטי</div>
             <input value={name} onChange={e => setName(e.target.value)}
               placeholder="מרים" dir="rtl"
-              style={{ ...inputStyle, textAlign: 'right' }}/>
+              style={{ ...underlineInput, textAlign: 'right' }}/>
           </div>
         )}
+
         {mode === 'register' && (
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, textAlign: 'right' }}>מגדר</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[{ id: 'female', label: 'נקבה' }, { id: 'male', label: 'זכר' }].map(g => (
-                <button key={g.id} type="button" onClick={() => setGender(g.id)} style={{
-                  flex: 1, padding: '13px 0', fontSize: 18, fontWeight: 700,
-                  borderRadius: 14, border: `3px solid ${colors.ink}`,
-                  background: gender === g.id ? colors.burgundy : colors.bgApp,
-                  color: gender === g.id ? 'white' : colors.ink,
-                  boxShadow: gender === g.id ? `0 3px 0 ${colors.burgundyDeep}` : 'none',
-                  fontFamily: 'inherit', cursor: 'pointer', minHeight: 'unset',
-                }}>
-                  {g.label}
-                </button>
-              ))}
+            <div style={fieldLabel}>מגדר</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[{ id: 'female', label: 'נקבה' }, { id: 'male', label: 'זכר' }].map(g => {
+                const active = gender === g.id
+                return (
+                  <button key={g.id} type="button" onClick={() => setGender(g.id)} style={{
+                    flex: 1, padding: '13px 0', fontSize: 17, fontWeight: 700,
+                    borderRadius: 999, border: 'none',
+                    background: active ? colors.burgundy : colors.surface2,
+                    color: active ? 'white' : colors.ink2,
+                    fontFamily: 'inherit', cursor: 'pointer', minHeight: 'unset',
+                    boxShadow: active ? `0 4px 12px -4px ${colors.burgundy}80` : 'none',
+                    transition: 'all 0.2s',
+                  }}>
+                    {g.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
+
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, textAlign: 'right' }}>כתובת מייל</div>
+          <div style={fieldLabel}>כתובת מייל</div>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
             placeholder="miriam@gmail.com" dir="ltr"
-            style={{ ...inputStyle, textAlign: 'left' }}/>
+            style={{ ...underlineInput, textAlign: 'left' }}/>
         </div>
+
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, textAlign: 'right' }}>סיסמה</div>
+          <div style={fieldLabel}>סיסמה</div>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)}
             placeholder="לפחות 6 תווים" dir="ltr"
-            style={{ ...inputStyle, textAlign: 'left' }}/>
+            style={{ ...underlineInput, textAlign: 'left' }}/>
         </div>
+
         {error && (
           <div style={{
             background: colors.burgundySoft, color: colors.burgundyDeep,
-            border: `2px solid ${colors.burgundy}`,
-            borderRadius: 12, padding: '10px 14px',
-            fontSize: 16, fontWeight: 600, textAlign: 'right',
+            borderRadius: 12, padding: '11px 14px',
+            fontSize: 15, fontWeight: 600, textAlign: 'right',
           }}>{error}</div>
         )}
+
         <button onClick={handleSubmit} disabled={loading}
-          className="big-btn big-btn--primary" style={{ width: '100%', marginTop: 4 }}>
+          style={{
+            width: '100%', marginTop: 10, padding: '16px 0',
+            textAlign: 'center', border: 'none', borderRadius: 16,
+            background: colors.burgundy, color: 'white',
+            fontSize: 18, fontWeight: 700, fontFamily: 'inherit',
+            cursor: loading ? 'default' : 'pointer',
+            boxShadow: `0 8px 18px -6px ${colors.burgundy}73`,
+            opacity: loading ? 0.7 : 1,
+            minHeight: 'unset',
+          }}>
           {loading ? 'רגע...' : mode === 'login' ? 'כניסה →' : 'הרשמה →'}
         </button>
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: 16, fontSize: 14, color: colors.ink3 }}>
+      <div style={{ textAlign: 'center', marginTop: 18, fontSize: 14, color: colors.ink3 }}>
         {mode === 'login' ? 'אין לך חשבון? ' : 'יש לך חשבון? '}
         <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}
-          style={{ color: colors.burgundy, fontWeight: 700, fontSize: 14, textDecoration: 'underline', minHeight: 'unset', minWidth: 'unset' }}>
+          style={{ color: colors.burgundy, fontWeight: 700, fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset', minWidth: 'unset' }}>
           {mode === 'login' ? 'הירשמי כאן' : 'כנסי כאן'}
         </button>
       </div>
