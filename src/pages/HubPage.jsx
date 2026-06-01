@@ -25,7 +25,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends, onGoGames }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends, onGoGames, onOpenNotification }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -40,13 +40,10 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
     if (authUser?.uid) markNotificationsSeen(authUser.uid).catch(() => {})
   }
 
-  // לחיצה על התראה — מנווט למקום הרלוונטי
+  // לחיצה על התראה — סוגרים את הפאנל ומעבירים ל-App לניווט הממוקד
   const handleNotifNavigate = (it) => {
     setNotifOpen(false)
-    if (it.type === 'friend') { onGoFriends() }
-    else if (it.type === 'chat') { onGoFriends() }
-    else if (it.type === 'like') { it.kind === 'recipe' ? onGoRecipes() : onGoTips() }
-    // הזמנות למשחק (invite) — המודל הקופץ של GameInviteListener מטפל בזה; כאן רק סוגרים
+    if (onOpenNotification) onOpenNotification(it)
   }
 
   const [onlineFriends, setOnlineFriends] = useState(

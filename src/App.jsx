@@ -273,6 +273,7 @@ export default function App() {
           onGoProfile={() => setPage('profile')}
           onGoFriends={() => setPage('friends')}
           onGoGames={() => setPage('games')}
+          onOpenNotification={handleOpenNotification}
         />
       )}
       <InstallPrompt />

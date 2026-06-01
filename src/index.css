@@ -107,7 +107,8 @@ button:focus-visible {
 
 /* App shell */
 .app-shell {
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   max-width: 430px;
   margin: 0 auto;
   background: var(--bg-app);

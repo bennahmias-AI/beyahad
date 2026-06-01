@@ -322,7 +322,9 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
           boxShadow: '0 8px 20px -6px rgba(126,44,46,.4)',
           textAlign: 'center',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>🔴 🟡</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
+            <GameIcon id="connect4" size={52} />
+          </div>
           <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>
             4 בשורה
           </div>
@@ -938,6 +940,8 @@ function FriendListScreen({ friends, onInvite, onGoFriends }) {
 // גוף הרשימה — מרכז מעקב אחר חיבור כל החברים ומחלק לשתי קבוצות
 function FriendListBody({ friends, onInvite }) {
   const [onlineMap, setOnlineMap] = useState({})
+  // מפת פרופילים חיים — תמונה ושם מלא לכל חבר (חבר → תמיד שם מלא)
+  const [profileMap, setProfileMap] = useState({})
 
   useEffect(() => {
     if (!friends || friends.length === 0) return
@@ -949,6 +953,8 @@ function FriendListBody({ friends, onInvite }) {
         const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
         const isOnline = Boolean(fresh) && ['available', 'busy'].includes(u?.status)
         setOnlineMap(prev => ({ ...prev, [f.otherUid]: isOnline }))
+        const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ')
+        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null } }))
       })
     })
     return () => unsubs.forEach(u => u && u())
@@ -973,7 +979,7 @@ function FriendListBody({ friends, onInvite }) {
             מחוברים עכשיו ({onlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-            {onlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} online onInvite={() => onInvite(f)} />)}
+            {onlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -985,7 +991,7 @@ function FriendListBody({ friends, onInvite }) {
             לא מחוברים ({offlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {offlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} online={false} onInvite={() => onInvite(f)} />)}
+            {offlineFriends.map(f => <FriendInviteRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online={false} onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -993,8 +999,10 @@ function FriendListBody({ friends, onInvite }) {
   )
 }
 
-// שורת חבר אחד — ירוק כשמחובר, אדום (בורדו) כשלא
-function FriendInviteRow({ friend, online, onInvite }) {
+// שורת חבר אחד — ירוק כשמחובר, אדום (בורדו) כשלא.
+// מציג תמונה ושם מלא חיים (חבר → תמיד שם מלא) עם fallback לשם מהרשימה.
+function FriendInviteRow({ friend, profile, online, onInvite }) {
+  const displayName = profile?.name || friend.otherName
   return (
     <div style={{
       background: 'var(--surface)',
@@ -1002,10 +1010,10 @@ function FriendInviteRow({ friend, online, onInvite }) {
       borderRadius: 16, padding: '14px 16px',
       display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <Avatar name={friend.otherName} size={50} online={online} />
+      <Avatar name={displayName} size={50} online={online} photoURL={profile?.photoURL} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>
-          {friend.otherName}
+          {displayName}
         </div>
         <div style={{
           fontSize: 13, fontWeight: 700,

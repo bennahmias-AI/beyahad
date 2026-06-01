@@ -546,6 +546,7 @@ function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
 
 function FriendList({ friends, onInvite, onBack }) {
   const [onlineMap, setOnlineMap] = useState({})
+  const [profileMap, setProfileMap] = useState({})
   useEffect(() => {
     if (!friends || friends.length === 0) return
     const unsubs = friends.map(f => {
@@ -556,6 +557,8 @@ function FriendList({ friends, onInvite, onBack }) {
         const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
         const isOnline = Boolean(fresh) && ['available', 'busy'].includes(u?.status)
         setOnlineMap(prev => ({ ...prev, [f.otherUid]: isOnline }))
+        const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ')
+        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null } }))
       })
     })
     return () => unsubs.forEach(u => u && u())
@@ -586,7 +589,7 @@ function FriendList({ friends, onInvite, onBack }) {
             מחוברים עכשיו ({onlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-            {onlineFriends.map(f => <FriendRow key={f.docId} friend={f} online onInvite={() => onInvite(f)} />)}
+            {onlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -597,7 +600,7 @@ function FriendList({ friends, onInvite, onBack }) {
             לא מחוברים ({offlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {offlineFriends.map(f => <FriendRow key={f.docId} friend={f} online={false} onInvite={() => onInvite(f)} />)}
+            {offlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online={false} onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -605,12 +608,13 @@ function FriendList({ friends, onInvite, onBack }) {
   )
 }
 
-function FriendRow({ friend, online, onInvite }) {
+function FriendRow({ friend, profile, online, onInvite }) {
+  const displayName = profile?.name || friend.otherName
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <Avatar name={friend.otherName} size={50} online={online} />
+      <Avatar name={displayName} size={50} online={online} photoURL={profile?.photoURL} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>{friend.otherName}</div>
+        <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>{displayName}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: online ? 'var(--success)' : 'var(--ink-3)' }}>
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
@@ -764,12 +768,26 @@ function WaitingRoom({ room, roomId, me, onBack }) {
 function BingoInvitePicker({ me, players, onInvite, onClose }) {
   const [friends, setFriends] = useState([])
   const [invited, setInvited] = useState({})
+  const [profileMap, setProfileMap] = useState({})
 
   useEffect(() => {
     if (!me.uid) return
     const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
     return () => unsub && unsub()
   }, [me.uid])
+
+  // משיכים תמונה ושם מלא חיים לכל חבר ברשימה
+  useEffect(() => {
+    if (!friends || friends.length === 0) return
+    const unsubs = friends.map(f => {
+      if (!f.otherUid) return null
+      return watchUser(f.otherUid, u => {
+        const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ')
+        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null } }))
+      })
+    })
+    return () => unsubs.forEach(u => u && u())
+  }, [friends])
 
   const inRoom = new Set(players.map(p => p.uid))
   const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
@@ -790,10 +808,13 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
           <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '26px 0', fontSize: 15 }}>אין חברים נוספים זמינים להזמנה</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {available.map(f => (
+            {available.map(f => {
+              const prof = profileMap[f.otherUid]
+              const dispName = prof?.name || f.otherName
+              return (
               <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Avatar name={f.otherName} size={46} />
-                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.otherName}</div>
+                <Avatar name={dispName} size={46} photoURL={prof?.photoURL} />
+                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
                 <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
                   background: invited[f.otherUid] ? 'var(--success)' : 'var(--burgundy)',
                   color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
@@ -801,7 +822,8 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
                   cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
                 }}>{invited[f.otherUid] ? '✓ נשלח' : '🎮 הזמן'}</button>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

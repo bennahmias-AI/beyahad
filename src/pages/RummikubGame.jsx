@@ -118,7 +118,7 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
 
       <div style={{ padding: '8px 20px 32px' }}>
         <div style={{ background: 'linear-gradient(135deg, #6B4427 0%, #4A2E18 100%)', borderRadius: 20, padding: '20px 18px', color: '#FBF7EE', marginBottom: 24, boxShadow: '0 8px 20px -6px rgba(74,46,24,.5)', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>🎴</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><GameIcon id="rummikub" size={52} /></div>
           <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>רמיקוב</div>
           <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>סדרו רצפים וקבוצות — והיפטרו מכל האריחים ראשונים</div>
         </div>
@@ -185,7 +185,9 @@ function CountPicker({ options, labels, onPick }) {
           fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
         }}>
           <span className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>{labels[i]}</span>
-          <span style={{ fontSize: 22 }}>{'🎴'.repeat(Math.min(n, 4))}</span>
+          <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center', background: 'linear-gradient(135deg,#6B4427,#4A2E18)', borderRadius: 10, padding: '5px 9px' }}>
+            {Array.from({ length: Math.min(n, 4) }).map((_, k) => <GameIcon key={k} id="rummikub" size={20} />)}
+          </span>
         </button>
       ))}
     </div>

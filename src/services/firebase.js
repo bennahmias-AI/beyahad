@@ -13,6 +13,9 @@ import {
   collection, query, where, getDocs, orderBy, limit,
   addDoc, arrayUnion,
 } from 'firebase/firestore'
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL,
+} from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,6 +29,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db   = getFirestore(app)
+export const storage = getStorage(app)
 
 // ─── Auth ─────────────────────────────────────────────────────
 
@@ -1230,22 +1234,29 @@ export function directChatId(uidA, uidB) {
 }
 
 // שולח הודעה פרטית. יוצר את מסמך השיחה אם עוד לא קיים.
-export async function sendDirectMessage({ fromUid, toUid, text, senderName }) {
+// תומך בהודעת טקסט (text) או בהודעה קולית (audioUrl + durationSec).
+export async function sendDirectMessage({ fromUid, toUid, text, senderName, audioUrl, durationSec }) {
   const chatId = directChatId(fromUid, toUid)
   const ref = doc(db, 'directChats', chatId)
+  const isVoice = Boolean(audioUrl)
   const message = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     senderUid: fromUid,
     senderName: senderName || '',
-    text: String(text || '').slice(0, 2000),
+    type: isVoice ? 'voice' : 'text',
+    text: isVoice ? '' : String(text || '').slice(0, 2000),
+    audioUrl: isVoice ? audioUrl : '',
+    durationSec: isVoice ? Math.round(durationSec || 0) : 0,
     at: Date.now(),
   }
+  // טקסט תצוגה לרשימת השיחות וההתראות
+  const preview = isVoice ? '\uD83C\uDFA4 הודעה קולית' : message.text
   const snap = await getDoc(ref)
   if (!snap.exists()) {
     await setDoc(ref, {
       participants: [fromUid, toUid].sort(),
       messages: [message],
-      lastText: message.text,
+      lastText: preview,
       lastAt: message.at,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1253,12 +1264,24 @@ export async function sendDirectMessage({ fromUid, toUid, text, senderName }) {
   } else {
     await updateDoc(ref, {
       messages: arrayUnion(message),
-      lastText: message.text,
+      lastText: preview,
       lastAt: message.at,
       updatedAt: serverTimestamp(),
     })
   }
   return message.id
+}
+
+// מעלה הקלטה קולית ל-Firebase Storage ומחזיר קישור הורדה ציבורי.
+// הקובץ נשמר תחת voiceMessages/{chatId}/{messageId}.webm
+export async function uploadVoiceMessage({ fromUid, toUid, blob }) {
+  const chatId = directChatId(fromUid, toUid)
+  const fileId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const path = `voiceMessages/${chatId}/${fileId}.webm`
+  const fileRef = storageRef(storage, path)
+  await uploadBytes(fileRef, blob, { contentType: blob.type || 'audio/webm' })
+  const url = await getDownloadURL(fileRef)
+  return url
 }
 
 // מאזין להודעות בשיחה פרטית בין שני משתמשים.
