@@ -33,8 +33,8 @@ const JOKER_COLOR = '#b8332f'
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית — ניתוב בין מצבים
 // ════════════════════════════════════════════════════════
-export default function RummikubGame({ onBack, initialRoomId }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : null)
+export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [numPlayers, setNumPlayers] = useState(2)
   const [roomId, setRoomId] = useState(initialRoomId || null)
@@ -68,7 +68,8 @@ export default function RummikubGame({ onBack, initialRoomId }) {
       mode={mode}
       numPlayers={numPlayers}
       initialRoomId={roomId}
-      onBack={() => { setMode(null); setRoomId(null) }}
+      autoInviteFriend={autoInviteFriend}
+      onBack={autoInviteFriend ? onBack : () => { setMode(null); setRoomId(null) }}
       onExit={onBack}
     />
   )

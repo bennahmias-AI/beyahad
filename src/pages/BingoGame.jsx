@@ -45,8 +45,8 @@ const COL_COLORS = ['#7E2C2E', '#B89048', '#4F6B4A', '#2C5566', '#6B3A4F']
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — ניתוב בין מצבי המשחק
 // ════════════════════════════════════════════════════════
-export default function BingoGame({ onBack, initialRoomId }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : null)
+export default function BingoGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function BingoGame({ onBack, initialRoomId }) {
 
   if (mode === 'online-random' || mode === 'online-friend') {
     if (!roomId) {
-      return <OnlineLobby mode={mode} onBack={() => setMode(null)} onReady={(id) => setRoomId(id)} />
+      return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onReady={(id) => setRoomId(id)} />
     }
     return (
       <OnlineGameScreen
@@ -430,7 +430,7 @@ function SoloGameScreen({ onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיפוש רנדומלי / הזמנת חברים
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady }) {
+function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
@@ -438,12 +438,21 @@ function OnlineLobby({ mode, onBack, onReady }) {
   const [elapsed, setElapsed] = useState(0)
   const [friends, setFriends] = useState([])
   const startedRef = useRef(false)
+  const autoInvitedRef = useRef(false)
 
   useEffect(() => {
     if (mode !== 'online-friend' || !me.uid) return
     const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
     return () => unsub && unsub()
   }, [mode, me.uid])
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !me.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+    // eslint-disable-next-line
+  }, [autoInviteFriend, me.uid])
 
   useEffect(() => {
     if (mode !== 'online-random' || startedRef.current) return

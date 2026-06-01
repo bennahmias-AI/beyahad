@@ -35,7 +35,7 @@ import {
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, onBack, onExit }) {
+export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, onBack, onExit, autoInviteFriend = null }) {
   const { authUser, profile } = useUserStore()
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -44,7 +44,7 @@ export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, on
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
 
   if (!roomId) {
-    return <Lobby mode={mode} me={me} numPlayers={numPlayers} onBack={onBack} onReady={(id) => setRoomId(id)} />
+    return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={onBack} onReady={(id) => setRoomId(id)} />
   }
   return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); onBack() }} onExit={onExit} />
 }
@@ -52,18 +52,27 @@ export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, on
 // ════════════════════════════════════════════════════════
 // Lobby — חיפוש רנדומלי / רשימת חברים
 // ════════════════════════════════════════════════════════
-function Lobby({ mode, me, numPlayers = 4, onBack, onReady }) {
+function Lobby({ mode, me, numPlayers = 4, onBack, onReady, autoInviteFriend = null }) {
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [friends, setFriends] = useState([])
   const startedRef = useRef(false)
+  const autoInvitedRef = useRef(false)
 
   useEffect(() => {
     if (mode !== 'online-friend' || !me.uid) return
     const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
     return () => unsub && unsub()
   }, [mode, me.uid])
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !me.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+    // eslint-disable-next-line
+  }, [autoInviteFriend, me.uid])
 
   useEffect(() => {
     if (mode !== 'online-random' || startedRef.current) return

@@ -5,7 +5,9 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { setPresence, watchOnlineCount, signOut } from '../services/firebase.js'
+import { setPresence, watchOnlineCount, signOut, markNotificationsSeen } from '../services/firebase.js'
+import { useNotifications } from '../hooks/useNotifications.js'
+import NotificationsPanel from '../components/NotificationsPanel.jsx'
 import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconFriends,
@@ -27,6 +29,25 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+
+  // התראות — בקשות חברות, הזמנות למשחק, הודעות ולייקים
+  const { items: notifications, unseenCount } = useNotifications(authUser?.uid)
+
+  // פתיחת רשימת ההתראות — מסמן את הכל כנראה (מאפס את המספר)
+  const openNotifications = () => {
+    setNotifOpen(true)
+    if (authUser?.uid) markNotificationsSeen(authUser.uid).catch(() => {})
+  }
+
+  // לחיצה על התראה — מנווט למקום הרלוונטי
+  const handleNotifNavigate = (it) => {
+    setNotifOpen(false)
+    if (it.type === 'friend') { onGoFriends() }
+    else if (it.type === 'chat') { onGoFriends() }
+    else if (it.type === 'like') { it.kind === 'recipe' ? onGoRecipes() : onGoTips() }
+    // הזמנות למשחק (invite) — המודל הקופץ של GameInviteListener מטפל בזה; כאן רק סוגרים
+  }
 
   const [onlineFriends, setOnlineFriends] = useState(
     SHOW_DEMO_FRIENDS ? DEMO_FRIENDS : []
@@ -96,7 +117,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
         </div>
         <button
           aria-label="התראות"
-          onClick={() => showComingSoon('התראות')}
+          onClick={openNotifications}
           style={{
             width: 56, height: 56, borderRadius: '50%',
             background: 'none', border: 'none', padding: 0,
@@ -105,15 +126,17 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
           }}
         >
           <IconBell size={52} />
-          <span style={{
-            position: 'absolute', top: -2, insetInlineStart: -2,
-            width: 22, height: 22, borderRadius: 11,
-            background: 'var(--mustard)', color: 'var(--ink)',
-            fontSize: 12, fontWeight: 800,
-            fontFamily: 'var(--font-display)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid var(--ink)',
-          }}>3</span>
+          {unseenCount > 0 && (
+            <span style={{
+              position: 'absolute', top: -2, insetInlineStart: -2,
+              minWidth: 22, height: 22, borderRadius: 11, padding: '0 5px',
+              background: 'var(--mustard)', color: 'var(--ink)',
+              fontSize: 12, fontWeight: 800,
+              fontFamily: 'var(--font-display)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '2px solid var(--ink)',
+            }}>{unseenCount}</span>
+          )}
         </button>
       </div>
 
@@ -394,6 +417,14 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
 
       {comingSoon && (
         <ComingSoonModal name={comingSoon} onClose={() => setComingSoon(null)} />
+      )}
+
+      {notifOpen && (
+        <NotificationsPanel
+          items={notifications}
+          onClose={() => setNotifOpen(false)}
+          onNavigate={handleNotifNavigate}
+        />
       )}
 
       {menuOpen && (

@@ -240,8 +240,8 @@ function aiPickColumn(board, difficulty, me, opponent) {
 // ════════════════════════════════════════════════════════
 // mode: 'ai' | 'local' | 'online-random' | 'online-friend-host' | 'online-friend-join'
 // ════════════════════════════════════════════════════════
-export default function Connect4Game({ onBack, initialRoomId }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : null)
+export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)  // למצבי אונליין
 
@@ -272,7 +272,8 @@ export default function Connect4Game({ onBack, initialRoomId }) {
       return (
         <OnlineLobby
           mode={mode}
-          onBack={() => setMode(null)}
+          autoInviteFriend={autoInviteFriend}
+          onBack={onBack}
           onReady={(id) => setRoomId(id)}
         />
       )
@@ -488,7 +489,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיבור לחדר משחק (רנדומלי / חבר)
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady }) {
+function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   // phase: במצב 'online-random' מתחילים ישר ב-'searching' (כמו קפה בסלון).
   // במצב 'online-friend' מתחילים ב-'friend-list' (בחירת חבר מהרשימה).
@@ -506,6 +507,15 @@ function OnlineLobby({ mode, onBack, onReady }) {
   const friendsUnsubRef = useRef(null)
   const startedRef = useRef(false)        // למניעת ריצה כפולה של startRandom
   const successfulMatchRef = useRef(false) // האם הצלחנו להתחבר — אם כן, לא למחוק חדר ב-cleanup
+  const autoInvitedRef = useRef(false)
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !authUser?.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+    // eslint-disable-next-line
+  }, [autoInviteFriend, authUser?.uid])
 
   // ── טעינת רשימת החברים במצב שחק עם חבר ──
   useEffect(() => {

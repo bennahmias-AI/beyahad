@@ -21,7 +21,7 @@ import {
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, AddFriendButton, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
-import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles } from '../components/GameVideo.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 
 // ════════════════════════════════════════════════════════
 // פלטת עץ ופליז (משותף לעיצוב)
@@ -195,8 +195,8 @@ function afterMove(ns, player) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function SheshBeshGame({ onBack, initialRoomId }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : null)
+export default function SheshBeshGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -214,7 +214,7 @@ export default function SheshBeshGame({ onBack, initialRoomId }) {
     )
   }
   if (mode === 'online-random' || mode === 'online-friend') {
-    if (!roomId) return <OnlineLobby mode={mode} onBack={() => setMode(null)} onReady={(id) => setRoomId(id)} />
+    if (!roomId) return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={onBack} onReady={(id) => setRoomId(id)} />
     return (
       <OnlineGameScreen
         roomId={roomId}
@@ -298,7 +298,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady }) {
+function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
@@ -312,12 +312,20 @@ function OnlineLobby({ mode, onBack, onReady }) {
   const friendsUnsubRef = useRef(null)
   const startedRef = useRef(false)
   const successfulMatchRef = useRef(false)
+  const autoInvitedRef = useRef(false)
 
   useEffect(() => {
     if (mode !== 'online-friend' || !authUser?.uid) return
     friendsUnsubRef.current = watchFriendships(authUser.uid, ({ friends }) => setFriends(friends))
     return () => { if (friendsUnsubRef.current) friendsUnsubRef.current() }
   }, [mode, authUser?.uid])
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים, שולחים הזמנה ישירות
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !authUser?.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+  }, [autoInviteFriend, authUser?.uid]) // eslint-disable-line
 
   useEffect(() => {
     if (mode !== 'online-random' || startedRef.current) return
@@ -753,6 +761,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   const centerLabel = winner ? (winner === myColor ? 'ניצחת!' : 'הפסדת') : (isMyTurn ? 'תורך!' : 'תור היריב')
 
   return (
+    <ProfilesProvider uids={(room.players || []).map(p => p.uid)} myUid={myUid}>
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <SheshLayout
       isOnline={true} roomId={roomId} me={me ? { ...me, photoURL: profile?.photoURL } : { name: 'אתה' }} opponent={opponent}
@@ -769,6 +778,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       {!winner && (iRequested || oppRequested) && <RematchPrompt opponentName={opponent?.name || 'היריב'} iRequested={iRequested} onConfirm={requestRematch} onCancel={cancelRematch} />}
     </SheshLayout>
     </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 
@@ -837,7 +847,7 @@ function SheshLayout({
           // מצב רגיל — כרטיס יריב בודד למעלה
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             {addFriendNode}
-            <PlayerCard name={opponent?.name || 'יריב'} photoURL={opponent?.photoURL} active={topActive} color={oppColor} align="right" />
+            <PlayerCard uid={oppUid} name={opponent?.name || 'יריב'} photoURL={opponent?.photoURL} active={topActive} color={oppColor} align="right" />
           </div>
         )}
 
@@ -852,7 +862,7 @@ function SheshLayout({
 
         {/* שורה תחתונה: שחקן + כפתורי זהב (במצב וידאו — השחקן כבר למעלה, רק כפתורים) */}
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginTop: 14 }}>
-          {!withVideo && <PlayerCard name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />}
+          {!withVideo && <PlayerCard uid={myUid} name={me?.name || 'אתה'} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />}
           <GoldButton
             primary={canRoll || showPass} disabled={!canRoll && !showPass}
             icon={showPass ? <IcCheck /> : <IcDice />} label={showPass ? 'סיים תור' : 'גלגל'}
@@ -892,6 +902,10 @@ function GoldButton({ icon, label, onClick, primary, disabled, badge }) {
 
 // כרטיס וידאו לשחקן (סגנון עץ/זהב) — פרצוף גדול וכפתורי בקרה
 function SheshVideoCard({ uid, name, photoURL, active, you, addFriendNode }) {
+  // שם מלא + תמונה חיים מהפרופיל (שם משפחה רק לחברים/לעצמי)
+  const live = usePlayerProfile(uid, name, photoURL)
+  const dispName = live.name || name
+  const dispPhoto = live.photoURL ?? photoURL
   return (
     <div style={{
       flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
@@ -900,14 +914,14 @@ function SheshVideoCard({ uid, name, photoURL, active, you, addFriendNode }) {
       borderRadius: 14, padding: '10px 8px',
       boxShadow: active ? '0 0 12px rgba(232,200,121,.35)' : 'inset 0 1px 0 rgba(255,255,255,.08)',
     }}>
-      <PlayerVideo uid={uid} name={name} size={92} photoURL={photoURL} />
+      <PlayerVideo uid={uid} name={dispName} size={92} photoURL={dispPhoto} />
       {/* שורת שם — כפתורי שליטה משני הצדדים */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
         {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
         <div style={{
           fontFamily: "'Suez One', serif", fontSize: 14, fontWeight: 700, color: CREAM,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
-        }}>{name}{you ? ' (אתה)' : ''}</div>
+        }}>{dispName}{you ? ' (אתה)' : ''}</div>
         {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
       </div>
       {active && <span style={{ fontSize: 11, fontWeight: 800, color: GOLD }}>● תור</span>}
@@ -916,7 +930,11 @@ function SheshVideoCard({ uid, name, photoURL, active, you, addFriendNode }) {
   )
 }
 
-function PlayerCard({ name, photoURL, active, color, align, grow }) {
+function PlayerCard({ uid, name, photoURL, active, color, align, grow }) {
+  // שם מלא + תמונה חיים מהפרופיל (אם יש uid; אחרת fallback לערכים שהועברו)
+  const live = usePlayerProfile(uid, name, photoURL)
+  const dispName = live.name || name
+  const dispPhoto = live.photoURL ?? photoURL
   const dark = color === 'P2'
   return (
     <div style={{
@@ -926,9 +944,9 @@ function PlayerCard({ name, photoURL, active, color, align, grow }) {
       boxShadow: active ? '0 0 12px rgba(232,200,121,.35)' : 'inset 0 1px 0 rgba(255,255,255,.08)',
       flexDirection: align === 'left' ? 'row' : 'row-reverse',
     }}>
-      <Avatar name={name} size={38} photoURL={photoURL} />
+      <Avatar name={dispName} size={38} photoURL={dispPhoto} />
       <div style={{ minWidth: 0, textAlign: align === 'left' ? 'right' : 'left' }}>
-        <div style={{ fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 700, color: CREAM, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{name}</div>
+        <div style={{ fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 700, color: CREAM, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>{dispName}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: align === 'left' ? 'flex-start' : 'flex-end' }}>
           <span style={{ width: 14, height: 14, borderRadius: '50%', flexShrink: 0, background: dark ? 'radial-gradient(circle at 35% 30%,#55504f,#16161a)' : 'radial-gradient(circle at 35% 30%,#f0dca6,#bf9a4f)', border: '1px solid rgba(0,0,0,.3)' }} />
           {active && <span style={{ fontSize: 11, fontWeight: 800, color: GOLD }}>● תור</span>}

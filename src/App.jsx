@@ -12,6 +12,7 @@ import CommunityPage from './pages/CommunityPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
+import DirectChatPage from './pages/DirectChatPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
 import Connect4Game from './pages/Connect4Game.jsx'
@@ -47,6 +48,29 @@ export default function App() {
   const [rummikubRoom, setRummikubRoom] = useState(null)
   const [arenaRoom, setArenaRoom] = useState(null)
   const [bingoRoom, setBingoRoom] = useState(null)
+  // החבר שאיתו פתוחה שיחת צ'אט פרטית
+  const [chatFriend, setChatFriend] = useState(null)
+  // החבר שאיתו רוצים לשחק — נכנסים לזירה במצב "הזמנת חבר", והבחירה שולחת הזמנה
+  const [playFriend, setPlayFriend] = useState(null)
+  // פוסט ספציפי לפתוח בדף עצות/מתכונים (מהתראת לייק)
+  const [initialPostId, setInitialPostId] = useState(null)
+
+  // ניווט מהתראה (מהפעמון במסך הבית) — לפי סוג ההתראה
+  function handleOpenNotification(it) {
+    if (it.type === 'chat') {
+      // הודעה מחבר — פותחים ישר את שיחת הצ'אט איתו
+      setChatFriend({ otherUid: it.otherUid, otherName: it.otherName })
+      setPage('chat')
+    } else if (it.type === 'friend') {
+      // בקשת חברות — דף החברים (לאישור/דחייה)
+      setPage('friends')
+    } else if (it.type === 'like') {
+      // לייק על תוכן שלי — פותחים את הפוסט הספציפי בדף הרלוונטי
+      setInitialPostId(it.postId)
+      setPage(it.kind === 'recipe' ? 'recipes' : 'tips')
+    }
+    // invite — המודל הקופץ של GameInviteListener מטפל; אין צורך בניווט
+  }
 
   // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
   function handleInviteAccept({ roomId, gameType }) {
@@ -150,19 +174,28 @@ export default function App() {
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
-      {page === 'tips' && <CommunityPage onBack={() => setPage('hub')} kind="tip" />}
-      {page === 'recipes' && <CommunityPage onBack={() => setPage('hub')} kind="recipe" />}
+      {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="tip" initialPostId={initialPostId} />}
+      {page === 'recipes' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="recipe" initialPostId={initialPostId} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
       {page === 'friends' && (
         <FriendsPage
           onBack={() => setPage('hub')}
           onCallFriend={() => setPage('waiting')}
+          onPlayFriend={(f) => { setPlayFriend(f); setPage('games') }}
+          onMessageFriend={(f) => { setChatFriend(f); setPage('chat') }}
+        />
+      )}
+      {page === 'chat' && (
+        <DirectChatPage
+          friend={chatFriend}
+          onBack={() => { setChatFriend(null); setPage('friends') }}
         />
       )}
       {page === 'games' && (
         <GamesArenaPage
-          onBack={() => setPage('hub')}
+          onBack={() => { setPlayFriend(null); setPage('hub') }}
+          inviteFriend={playFriend}
           onGoMemory={() => setPage('memory-game')}
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
           onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
@@ -184,37 +217,43 @@ export default function App() {
       {page === 'rummikub-game' && (
         <RummikubGame
           initialRoomId={rummikubRoom}
-          onBack={() => { setRummikubRoom(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setRummikubRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'arena-game' && (
         <ArenaGame
           initialRoomId={arenaRoom}
-          onBack={() => { setArenaRoom(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setArenaRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'bingo-game' && (
         <BingoGame
           initialRoomId={bingoRoom}
-          onBack={() => { setBingoRoom(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setBingoRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'connect4-game' && (
         <Connect4Game
           initialRoomId={connect4Room}
-          onBack={() => { setConnect4Room(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setConnect4Room(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'checkers-game' && (
         <CheckersGame
           initialRoomId={checkersRoom}
-          onBack={() => { setCheckersRoom(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setCheckersRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'sheshbesh-game' && (
         <SheshBeshGame
           initialRoomId={sheshbeshRoom}
-          onBack={() => { setSheshbeshRoom(null); setPage('games') }}
+          autoInviteFriend={playFriend}
+          onBack={() => { setSheshbeshRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
       {page === 'waiting' && (

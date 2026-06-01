@@ -16,9 +16,9 @@ import {
   watchUser,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL, IconPhone } from '../icons/index.jsx'
+import { IconBackRTL, IconPhone, IconChatLine, IconGamepad } from '../icons/index.jsx'
 
-export default function FriendsPage({ onBack, onCallFriend }) {
+export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMessageFriend }) {
   const { authUser } = useUserStore()
   const [friends, setFriends] = useState([])
   const [incoming, setIncoming] = useState([])
@@ -134,6 +134,8 @@ export default function FriendsPage({ onBack, onCallFriend }) {
                       key={f.docId}
                       friend={f}
                       onCall={() => onCallFriend && onCallFriend(f)}
+                      onPlay={() => onPlayFriend && onPlayFriend(f)}
+                      onMessage={() => onMessageFriend && onMessageFriend(f)}
                       onRemove={() => removeFriendship(f.docId)}
                     />
                   ))}
@@ -198,7 +200,7 @@ function LiveAvatar({ uid, name, size, online }) {
 }
 
 // ── one friend row — watches that friend's live online status ──
-function FriendRow({ friend, onCall, onRemove }) {
+function FriendRow({ friend, onCall, onPlay, onMessage, onRemove }) {
   const [online, setOnline] = useState(false)
   const [prof, setProf] = useState(null)  // פרופיל חי: { name, lastName, photoURL }
 
@@ -225,39 +227,49 @@ function FriendRow({ friend, onCall, onRemove }) {
     <div style={{
       background: 'var(--surface)',
       border: '1px solid var(--line)',
-      borderRadius: 16, padding: '14px 16px',
-      display: 'flex', alignItems: 'center', gap: 12,
+      borderRadius: 16, padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
     }}>
-      <Avatar name={fullName} size={50} online={online} photoURL={photoURL} />
+      <Avatar name={fullName} size={48} online={online} photoURL={photoURL} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)' }}>
+        <div className="h-display" style={{ fontSize: 16, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {fullName}
         </div>
         <div style={{
-          fontSize: 13, fontWeight: 700,
+          fontSize: 12, fontWeight: 700,
           color: online ? 'var(--success)' : 'var(--ink-3)',
-          display: 'flex', alignItems: 'center', gap: 5,
+          display: 'flex', alignItems: 'center', gap: 4,
         }}>
           {online && <span style={{
-            width: 8, height: 8, borderRadius: '50%', background: '#4ADE80',
+            width: 7, height: 7, borderRadius: '50%', background: '#4ADE80',
           }}/>}
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      <button
-        onClick={onCall}
-        disabled={!online}
-        aria-label="התקשר"
-        style={{
-          width: 48, height: 48, borderRadius: 14,
-          background: online ? 'var(--success)' : 'var(--line-strong)',
-          border: 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: online ? 'pointer' : 'default',
-        }}
-      >
-        <IconPhone size={22} color="white" />
-      </button>
+      {/* 3 כפתורי עיגול — טלפון, הודעה, משחק — ישר בשורה */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        <RoundAction icon={<IconPhone size={20} color="#fff" />} bg="var(--success)" label="שיחה" onClick={onCall} />
+        <RoundAction icon={<IconChatLine size={20} color="#fff" />} bg="#2C5566" label="הודעה" onClick={onMessage} />
+        <RoundAction icon={<IconGamepad size={20} color="#fff" />} bg="var(--burgundy)" label="משחק" onClick={onPlay} />
+      </div>
     </div>
+  )
+}
+
+// כפתור עיגול יחיד בשורת החבר — גדול ונוח למבוגרים
+function RoundAction({ icon, bg, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        width: 46, height: 46, borderRadius: '50%', background: bg,
+        border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      {icon}
+    </button>
   )
 }

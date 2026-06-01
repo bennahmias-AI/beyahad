@@ -106,12 +106,21 @@ const GAMES = [
   },
 ]
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo }) {
+// מזהי המשחקים שאפשר לשחק עם חבר (רב-משתתפים). memory/trivia הם "לבד" ולכן לא כלולים.
+const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo']
+// משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
+const MULTI_PLAYER = ['rummikub', 'arena', 'bingo']
+
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
-  const availableGames = GAMES.filter(g => g.status === 'available' || g.status === 'live')
-  const comingSoonGames = GAMES.filter(g => g.status === 'coming-soon')
+  // במצב "הזמנת חבר" — מציגים רק משחקים שאפשר לשחק עם חבר
+  const friendMode = !!inviteFriend
+  const availableGames = GAMES
+    .filter(g => g.status === 'available' || g.status === 'live')
+    .filter(g => !friendMode || FRIEND_PLAYABLE.includes(g.id))
+  const comingSoonGames = friendMode ? [] : GAMES.filter(g => g.status === 'coming-soon')
 
   const handleGameClick = (game) => {
     // משחקים זמינים — ניווט למסך המשחק
@@ -158,7 +167,7 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
-        <div className="screen-header__title">זירת המשחקים</div>
+        <div className="screen-header__title">{friendMode ? 'בחרו משחק' : 'זירת המשחקים'}</div>
       </div>
 
       <div style={{ padding: '8px 20px 32px' }}>
@@ -179,17 +188,19 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
             background: 'radial-gradient(circle, rgba(232,200,121,.25), transparent 70%)',
           }}/>
           <div style={{ position: 'relative' }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🎮</div>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>{friendMode ? '🤝' : '🎮'}</div>
             <div className="h-display" style={{
               fontSize: 24, lineHeight: 1.1, marginBottom: 6, color: '#FBF7EE',
             }}>
-              בואו לשחק יחד
+              {friendMode ? `משחק עם ${inviteFriend.otherName}` : 'בואו לשחק יחד'}
             </div>
             <div style={{
               fontSize: 14, fontWeight: 600, lineHeight: 1.4,
               color: 'rgba(255,255,255,.92)',
             }}>
-              שחקו עם חברים, הכירו אנשים חדשים, והעבירו זמן בכיף
+              {friendMode
+                ? 'בחרו משחק — ונשלח הזמנה ישירות לחבר'
+                : 'שחקו עם חברים, הכירו אנשים חדשים, והעבירו זמן בכיף'}
             </div>
           </div>
         </div>

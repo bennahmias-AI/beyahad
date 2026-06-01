@@ -9,7 +9,7 @@
 // פסיכולוגית: כשמשתמש רואה "42 צפו במתכון שלי" — הוא מרגיש
 // נחוץ ומועיל. זו "הותרת חותם" בצורה פרקטית.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchCommunityPosts, createCommunityPost,
@@ -48,7 +48,7 @@ const CONFIG = {
   },
 }
 
-export default function CommunityPage({ onBack, kind = 'tip' }) {
+export default function CommunityPage({ onBack, kind = 'tip', initialPostId = null }) {
   const { profile, authUser } = useUserStore()
   const cfg = CONFIG[kind] || CONFIG.tip
 
@@ -57,6 +57,7 @@ export default function CommunityPage({ onBack, kind = 'tip' }) {
   const [openPost, setOpenPost] = useState(null)
   const [composing, setComposing] = useState(false)
   const [seeding, setSeeding] = useState(false)
+  const openedInitialRef = useRef(false)
 
   // Watch posts of this kind
   useEffect(() => {
@@ -67,6 +68,17 @@ export default function CommunityPage({ onBack, kind = 'tip' }) {
     })
     return () => unsub && unsub()
   }, [kind])
+
+  // הגענו מהתראה על לייק — פותחים אוטומטית את הפוסט הספציפי (פעם אחת)
+  useEffect(() => {
+    if (!initialPostId || openedInitialRef.current || posts.length === 0) return
+    const post = posts.find(p => p.id === initialPostId)
+    if (post) {
+      openedInitialRef.current = true
+      setOpenPost(post)
+      incrementPostViews(post.id).catch(() => {})
+    }
+  }, [initialPostId, posts])
 
   const openItem = async (post) => {
     setOpenPost(post)

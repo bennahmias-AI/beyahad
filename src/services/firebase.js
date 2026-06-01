@@ -1222,3 +1222,88 @@ export async function fetchLiveKitToken(room, participantName, uid = '') {
   const data = await res.json()
   return data.token
 }
+
+// ─── צ'אט פרטי בין חברים ────────────────────────────
+// מזהה שיחה יציב — שני ה-uids ממוינים ומחוברים, כך ששני הצדדים מגיעים לאותה שיחה.
+export function directChatId(uidA, uidB) {
+  return [uidA, uidB].sort().join('__')
+}
+
+// שולח הודעה פרטית. יוצר את מסמך השיחה אם עוד לא קיים.
+export async function sendDirectMessage({ fromUid, toUid, text, senderName }) {
+  const chatId = directChatId(fromUid, toUid)
+  const ref = doc(db, 'directChats', chatId)
+  const message = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    senderUid: fromUid,
+    senderName: senderName || '',
+    text: String(text || '').slice(0, 2000),
+    at: Date.now(),
+  }
+  const snap = await getDoc(ref)
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      participants: [fromUid, toUid].sort(),
+      messages: [message],
+      lastText: message.text,
+      lastAt: message.at,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  } else {
+    await updateDoc(ref, {
+      messages: arrayUnion(message),
+      lastText: message.text,
+      lastAt: message.at,
+      updatedAt: serverTimestamp(),
+    })
+  }
+  return message.id
+}
+
+// מאזין להודעות בשיחה פרטית בין שני משתמשים.
+export function watchDirectChat(uidA, uidB, cb) {
+  const chatId = directChatId(uidA, uidB)
+  return onSnapshot(doc(db, 'directChats', chatId), snap => {
+    if (snap.exists()) cb(snap.data().messages || [])
+    else cb([])
+  }, err => { console.error('watchDirectChat error:', err) })
+}
+
+// מאזין לכל השיחות הפרטיות שאני משתתף בהן (לצורך התראות).
+// מחזיר מערך של { chatId, otherUid, lastText, lastAt, lastSenderUid }.
+export function watchMyDirectChats(myUid, cb) {
+  const q = query(
+    collection(db, 'directChats'),
+    where('participants', 'array-contains', myUid),
+  )
+  return onSnapshot(q, snap => {
+    const chats = snap.docs.map(d => {
+      const data = d.data()
+      const msgs = data.messages || []
+      const last = msgs.length ? msgs[msgs.length - 1] : null
+      const otherUid = (data.participants || []).find(u => u !== myUid)
+      return {
+        chatId: d.id,
+        otherUid,
+        lastText: data.lastText || (last ? last.text : ''),
+        lastAt: data.lastAt || (last ? last.at : 0),
+        lastSenderUid: last ? last.senderUid : null,
+        lastSenderName: last ? last.senderName : '',
+      }
+    })
+    cb(chats)
+  }, err => { console.error('watchMyDirectChats error:', err) })
+}
+
+// ─── התראות — חותמת "ראיתי התראות" ──────────────────
+// שומרים במסמך המשתמש את הרגע האחרון שבו פתח את רשימת ההתראות.
+// כל התראה שקרתה אחרי הזמן הזה נחשבת "חדשה".
+export async function markNotificationsSeen(uid) {
+  if (!uid) return
+  try {
+    await updateDoc(doc(db, 'users', uid), { notificationsSeenAt: Date.now() })
+  } catch (e) {
+    console.error('markNotificationsSeen error:', e)
+  }
+}

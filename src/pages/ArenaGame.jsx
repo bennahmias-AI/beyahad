@@ -82,9 +82,9 @@ function fmtPoints(n) {
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function ArenaGame({ onBack, initialRoomId }) {
+export default function ArenaGame({ onBack, initialRoomId, autoInviteFriend = null }) {
   const { authUser, profile } = useUserStore()
-  const [mode, setMode] = useState(initialRoomId ? 'friend' : null)
+  const [mode, setMode] = useState(initialRoomId ? 'friend' : (autoInviteFriend ? 'friend' : null))
   const [numPlayers, setNumPlayers] = useState(2)
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -99,7 +99,7 @@ export default function ArenaGame({ onBack, initialRoomId }) {
   }
 
   if (!roomId) {
-    return <Lobby mode={mode} me={me} numPlayers={numPlayers} onBack={() => setMode(null)} onReady={(id) => setRoomId(id)} />
+    return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onReady={(id) => setRoomId(id)} />
   }
   return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); setMode(null) }} onExit={onBack} />
 }
@@ -220,18 +220,27 @@ function ModeButton({ onClick, iconId, gradient, label, description }) {
 // ════════════════════════════════════════════════════════
 // Lobby — חיפוש רנדומלי / רשימת חברים
 // ════════════════════════════════════════════════════════
-function Lobby({ mode, me, numPlayers = 2, onBack, onReady }) {
+function Lobby({ mode, me, numPlayers = 2, onBack, onReady, autoInviteFriend = null }) {
   const [phase, setPhase] = useState(mode === 'random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [friends, setFriends] = useState([])
   const startedRef = useRef(false)
+  const autoInvitedRef = useRef(false)
 
   useEffect(() => {
     if (mode !== 'friend' || !me.uid) return
     const unsub = watchFriendships(me.uid, ({ friends }) => setFriends(friends))
     return () => unsub && unsub()
   }, [mode, me.uid])
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !me.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+    // eslint-disable-next-line
+  }, [autoInviteFriend, me.uid])
 
   useEffect(() => {
     if (mode !== 'random' || startedRef.current) return

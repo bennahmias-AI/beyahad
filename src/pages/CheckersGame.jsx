@@ -325,8 +325,8 @@ function chooseAIMove(board, aiPlayer, difficulty) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function CheckersGame({ onBack, initialRoomId }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : null)
+export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -355,7 +355,8 @@ export default function CheckersGame({ onBack, initialRoomId }) {
       return (
         <OnlineLobby
           mode={mode}
-          onBack={() => setMode(null)}
+          autoInviteFriend={autoInviteFriend}
+          onBack={onBack}
           onReady={(id) => setRoomId(id)}
         />
       )
@@ -517,7 +518,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיבור לחדר (רנדומלי / חבר)
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady }) {
+function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
@@ -531,6 +532,15 @@ function OnlineLobby({ mode, onBack, onReady }) {
   const friendsUnsubRef = useRef(null)
   const startedRef = useRef(false)
   const successfulMatchRef = useRef(false)
+  const autoInvitedRef = useRef(false)
+
+  // הזמנה אוטומטית — כשהגיעו מ"משחק עם חבר" בדף החברים
+  useEffect(() => {
+    if (!autoInviteFriend || autoInvitedRef.current || !authUser?.uid) return
+    autoInvitedRef.current = true
+    inviteFriend(autoInviteFriend)
+    // eslint-disable-next-line
+  }, [autoInviteFriend, authUser?.uid])
 
   useEffect(() => {
     if (mode !== 'online-friend' || !authUser?.uid) return
