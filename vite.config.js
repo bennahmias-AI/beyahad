@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // מגדילים את מגבלת גודל הקובץ ל-precache (ברירת המחדל 2MB)
+        // — קובץ ה-JS הראשי גדול מ-2MB ואחרת הבנייה נכשלת.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,  // 5MB
+      },
       manifest: {
         name: 'ביחד — מערכת נגד בדידות',
         short_name: 'ביחד',
