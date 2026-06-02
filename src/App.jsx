@@ -34,7 +34,7 @@ import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
-  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline,
+  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 
@@ -111,9 +111,10 @@ export default function App() {
     }
   }
 
-  // ── שיחות וידאו ──
-  // המשתמש לחץ על כפתור הוידאו בשורת החבר — מתחילים שיחה (אם החבר מחובר)
-  async function handleVideoCall(friend) {
+  // ── שיחות וידאו / קול ──
+  // המשתמש לחץ על כפתור הוידאו/הטלפון — מתחילים שיחה (אם החבר מחובר)
+  // audioOnly=true → שיחה קולית בלבד (כמו טלפון)
+  async function handleVideoCall(friend, audioOnly = false) {
     if (!authUser?.uid || !friend?.otherUid) return
     setCallError('')
     // בודקים שהחבר מחובר — אחרת אין טעם לצלצל
@@ -124,14 +125,21 @@ export default function App() {
       return
     }
     try {
+      // שולפים את תמונת הפרופיל של החבר (להצגה במסך השיחה)
+      let otherPhoto = null
+      try {
+        const u = await getUser(friend.otherUid)
+        otherPhoto = u?.photoURL || null
+      } catch {}
       const from = { uid: authUser.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
       const to = { uid: friend.otherUid, name: friend.otherName }
-      const { callId, room } = await startVideoCall({ from, to })
+      const { callId, room } = await startVideoCall({ from, to, audioOnly })
       setOutgoingCall({
-        call: { id: callId, room },
+        call: { id: callId, room, audioOnly },
         otherUid: friend.otherUid,
         otherName: friend.otherName,
-        otherPhoto: null,
+        otherPhoto,
+        audioOnly,
       })
     } catch (e) {
       console.error('startVideoCall error:', e)
@@ -148,14 +156,16 @@ export default function App() {
       otherUid: outgoingCall.otherUid,
       otherName: outgoingCall.otherName,
       otherPhoto: outgoingCall.otherPhoto,
-      startWithCam: true,
+      startWithCam: !outgoingCall.audioOnly,
+      audioOnly: Boolean(outgoingCall.audioOnly),
     })
     setOutgoingCall(null)
   }
 
   // המקבל — ענה לשיחה נכנסת (מ-VideoCallListener), נכנסים למסך השיחה
   function handleIncomingAccept({ call, otherUid, otherName, otherPhoto }) {
-    setActiveCall({ call, otherUid, otherName, otherPhoto, startWithCam: true })
+    const audioOnly = Boolean(call?.audioOnly)
+    setActiveCall({ call, otherUid, otherName, otherPhoto, startWithCam: !audioOnly, audioOnly })
   }
 
   // Auto-navigate when LiveKit tokens are set
@@ -245,16 +255,16 @@ export default function App() {
       {page === 'friends' && (
         <FriendsPage
           onBack={() => setPage('hub')}
-          onCallFriend={() => setPage('waiting')}
-          onPlayFriend={(f) => { setPlayFriend(f); setPage('games') }}
           onMessageFriend={(f) => { setChatFriend(f); setPage('chat') }}
-          onVideoCall={handleVideoCall}
         />
       )}
       {page === 'chat' && (
         <DirectChatPage
           friend={chatFriend}
           onBack={() => { setChatFriend(null); setPage('friends') }}
+          onVideoCall={(f) => handleVideoCall(f, false)}
+          onCallFriend={(f) => handleVideoCall(f, true)}
+          onPlayFriend={(f) => { setPlayFriend(f); setPage('games') }}
         />
       )}
       {page === 'games' && (
@@ -374,6 +384,7 @@ export default function App() {
           call={outgoingCall.call}
           otherName={outgoingCall.otherName}
           otherPhoto={outgoingCall.otherPhoto}
+          audioOnly={outgoingCall.audioOnly}
           onConnected={handleOutgoingConnected}
           onEnded={() => setOutgoingCall(null)}
         />
@@ -389,6 +400,7 @@ export default function App() {
           otherName={activeCall.otherName}
           otherPhoto={activeCall.otherPhoto}
           startWithCam={activeCall.startWithCam}
+          audioOnly={activeCall.audioOnly}
           onEnd={() => setActiveCall(null)}
         />
       )}

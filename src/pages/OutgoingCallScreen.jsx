@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from 'react'
 import { watchVideoCall, endVideoCall, deleteVideoCall } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 
-export default function OutgoingCallScreen({ call, otherName, otherPhoto, onConnected, onEnded }) {
+export default function OutgoingCallScreen({ call, otherName, otherPhoto, audioOnly = false, onConnected, onEnded }) {
   const [status, setStatus] = useState('ringing')  // ringing | declined | no-answer
   const timeoutRef = useRef(null)
 
@@ -64,10 +64,19 @@ export default function OutgoingCallScreen({ call, otherName, otherPhoto, onConn
     : status === 'no-answer' ? `${otherName} לא ענה`
     : `מצלצל ל${otherName}...`
 
+  // עיצוב לפי סוג השיחה: קולית = רקע לבן-קרם נקי; וידאו = רקע כהה
+  const ringColor = audioOnly ? 'rgba(126,44,46,.25)' : 'rgba(255,255,255,.4)'
+  const ringColor2 = audioOnly ? 'rgba(126,44,46,.15)' : 'rgba(255,255,255,.25)'
+  const titleColor = audioOnly ? 'var(--ink)' : '#fff'
+  const subColor = audioOnly ? 'var(--ink-3)' : 'rgba(255,255,255,.65)'
+  const subText = audioOnly ? 'ממתין שיענה לשיחה' : 'ממתין שיענה לשיחת הווידאו'
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 3500, direction: 'rtl',
-      background: 'linear-gradient(180deg, #241830 0%, #160d1c 100%)',
+      background: audioOnly
+        ? 'linear-gradient(180deg, #FBF7EE 0%, #EFE8DA 100%)'
+        : 'linear-gradient(180deg, #241830 0%, #160d1c 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 24, gap: 24,
     }}>
@@ -76,11 +85,11 @@ export default function OutgoingCallScreen({ call, otherName, otherPhoto, onConn
           <>
             <span style={{
               position: 'absolute', inset: -10, borderRadius: '50%',
-              border: '3px solid rgba(255,255,255,.4)', animation: 'ocRing 1.5s ease-out infinite',
+              border: `3px solid ${ringColor}`, animation: 'ocRing 1.5s ease-out infinite',
             }} />
             <span style={{
               position: 'absolute', inset: -10, borderRadius: '50%',
-              border: '3px solid rgba(255,255,255,.25)', animation: 'ocRing 1.5s ease-out .6s infinite',
+              border: `3px solid ${ringColor2}`, animation: 'ocRing 1.5s ease-out .6s infinite',
             }} />
           </>
         )}
@@ -88,12 +97,12 @@ export default function OutgoingCallScreen({ call, otherName, otherPhoto, onConn
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, fontFamily: "'Suez One', serif", marginBottom: 6 }}>
+        <div style={{ color: titleColor, fontSize: 26, fontWeight: 800, fontFamily: "'Suez One', serif", marginBottom: 6 }}>
           {title}
         </div>
         {status === 'ringing' && (
-          <div style={{ color: 'rgba(255,255,255,.65)', fontSize: 16, fontWeight: 600 }}>
-            ממתין שיענה לשיחת הווידאו
+          <div style={{ color: subColor, fontSize: 16, fontWeight: 600 }}>
+            {subText}
           </div>
         )}
       </div>

@@ -16,9 +16,9 @@ import {
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
 import VoiceMessage from '../components/VoiceMessage.jsx'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine } from '../icons/index.jsx'
 
-export default function DirectChatPage({ friend, onBack }) {
+export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFriend, onPlayFriend }) {
   const { authUser, profile } = useUserStore()
   const myUid = authUser?.uid
   const otherUid = friend?.otherUid
@@ -155,23 +155,29 @@ export default function DirectChatPage({ friend, onBack }) {
     <div style={{ direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-app)' }}>
       {/* כותרת */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
         background: 'var(--surface)', borderBottom: '1px solid var(--line)', flexShrink: 0,
       }}>
-        <button onClick={onBack} aria-label="חזרה" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+        <button onClick={onBack} aria-label="חזרה" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
           <IconBackRTL size={24} color="#1B2540" />
         </button>
-        <Avatar name={fullName} size={44} online={online} photoURL={photoURL} />
+        <Avatar name={fullName} size={42} online={online} photoURL={photoURL} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>{fullName}</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: online ? 'var(--success)' : 'var(--ink-3)' }}>
+          <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: online ? 'var(--success)' : 'var(--ink-3)' }}>
             {online ? 'מחובר עכשיו' : 'לא מחובר'}
           </div>
+        </div>
+        {/* כפתורי פעולה — וידאו, קפה (קולי), משחק */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <HeaderAction icon={<IconVideoLine size={19} color="#fff" />} bg="#4F6B4A" label="שיחת וידאו" onClick={() => onVideoCall && onVideoCall(friend)} />
+          <HeaderAction icon={<IconPhone size={19} color="#fff" />} bg="var(--success)" label="שיחת קפה" onClick={() => onCallFriend && onCallFriend(friend)} />
+          <HeaderAction icon={<IconGamepad size={19} color="#fff" />} bg="var(--burgundy)" label="משחק" onClick={() => onPlayFriend && onPlayFriend(friend)} />
         </div>
       </div>
 
       {/* הודעות */}
-      <div ref={scrollRef} className="scroll-area" style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+      <div ref={scrollRef} className="scroll-area" style={{ flex: 1, minHeight: 0, padding: '16px', overflowY: 'auto' }}>
         {messages.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--ink-3)', padding: '40px 20px' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
@@ -310,5 +316,23 @@ export default function DirectChatPage({ friend, onBack }) {
         </div>
       )}
     </div>
+  )
+}
+
+// כפתור פעולה בכותרת הצ'אט (וידאו / קפה / משחק)
+function HeaderAction({ icon, bg, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      style={{
+        width: 42, height: 42, borderRadius: '50%', background: bg,
+        border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      {icon}
+    </button>
   )
 }

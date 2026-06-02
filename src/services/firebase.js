@@ -1435,7 +1435,7 @@ export async function isUserOnline(uid) {
 }
 
 // יוזם שיחת וידאו לחבר. מחזיר { callId, room }.
-export async function startVideoCall({ from, to }) {
+export async function startVideoCall({ from, to, audioOnly = false }) {
   const room = videoCallRoomName(from.uid, to.uid)
   const ref = await addDoc(collection(db, 'videoCalls'), {
     fromUid: from.uid,
@@ -1445,6 +1445,7 @@ export async function startVideoCall({ from, to }) {
     toName: to.name || 'משתמש',
     room,
     status: 'ringing',
+    audioOnly: Boolean(audioOnly),
     createdAt: serverTimestamp(),
   })
   return { callId: ref.id, room }

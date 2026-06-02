@@ -93,8 +93,69 @@ export async function fetchStationsByTag(tag, limit = 50) {
   }
 }
 
+// תחנות לפי מדינה (קוד מדינה ISO דו-אותי, למשל 'US', 'FR', 'IT')
+export async function fetchStationsByCountry(countryCode, limit = 80) {
+  if (!countryCode) return []
+  try {
+    const res = await fetch(
+      `${BASE}/stations/bycountrycodeexact/${encodeURIComponent(countryCode)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
+      { headers: HEADERS },
+    )
+    if (!res.ok) throw new Error('radio country fetch failed')
+    const data = await res.json()
+    return clean(data)
+  } catch (e) {
+    console.error('fetchStationsByCountry error:', e)
+    return []
+  }
+}
+
 // מדווח ל-API על הקלקה (סטטיסטיקה קהילתית — עוזר לדירוג). לא חוסם.
 export function reportClick(stationId) {
   if (!stationId) return
   fetch(`${BASE}/url/${stationId}`, { headers: HEADERS }).catch(() => {})
 }
+
+// ─── רשימת מדינות נפוצות לרדיו ──────────────────────────────
+// קוד ISO דו-אותי, דגל אמוג'י ושם בעברית. מסודרות לפי פופולריות/קרבה.
+export const RADIO_COUNTRIES = [
+  { code: 'IL', flag: '🇮🇱', name: 'ישראל' },
+  { code: 'US', flag: '🇺🇸', name: 'ארצות הברית' },
+  { code: 'GB', flag: '🇬🇧', name: 'בריטניה' },
+  { code: 'FR', flag: '🇫🇷', name: 'צרפת' },
+  { code: 'IT', flag: '🇮🇹', name: 'איטליה' },
+  { code: 'ES', flag: '🇪🇸', name: 'ספרד' },
+  { code: 'DE', flag: '🇩🇪', name: 'גרמניה' },
+  { code: 'RU', flag: '🇷🇺', name: 'רוסיה' },
+  { code: 'GR', flag: '🇬🇷', name: 'יוון' },
+  { code: 'TR', flag: '🇹🇷', name: 'טורקיה' },
+  { code: 'NL', flag: '🇳🇱', name: 'הולנד' },
+  { code: 'BE', flag: '🇧🇪', name: 'בלגיה' },
+  { code: 'PT', flag: '🇵🇹', name: 'פורטוגל' },
+  { code: 'CH', flag: '🇨🇭', name: 'שווייץ' },
+  { code: 'AT', flag: '🇦🇹', name: 'אוסטריה' },
+  { code: 'SE', flag: '🇸🇪', name: 'שוודיה' },
+  { code: 'NO', flag: '🇳🇴', name: 'נורווגיה' },
+  { code: 'DK', flag: '🇩🇰', name: 'דנמרק' },
+  { code: 'FI', flag: '🇫🇮', name: 'פינלנד' },
+  { code: 'PL', flag: '🇵🇱', name: 'פולין' },
+  { code: 'UA', flag: '🇺🇦', name: 'אוקראינה' },
+  { code: 'RO', flag: '🇷🇴', name: 'רומניה' },
+  { code: 'HU', flag: '🇭🇺', name: 'הונגריה' },
+  { code: 'CZ', flag: '🇨🇿', name: 'צ׳כיה' },
+  { code: 'IE', flag: '🇮🇪', name: 'אירלנד' },
+  { code: 'CA', flag: '🇨🇦', name: 'קנדה' },
+  { code: 'MX', flag: '🇲🇽', name: 'מקסיקו' },
+  { code: 'BR', flag: '🇧🇷', name: 'ברזיל' },
+  { code: 'AR', flag: '🇦🇷', name: 'ארגנטינה' },
+  { code: 'AU', flag: '🇦🇺', name: 'אוסטרליה' },
+  { code: 'IN', flag: '🇮🇳', name: 'הודו' },
+  { code: 'EG', flag: '🇪🇬', name: 'מצרים' },
+  { code: 'MA', flag: '🇲🇦', name: 'מרוקו' },
+  { code: 'JO', flag: '🇯🇴', name: 'ירדן' },
+  { code: 'LB', flag: '🇱🇧', name: 'לבנון' },
+  { code: 'JP', flag: '🇯🇵', name: 'יפן' },
+  { code: 'CN', flag: '🇨🇳', name: 'סין' },
+  { code: 'KR', flag: '🇰🇷', name: 'דרום קוריאה' },
+  { code: 'ZA', flag: '🇿🇦', name: 'דרום אפריקה' },
+]

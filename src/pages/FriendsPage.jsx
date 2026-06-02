@@ -16,9 +16,9 @@ import {
   watchUser,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL, IconPhone, IconChatLine, IconGamepad, IconVideoLine } from '../icons/index.jsx'
+import { IconBackRTL } from '../icons/index.jsx'
 
-export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMessageFriend, onVideoCall }) {
+export default function FriendsPage({ onBack, onMessageFriend }) {
   const { authUser } = useUserStore()
   const [friends, setFriends] = useState([])
   const [incoming, setIncoming] = useState([])
@@ -133,11 +133,7 @@ export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMess
                     <FriendRow
                       key={f.docId}
                       friend={f}
-                      onCall={() => onCallFriend && onCallFriend(f)}
-                      onPlay={() => onPlayFriend && onPlayFriend(f)}
-                      onMessage={() => onMessageFriend && onMessageFriend(f)}
-                      onVideo={() => onVideoCall && onVideoCall(f)}
-                      onRemove={() => removeFriendship(f.docId)}
+                      onOpen={() => onMessageFriend && onMessageFriend(f)}
                     />
                   ))}
                 </div>
@@ -201,14 +197,14 @@ function LiveAvatar({ uid, name, size, online }) {
 }
 
 // ── one friend row — watches that friend's live online status ──
-function FriendRow({ friend, onCall, onPlay, onMessage, onVideo, onRemove }) {
+// לחיצה על השורה פותחת את הצ'אט עם החבר (ושם יש כפתורי וידאו/קפה/משחק)
+function FriendRow({ friend, onOpen }) {
   const [online, setOnline] = useState(false)
   const [prof, setProf] = useState(null)  // פרופיל חי: { name, lastName, photoURL }
 
   useEffect(() => {
     if (!friend.otherUid) return
     const unsub = watchUser(friend.otherUid, u => {
-      // consider "online" if status available/busy and seen in last 2 min
       const seen = u?.lastSeenAt
       const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
       const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
@@ -225,21 +221,27 @@ function FriendRow({ friend, onCall, onPlay, onMessage, onVideo, onRemove }) {
   const photoURL = prof?.photoURL || null
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--line)',
-      borderRadius: 16, padding: '12px 14px',
-      display: 'flex', alignItems: 'center', gap: 10,
-    }}>
-      <Avatar name={fullName} size={48} online={online} photoURL={photoURL} />
+    <button
+      onClick={onOpen}
+      style={{
+        width: '100%', textAlign: 'right',
+        background: 'var(--surface)',
+        border: '1px solid var(--line)',
+        borderRadius: 16, padding: '14px 16px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        cursor: 'pointer', fontFamily: 'inherit',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <Avatar name={fullName} size={50} online={online} photoURL={photoURL} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="h-display" style={{ fontSize: 16, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {fullName}
         </div>
         <div style={{
-          fontSize: 12, fontWeight: 700,
+          fontSize: 13, fontWeight: 700,
           color: online ? 'var(--success)' : 'var(--ink-3)',
-          display: 'flex', alignItems: 'center', gap: 4,
+          display: 'flex', alignItems: 'center', gap: 5, marginTop: 2,
         }}>
           {online && <span style={{
             width: 7, height: 7, borderRadius: '50%', background: '#4ADE80',
@@ -247,31 +249,8 @@ function FriendRow({ friend, onCall, onPlay, onMessage, onVideo, onRemove }) {
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      {/* 4 כפתורי עיגול — וידאו, הודעה, משחק, שיחת קפה — ישר בשורה */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <RoundAction icon={<IconVideoLine size={20} color="#fff" />} bg="#4F6B4A" label="שיחת וידאו" onClick={onVideo} />
-        <RoundAction icon={<IconChatLine size={20} color="#fff" />} bg="#2C5566" label="הודעה" onClick={onMessage} />
-        <RoundAction icon={<IconGamepad size={20} color="#fff" />} bg="var(--burgundy)" label="משחק" onClick={onPlay} />
-        <RoundAction icon={<IconPhone size={20} color="#fff" />} bg="var(--success)" label="קפה" onClick={onCall} />
-      </div>
-    </div>
-  )
-}
-
-// כפתור עיגול יחיד בשורת החבר — גדול ונוח למבוגרים
-function RoundAction({ icon, bg, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      style={{
-        width: 46, height: 46, borderRadius: '50%', background: bg,
-        border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
-      }}
-    >
-      {icon}
+      {/* חץ שמרמז על כניסה לצ'אט */}
+      <IconBackRTL size={22} color="#8389A4" />
     </button>
   )
 }

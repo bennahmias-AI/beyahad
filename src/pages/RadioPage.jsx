@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useRadioStore } from '../stores/radioStore.js'
-import { fetchIsraeliStations, searchStations } from '../services/radio.js'
+import { fetchIsraeliStations, searchStations, fetchStationsByCountry, RADIO_COUNTRIES } from '../services/radio.js'
 import { IconBackRTL, IconSearch, IconPlay, IconPause, IconHeart } from '../icons/index.jsx'
 
 const ACCENT = '#6B3A4F'
@@ -25,6 +25,10 @@ export default function RadioPage({ onBack }) {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [searched, setSearched] = useState(false)
+  // מדינה נבחרת לחיפוש לפי מדינה
+  const [country, setCountry] = useState(null)         // { code, flag, name } או null
+  const [countryStations, setCountryStations] = useState([])
+  const [loadingCountry, setLoadingCountry] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -37,10 +41,25 @@ export default function RadioPage({ onBack }) {
 
   const runSearch = async () => {
     if (!term.trim()) return
+    setCountry(null)   // חיפוש חופשי מבטל בחירת מדינה
     setSearching(true); setSearched(true)
     const list = await searchStations(term)
     setResults(list)
     setSearching(false)
+  }
+
+  // בחירת מדינה — טוען את התחנות שלה (או מנקה אם לוחצה שוב)
+  const pickCountry = async (c) => {
+    if (country?.code === c.code) {
+      setCountry(null); setCountryStations([])
+      return
+    }
+    setCountry(c)
+    setTerm('')
+    setLoadingCountry(true)
+    const list = await fetchStationsByCountry(c.code)
+    setCountryStations(list)
+    setLoadingCountry(false)
   }
 
   const onPick = (s) => {
@@ -83,12 +102,38 @@ export default function RadioPage({ onBack }) {
         {/* ── לשונית חיפוש ── */}
         {tab === 'search' && (
           <>
+            {/* בורר מדינות — רשת דגלים נפרשת לאורך */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>לפי מדינה:</div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
+              }}>
+                {RADIO_COUNTRIES.map(c => {
+                  const sel = country?.code === c.code
+                  return (
+                    <button key={c.code} onClick={() => pickCountry(c)} style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '11px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+                      fontSize: 15, fontWeight: 700, textAlign: 'right',
+                      border: `1.5px solid ${sel ? ACCENT : 'var(--line-strong)'}`,
+                      background: sel ? ACCENT : 'var(--surface)',
+                      color: sel ? '#fff' : 'var(--ink)',
+                    }}>
+                      <span style={{ fontSize: 20, flexShrink: 0 }}>{c.flag}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* חיפוש חופשי לפי שם */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <input
                 value={term}
                 onChange={e => setTerm(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && runSearch()}
-                placeholder="שם תחנה... (למשל: גלגלצ, BBC)"
+                placeholder="או חפשו שם תחנה..."
                 style={{
                   flex: 1, fontSize: 16, fontFamily: 'inherit', padding: '12px 16px', borderRadius: 12,
                   border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)', direction: 'rtl',
@@ -102,10 +147,25 @@ export default function RadioPage({ onBack }) {
                 <IconSearch size={22} color="#fff" />
               </button>
             </div>
-            {searching ? (
+
+            {/* תוכן — אם נבחרה מדינה מציגים את התחנות שלה, אחרת תוצאות חיפוש */}
+            {country ? (
+              loadingCountry ? (
+                <Loading />
+              ) : countryStations.length === 0 ? (
+                <Empty icon={country.flag} title={`לא נמצאו תחנות ב${country.name}`} sub="נסו מדינה אחרת" />
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 10 }}>
+                    {country.flag} תחנות מ{country.name} ({countryStations.length})
+                  </div>
+                  <StationList stations={countryStations} current={station} playing={playing} onPick={onPick} favorites={favorites} onFav={toggleFavorite} />
+                </>
+              )
+            ) : searching ? (
               <Loading />
             ) : !searched ? (
-              <Empty icon="🌍" title="חפשו תחנה מכל העולם" sub="הקלידו שם תחנה ולחצו על זכוכית המגדלת" />
+              <Empty icon="🌍" title="בחרו מדינה או חפשו תחנה" sub="לחצו על דגל למעלה, או הקלידו שם תחנה" />
             ) : results.length === 0 ? (
               <Empty icon="🔎" title="לא נמצאו תחנות" sub="נסו שם אחר" />
             ) : (
