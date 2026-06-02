@@ -118,6 +118,10 @@ button:focus-visible {
   overflow: hidden;
 }
 
+/* כשהמקלדת פתוחה וגובה ה-shell מוגדר ידנית (inline) —
+   מוודאים שהחלון עצמו לא גולל (ה-shell מעוגן לראש). */
+html, body { overflow: hidden; }
+
 .scroll-area {
   flex: 1;
   overflow-y: auto;

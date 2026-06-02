@@ -68,6 +68,27 @@ export default function App() {
   // פוסט ספציפי לפתוח בדף עצות/מתכונים (מהתראת לייק)
   const [initialPostId, setInitialPostId] = useState(null)
 
+  // ── גובה ה-app-shell לפי המקלדת (כמו וואטסאפ) ──
+  // כשהמקלדת נפתחת, ה-visualViewport מתכווץ; מתאמים את גובה ה-shell
+  // לגובה הנראה כדי שכל התוכן (כולל שורת הכתיבה) ישב צמוד מעל המקלדת.
+  const [shellHeight, setShellHeight] = useState(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => {
+      // אם המקלדת מכסה חלק מהמסך — משתמשים בגובה הנראה בלבד
+      const covered = window.innerHeight - vv.height
+      setShellHeight(covered > 80 ? Math.round(vv.height) : null)
+    }
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onResize)
+    onResize()
+    return () => {
+      vv.removeEventListener('resize', onResize)
+      vv.removeEventListener('scroll', onResize)
+    }
+  }, [])
+
   // ניווט מהתראה (מהפעמון במסך הבית) — לפי סוג ההתראה
   function handleOpenNotification(it) {
     if (it.type === 'chat') {
@@ -243,7 +264,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={shellHeight ? { height: shellHeight } : undefined}>
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}

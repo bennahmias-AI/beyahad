@@ -18,30 +18,6 @@ import VoiceMessage from '../components/VoiceMessage.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine } from '../icons/index.jsx'
 
-// ── hook שעוקב אחרי המקלדת הוירטואלית במובייל ──
-// מחזיר כמה פיקסלים המקלדת מכסה מתחתית המסך, כדי שנוכל
-// להרים את שורת הכתיבה מעל המקלדת (אחרת הכפתור נחבא מאחוריה).
-function useKeyboardInset() {
-  const [inset, setInset] = useState(0)
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const onResize = () => {
-      // הפרש בין גובה החלון לגובה ה-viewport הנראה = גובה המקלדת
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      setInset(kb > 80 ? kb : 0)   // סף קטן — מתעלמים משינויים זעירים
-    }
-    vv.addEventListener('resize', onResize)
-    vv.addEventListener('scroll', onResize)
-    onResize()
-    return () => {
-      vv.removeEventListener('resize', onResize)
-      vv.removeEventListener('scroll', onResize)
-    }
-  }, [])
-  return inset
-}
-
 export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFriend, onPlayFriend }) {
   const { authUser, profile } = useUserStore()
   const myUid = authUser?.uid
@@ -52,7 +28,6 @@ export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFrie
   const [prof, setProf] = useState(null)   // פרופיל חי של החבר (שם מלא + תמונה)
   const [online, setOnline] = useState(false)
   const scrollRef = useRef(null)
-  const kbInset = useKeyboardInset()   // גובה המקלדת (מובייל)
 
   // האזנה להודעות
   useEffect(() => {
@@ -243,8 +218,6 @@ export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFrie
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
         background: 'var(--surface)', borderTop: '1px solid var(--line)', flexShrink: 0,
-        marginBottom: kbInset,   // מרים את השורה מעל המקלדת במובייל
-        transition: 'margin-bottom .2s ease',
       }}>
         {/* אזור שמאלי: טיימר הקלטה או שדה כתיבה */}
         {recorder.recording ? (
