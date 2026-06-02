@@ -283,6 +283,37 @@ export const IconVideoLine = (p) => (
   </LineIcon>
 )
 
+// חיפוש — זכוכית מגדלת (קו פשוט)
+export const IconSearch = (p) => (
+  <LineIcon {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </LineIcon>
+)
+
+// עצירה (Stop) — ריבוע מלא
+export const IconStop = (p) => (
+  <LineIcon {...p}>
+    <rect x="5" y="5" width="14" height="14" rx="2" />
+  </LineIcon>
+)
+
+// רדיו — איקון קטגוריה (עיגול מלא) — מקלט רדיו עם אנטנה
+export const IconRadio = ({ size }) => (
+  <CircleIcon size={size} fill="#6B3A4F" ring="#482638">
+    {/* אנטנה */}
+    <path d="M34 30 54 20" stroke={W} strokeWidth="3.2" strokeLinecap="round" />
+    {/* גוף המקלט */}
+    <rect x="22" y="30" width="36" height="26" rx="5" fill={W} />
+    {/* רמקול */}
+    <circle cx="47" cy="43" r="7" fill="#6B3A4F" />
+    <circle cx="47" cy="43" r="2.5" fill={W} />
+    {/* כפתורים */}
+    <rect x="28" y="36" width="9" height="3" rx="1.5" fill="#6B3A4F" />
+    <rect x="28" y="42" width="6" height="3" rx="1.5" fill="#6B3A4F" />
+  </CircleIcon>
+)
+
 // ══ אייקוני סרגל העריכה (מחולל הברכה) ═══════════════════════
 // קו אחיד, נקי ומודרני — תואמים לשאר אייקוני ה-UI.
 

@@ -10,6 +10,8 @@ import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
 import RecipesPage from './pages/RecipesPage.jsx'
+import RadioPage from './pages/RadioPage.jsx'
+import RadioPlayer from './components/RadioPlayer.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
@@ -237,6 +239,7 @@ export default function App() {
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
       {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="tip" initialPostId={initialPostId} />}
       {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} initialPostId={initialPostId} />}
+      {page === 'radio' && <RadioPage onBack={() => setPage('hub')} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
       {page === 'friends' && (
@@ -339,6 +342,7 @@ export default function App() {
           onGoSinging={joinSinging}
           onGoTips={() => setPage('tips')}
           onGoRecipes={() => setPage('recipes')}
+          onGoRadio={() => setPage('radio')}
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
           onGoFriends={() => setPage('friends')}
@@ -388,6 +392,9 @@ export default function App() {
           onEnd={() => setActiveCall(null)}
         />
       )}
+
+      {/* נגן הרדיו הצף הגלובלי — ממשיך לנגן בכל המסכים */}
+      <RadioPlayer />
     </div>
   )
 }

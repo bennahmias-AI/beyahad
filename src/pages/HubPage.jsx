@@ -12,7 +12,7 @@ import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconFriends,
   IconKitchen, IconGreeting, IconBell, IconBackRTL, IconLightbulb,
-  IconGames,
+  IconGames, IconRadio,
 } from '../icons/index.jsx'
 
 // ─── DEMO TOGGLE ─────────────────────────────────────────────
@@ -25,7 +25,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoGreeting, onGoProfile, onGoFriends, onGoGames, onOpenNotification }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoRadio, onGoGreeting, onGoProfile, onGoFriends, onGoGames, onOpenNotification }) {
   const { profile, authUser } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -306,6 +306,52 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             </div>
           </div>
           <IconGreeting size={56} />
+        </button>
+
+        {/* כרטיס רדיו — רוחב מלא, חם ומזמין */}
+        <button onClick={onGoRadio} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #6B3A4F 0%, #482638 100%)',
+          border: 'none',
+          borderRadius: 20,
+          padding: '18px 18px',
+          color: '#FBF7EE',
+          boxShadow: '0 10px 24px -8px rgba(107,58,79,.5)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,.18), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <IconBackRTL size={22} color="#FBF7EE" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800, marginBottom: 4,
+              color: '#E8C879',
+              textTransform: 'uppercase', letterSpacing: '0.10em',
+              fontFamily: 'var(--font-display)',
+            }}>
+              ✨ חדש!
+            </div>
+            <div className="h-display" style={{
+              fontSize: 22, lineHeight: 1.15, color: '#FBF7EE', letterSpacing: '-0.01em',
+            }}>
+              רדיו
+            </div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, marginTop: 3,
+              color: 'rgba(255,255,255,.92)',
+            }}>
+              תחנות ישראליות ומכל העולם — האזינו תוך כדי תנועה
+            </div>
+          </div>
+          <IconRadio size={64} />
         </button>
 
         {/* ── כרטיס זירת המשחקים — רוחב מלא, בולט ── */}
