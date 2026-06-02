@@ -23,6 +23,8 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
+      allow delete: if request.auth != null
+        && resource.data.authorUid == request.auth.uid;
     }
     match /friendships/{id} {
       allow read: if request.auth != null;
@@ -92,6 +94,22 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.uid in resource.data.participants;
       allow delete: if false;
+    }
+    // ── שיחות וידאו בין חברים — חדש ──
+    // רק המתקשר (fromUid) והמקבל (toUid) יכולים לגשת לשיחה (פרטיות).
+    match /videoCalls/{callId} {
+      allow read: if request.auth != null
+        && (resource == null
+            || request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid;
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.fromUid
+            || request.auth.uid == resource.data.toUid);
     }
   }
 }

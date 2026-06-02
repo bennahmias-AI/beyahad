@@ -112,6 +112,38 @@ export default function DirectChatPage({ friend, onBack }) {
     await recorder.cancel()
   }
 
+  // ── לוגיקת כפתור וואטסאפ (לחיצה ארוכה) ──
+  const hasText = draft.trim().length > 0
+  // סימון שהמשתמש משך את האצבע החוצה מהכפתור — אז שחרור מבטל במקום לשלוח
+  const pointerLeftRef = useRef(false)
+
+  // תחילת לחיצה — מתחילים להקליט
+  const startHold = (e) => {
+    if (sendingVoice || recorder.recording) return
+    // תופסים את ה-pointer כדי לקבל את ה-up גם אם האצבע זזה
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+    pointerLeftRef.current = false
+    recorder.start()
+  }
+
+  // שחרור האצבע — אם לא יצא מהכפתור: שולח. אם יצא: מבטל.
+  const endHold = () => {
+    if (!recorder.recording) return
+    if (pointerLeftRef.current) { cancelVoice() }
+    else { finishAndSendVoice() }
+    pointerLeftRef.current = false
+  }
+
+  // האצבע יצא מגבולות הכפתור תוך כדי הקלטה — מסמן לביטול
+  const pointerLeftButton = () => {
+    if (recorder.recording) pointerLeftRef.current = true
+  }
+
+  const cancelHold = () => {
+    if (recorder.recording) cancelVoice()
+    pointerLeftRef.current = false
+  }
+
   // פורמט טיימר ההקלטה (למשל 0:07)
   const fmtTimer = (s) => {
     const m = Math.floor(s / 60)
@@ -181,114 +213,91 @@ export default function DirectChatPage({ friend, onBack }) {
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
         background: 'var(--surface)', borderTop: '1px solid var(--line)', flexShrink: 0,
       }}>
+        {/* אזור שמאלי: טיימר הקלטה או שדה כתיבה */}
         {recorder.recording ? (
-          /* ── מצב הקלטה ── */
-          <>
-            <button
-              onClick={cancelVoice}
-              aria-label="בטל הקלטה"
-              style={{
-                width: 50, height: 50, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--surface-2)', border: '1px solid var(--line)',
-                color: 'var(--ink-2)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
-              </svg>
-            </button>
-
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-              background: 'var(--bg-app)', borderRadius: 24, padding: '0 18px', height: 50,
-            }}>
-              <span className="live-dot" style={{ background: 'var(--danger)', width: 12, height: 12 }} />
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-display)' }}>
-                {fmtTimer(recorder.seconds)}
-              </span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-3)' }}>מקליט...</span>
-            </div>
-
-            <button
-              onClick={finishAndSendVoice}
-              aria-label="שלח הקלטה"
-              style={{
-                background: 'var(--burgundy)', color: '#fff', border: 'none', borderRadius: '50%',
-                width: 50, height: 50, padding: 0, flexShrink: 0, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'scaleX(-1)' }}>
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </button>
-          </>
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--bg-app)', borderRadius: 24, padding: '0 18px', height: 54,
+          }}>
+            <span className="live-dot" style={{ background: 'var(--danger)', width: 12, height: 12 }} />
+            <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-display)' }}>
+              {fmtTimer(recorder.seconds)}
+            </span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--forest)', textAlign: 'center' }}>
+              🎙️ שחררו לשליחה · החליקו לביטול
+            </span>
+          </div>
         ) : (
-          /* ── מצב רגיל — שני הכפתורים תמיד גלויים ── */
-          <>
-            {/* כפתור מיקרופון — תמיד זמין, גם אם יש טקסט */}
-            <button
-              onClick={recorder.start}
-              disabled={sendingVoice}
-              aria-label="הקלט הודעה קולית"
-              style={{
-                background: sendingVoice ? 'var(--line-strong)' : 'var(--forest)',
-                color: '#fff', border: 'none', borderRadius: '50%',
-                width: 50, height: 50, padding: 0, flexShrink: 0,
-                cursor: sendingVoice ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {sendingVoice ? (
-                <span style={{ fontSize: 13, fontWeight: 700 }}>...</span>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                </svg>
-              )}
-            </button>
+          <input
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
+            onFocus={() => {
+              setTimeout(() => {
+                if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+              }, 300)
+            }}
+            placeholder="כתבו הודעה..."
+            disabled={sendingVoice}
+            style={{
+              flex: 1, border: '1px solid var(--line)', borderRadius: 24,
+              padding: '13px 18px', fontSize: 16, fontFamily: 'inherit',
+              background: 'var(--bg-app)', color: 'var(--ink)', outline: 'none',
+            }}
+          />
+        )}
 
-            <input
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              onFocus={() => {
-                setTimeout(() => {
-                  if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-                }, 300)
-              }}
-              placeholder="כתבו הודעה..."
-              disabled={sendingVoice}
-              style={{
-                flex: 1, border: '1px solid var(--line)', borderRadius: 24,
-                padding: '13px 18px', fontSize: 16, fontFamily: 'inherit',
-                background: 'var(--bg-app)', color: 'var(--ink)', outline: 'none',
-              }}
-            />
-
-            {/* כפתור שליחה — בולט כשיש טקסט, מעומעם כשאין */}
-            <button
-              onClick={send}
-              disabled={!draft.trim()}
-              aria-label="שלח"
-              style={{
-                background: draft.trim() ? 'var(--burgundy)' : 'var(--line-strong)',
-                color: '#fff', border: 'none', borderRadius: '50%',
-                width: 50, height: 50, padding: 0, flexShrink: 0,
-                cursor: draft.trim() ? 'pointer' : 'default',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'scaleX(-1)' }}>
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        {/* כפתור מתחלף: שליחה כשיש טקסט, אחרת מיקרופון (לחיצה ארוכה) */}
+        {/* הכפתור נשאר תמיד ב-DOM כדי לקבל את אירוע השחרור גם תוך כדי הקלטה */}
+        {hasText && !recorder.recording ? (
+          /* יש טקסט — כפתור שליחה */
+          <button
+            onClick={send}
+            aria-label="שלח"
+            style={{
+              background: 'var(--burgundy)', color: '#fff', border: 'none', borderRadius: '50%',
+              width: 54, height: 54, padding: 0, flexShrink: 0, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px -2px rgba(126,44,46,.5)',
+            }}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'scaleX(-1)' }}>
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        ) : (
+          /* אין טקסט — כפתור מיקרופון: לחיצה ארוכה מקליטה, שחרור שולח */
+          <button
+            onPointerDown={startHold}
+            onPointerUp={endHold}
+            onPointerLeave={pointerLeftButton}
+            onPointerCancel={cancelHold}
+            onContextMenu={(e) => e.preventDefault()}
+            disabled={sendingVoice}
+            aria-label="החזיקו כדי להקליט הודעה קולית"
+            style={{
+              background: sendingVoice ? 'var(--line-strong)' : (recorder.recording ? 'var(--danger)' : 'var(--forest)'),
+              color: '#fff', border: 'none', borderRadius: '50%',
+              width: recorder.recording ? 64 : 54, height: recorder.recording ? 64 : 54,
+              padding: 0, flexShrink: 0,
+              cursor: sendingVoice ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: recorder.recording ? '0 0 0 6px rgba(200,40,40,.25)' : '0 2px 8px -2px rgba(79,107,74,.5)',
+              touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
+              transition: 'width .15s, height .15s, background .15s',
+            }}
+          >
+            {sendingVoice ? (
+              <span style={{ fontSize: 13, fontWeight: 700 }}>...</span>
+            ) : (
+              <svg width={recorder.recording ? 30 : 26} height={recorder.recording ? 30 : 26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                <line x1="12" y1="19" x2="12" y2="22" />
               </svg>
-            </button>
-          </>
+            )}
+          </button>
         )}
       </div>
 

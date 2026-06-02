@@ -9,6 +9,7 @@ import HubPage from './pages/HubPage.jsx'
 import ParliamentScreen from './pages/ParliamentScreen.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
+import RecipesPage from './pages/RecipesPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
@@ -17,6 +18,7 @@ import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
 import Connect4Game from './pages/Connect4Game.jsx'
 import CheckersGame from './pages/CheckersGame.jsx'
+import ChessGame from './pages/ChessGame.jsx'
 import SheshBeshGame from './pages/SheshBeshGame.jsx'
 import MillionaireGame from './pages/MillionaireGame.jsx'
 import RummikubGame from './pages/RummikubGame.jsx'
@@ -24,10 +26,13 @@ import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
+import VideoCallListener from './components/VideoCallListener.jsx'
+import VideoCallScreen from './pages/VideoCallScreen.jsx'
+import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
-  PARLIAMENT_ROOM, SINGING_ROOM,
+  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 
@@ -45,6 +50,7 @@ export default function App() {
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
   const [connect4Room, setConnect4Room] = useState(null)
   const [checkersRoom, setCheckersRoom] = useState(null)
+  const [chessRoom, setChessRoom] = useState(null)
   const [sheshbeshRoom, setSheshbeshRoom] = useState(null)
   const [rummikubRoom, setRummikubRoom] = useState(null)
   const [arenaRoom, setArenaRoom] = useState(null)
@@ -53,6 +59,10 @@ export default function App() {
   const [chatFriend, setChatFriend] = useState(null)
   // החבר שאיתו רוצים לשחק — נכנסים לזירה במצב "הזמנת חבר", והבחירה שולחת הזמנה
   const [playFriend, setPlayFriend] = useState(null)
+  // שיחת וידאו — מצב השיחה הפעילה (יוצאת / נכנסת / מחוברת)
+  const [outgoingCall, setOutgoingCall] = useState(null)   // { call, otherName, otherPhoto, otherUid } — מצלצל
+  const [activeCall, setActiveCall] = useState(null)       // { call, otherUid, otherName, otherPhoto, startWithCam } — בשיחה
+  const [callError, setCallError] = useState('')
   // פוסט ספציפי לפתוח בדף עצות/מתכונים (מהתראת לייק)
   const [initialPostId, setInitialPostId] = useState(null)
 
@@ -81,6 +91,9 @@ export default function App() {
     } else if (gameType === 'checkers') {
       setCheckersRoom(roomId)
       setPage('checkers-game')
+    } else if (gameType === 'chess') {
+      setChessRoom(roomId)
+      setPage('chess-game')
     } else if (gameType === 'sheshbesh') {
       setSheshbeshRoom(roomId)
       setPage('sheshbesh-game')
@@ -94,6 +107,53 @@ export default function App() {
       setBingoRoom(roomId)
       setPage('bingo-game')
     }
+  }
+
+  // ── שיחות וידאו ──
+  // המשתמש לחץ על כפתור הוידאו בשורת החבר — מתחילים שיחה (אם החבר מחובר)
+  async function handleVideoCall(friend) {
+    if (!authUser?.uid || !friend?.otherUid) return
+    setCallError('')
+    // בודקים שהחבר מחובר — אחרת אין טעם לצלצל
+    const online = await isUserOnline(friend.otherUid)
+    if (!online) {
+      setCallError(`${friend.otherName} לא מחובר/ת כרגע — אפשר לשלוח הודעה במקום`)
+      setTimeout(() => setCallError(''), 4000)
+      return
+    }
+    try {
+      const from = { uid: authUser.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
+      const to = { uid: friend.otherUid, name: friend.otherName }
+      const { callId, room } = await startVideoCall({ from, to })
+      setOutgoingCall({
+        call: { id: callId, room },
+        otherUid: friend.otherUid,
+        otherName: friend.otherName,
+        otherPhoto: null,
+      })
+    } catch (e) {
+      console.error('startVideoCall error:', e)
+      setCallError('לא הצלחנו להתחיל את השיחה — נסו שוב')
+      setTimeout(() => setCallError(''), 4000)
+    }
+  }
+
+  // המתקשר — החבר ענה, עוברים למסך השיחה
+  function handleOutgoingConnected() {
+    if (!outgoingCall) return
+    setActiveCall({
+      call: outgoingCall.call,
+      otherUid: outgoingCall.otherUid,
+      otherName: outgoingCall.otherName,
+      otherPhoto: outgoingCall.otherPhoto,
+      startWithCam: true,
+    })
+    setOutgoingCall(null)
+  }
+
+  // המקבל — ענה לשיחה נכנסת (מ-VideoCallListener), נכנסים למסך השיחה
+  function handleIncomingAccept({ call, otherUid, otherName, otherPhoto }) {
+    setActiveCall({ call, otherUid, otherName, otherPhoto, startWithCam: true })
   }
 
   // Auto-navigate when LiveKit tokens are set
@@ -176,7 +236,7 @@ export default function App() {
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
       {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="tip" initialPostId={initialPostId} />}
-      {page === 'recipes' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="recipe" initialPostId={initialPostId} />}
+      {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} initialPostId={initialPostId} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
       {page === 'friends' && (
@@ -185,6 +245,7 @@ export default function App() {
           onCallFriend={() => setPage('waiting')}
           onPlayFriend={(f) => { setPlayFriend(f); setPage('games') }}
           onMessageFriend={(f) => { setChatFriend(f); setPage('chat') }}
+          onVideoCall={handleVideoCall}
         />
       )}
       {page === 'chat' && (
@@ -200,6 +261,7 @@ export default function App() {
           onGoMemory={() => setPage('memory-game')}
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
           onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
+          onGoChess={() => { setChessRoom(null); setPage('chess-game') }}
           onGoSheshbesh={() => { setSheshbeshRoom(null); setPage('sheshbesh-game') }}
           onGoTrivia={() => setPage('millionaire-game')}
           onGoRummikub={() => { setRummikubRoom(null); setPage('rummikub-game') }}
@@ -250,6 +312,13 @@ export default function App() {
           onBack={() => { setCheckersRoom(null); setPlayFriend(null); setPage('games') }}
         />
       )}
+      {page === 'chess-game' && (
+        <ChessGame
+          initialRoomId={chessRoom}
+          autoInviteFriend={playFriend}
+          onBack={() => { setChessRoom(null); setPlayFriend(null); setPage('games') }}
+        />
+      )}
       {page === 'sheshbesh-game' && (
         <SheshBeshGame
           initialRoomId={sheshbeshRoom}
@@ -279,6 +348,46 @@ export default function App() {
       )}
       <InstallPrompt />
       <GameInviteListener onAccept={handleInviteAccept} />
+      <VideoCallListener onAccept={handleIncomingAccept} />
+
+      {/* הודעת שגיאה לשיחת וידאו (למשל החבר לא מחובר) */}
+      {callError && (
+        <div style={{
+          position: 'fixed', insetInline: 0, bottom: 24, zIndex: 5000,
+          display: 'flex', justifyContent: 'center', padding: '0 20px', direction: 'rtl',
+        }}>
+          <div style={{
+            background: 'var(--ink)', color: '#fff', borderRadius: 14,
+            padding: '14px 20px', fontSize: 15, fontWeight: 700,
+            boxShadow: '0 6px 20px rgba(0,0,0,.3)', maxWidth: 360, textAlign: 'center',
+          }}>{callError}</div>
+        </div>
+      )}
+
+      {/* מסך "מצלצל..." — למתקשר */}
+      {outgoingCall && (
+        <OutgoingCallScreen
+          call={outgoingCall.call}
+          otherName={outgoingCall.otherName}
+          otherPhoto={outgoingCall.otherPhoto}
+          onConnected={handleOutgoingConnected}
+          onEnded={() => setOutgoingCall(null)}
+        />
+      )}
+
+      {/* מסך השיחה עצמה — לשני הצדדים */}
+      {activeCall && (
+        <VideoCallScreen
+          call={activeCall.call}
+          myUid={authUser?.uid}
+          myName={profile?.name || 'משתמש'}
+          otherUid={activeCall.otherUid}
+          otherName={activeCall.otherName}
+          otherPhoto={activeCall.otherPhoto}
+          startWithCam={activeCall.startWithCam}
+          onEnd={() => setActiveCall(null)}
+        />
+      )}
     </div>
   )
 }

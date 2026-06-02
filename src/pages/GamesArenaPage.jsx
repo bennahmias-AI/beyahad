@@ -100,18 +100,18 @@ const GAMES = [
     name: 'שחמט',
     description: 'משחק האסטרטגיה',
     emoji: '♟️',
-    players: '2 שחקנים',
-    color: '#1B2540', // navy
-    status: 'coming-soon',
+    players: 'AI / 2 שחקנים',
+    color: '#5e3e22', // עץ אגוז
+    status: 'available',
   },
 ]
 
 // מזהי המשחקים שאפשר לשחק עם חבר (רב-משתתפים). memory/trivia הם "לבד" ולכן לא כלולים.
-const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo']
+const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess']
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
 const MULTI_PLAYER = ['rummikub', 'arena', 'bingo']
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -154,6 +154,10 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
     }
     if (game.id === 'bingo' && onGoBingo) {
       onGoBingo()
+      return
+    }
+    if (game.id === 'chess' && onGoChess) {
+      onGoChess()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

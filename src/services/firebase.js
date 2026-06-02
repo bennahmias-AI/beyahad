@@ -336,18 +336,87 @@ export async function leaveParliamentSession(sessionId, uid) {
 //   { kind: 'tip' | 'recipe', title, body, authorUid, authorName,
 //     views, likes: [uid...], createdAt }
 
-export async function createCommunityPost({ kind, title, body, authorUid, authorName }) {
-  const ref = await addDoc(collection(db, 'communityPosts'), {
+export async function createCommunityPost({ kind, title, body, recipe, photos, authorUid, authorName }) {
+  const data = {
     kind,
-    title: title.trim(),
-    body: body.trim(),
+    title: (title || '').trim(),
+    body: (body || '').trim(),
     authorUid,
     authorName: authorName || 'משתמש',
     views: 0,
     likes: [],
     createdAt: serverTimestamp(),
-  })
+  }
+  if (kind === 'recipe') {
+    data.cooked = []
+    data.photos = Array.isArray(photos) ? photos.slice(0, 3) : []
+    if (recipe) {
+      data.recipe = {
+        ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients.filter(Boolean) : [],
+        steps: Array.isArray(recipe.steps) ? recipe.steps.filter(Boolean) : [],
+        cookTime: (recipe.cookTime || '').trim(),
+      }
+    }
+  }
+  const ref = await addDoc(collection(db, 'communityPosts'), data)
   return ref.id
+}
+
+// uploadRecipePhoto — מעלה תמונת מתכון ל-Storage ומחזיר URL
+export async function uploadRecipePhoto({ uid, blob }) {
+  const fileId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const path = `recipePhotos/${uid || 'anon'}/${fileId}.jpg`
+  const fileRef = storageRef(storage, path)
+  await uploadBytes(fileRef, blob, { contentType: blob.type || 'image/jpeg' })
+  return await getDownloadURL(fileRef)
+}
+
+// toggleRecipeCooked — סימון/ביטול "הכנתי את המתכון" (toggle)
+export async function toggleRecipeCooked(postId, uid) {
+  try {
+    const ref = doc(db, 'communityPosts', postId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const cooked = snap.data().cooked || []
+    const next = cooked.includes(uid)
+      ? cooked.filter(u => u !== uid)
+      : [...cooked, uid]
+    await updateDoc(ref, { cooked: next })
+  } catch (e) {
+    console.error('toggleRecipeCooked error:', e)
+  }
+}
+
+// updateCommunityPost — עדכון פוסט קיים (רק המחבר יוכל — נאכף גם בצד הלקוח וגם בכללים)
+export async function updateCommunityPost(postId, { title, body, recipe, photos }) {
+  const fields = {}
+  if (title != null) fields.title = String(title).trim()
+  if (body != null) fields.body = String(body).trim()
+  if (photos != null) fields.photos = Array.isArray(photos) ? photos.slice(0, 3) : []
+  if (recipe != null) {
+    fields.recipe = {
+      ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients.filter(Boolean) : [],
+      steps: Array.isArray(recipe.steps) ? recipe.steps.filter(Boolean) : [],
+      cookTime: (recipe.cookTime || '').trim(),
+    }
+  }
+  fields.updatedAt = serverTimestamp()
+  try {
+    await updateDoc(doc(db, 'communityPosts', postId), fields)
+  } catch (e) {
+    console.error('updateCommunityPost error:', e)
+    throw e
+  }
+}
+
+// deleteCommunityPost — מחיקת פוסט (רק המחבר)
+export async function deleteCommunityPost(postId) {
+  try {
+    await deleteDoc(doc(db, 'communityPosts', postId))
+  } catch (e) {
+    console.error('deleteCommunityPost error:', e)
+    throw e
+  }
 }
 
 // Live list of posts of a given kind ('tip' or 'recipe'), newest first.
@@ -1328,5 +1397,125 @@ export async function markNotificationsSeen(uid) {
     await updateDoc(doc(db, 'users', uid), { notificationsSeenAt: Date.now() })
   } catch (e) {
     console.error('markNotificationsSeen error:', e)
+  }
+}
+
+// ─── שיחות וידאו בין חברים ───────────────────────────
+// שיחה ישירה עם "צלצול": A מתקשר → נוצר doc ב-videoCalls שמופיע אצל B
+// כחלונית צלצול. אם B עונה → שניהם מצטרפים לאותו חדר LiveKit. אם דוחה /
+// לא עונה / A מבטל — ה-doc מתעדכן והצד השני רואה ומתנתק.
+//
+//   videoCalls/{callId}:
+//     fromUid, fromName, fromPhoto
+//     toUid, toName
+//     room: שם חדר LiveKit ייחודי לשיחה
+//     status: 'ringing' | 'accepted' | 'declined' | 'ended' | 'missed'
+//     createdAt, answeredAt, endedAt
+
+// שם חדר LiveKit ייחודי לשיחת וידאו (כולל חותמת זמן — חדר חדש לכל שיחה)
+function videoCallRoomName(uidA, uidB) {
+  const [a, b] = [uidA, uidB].sort()
+  const safe = s => String(s).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30)
+  return `vcall-${safe(a)}-${safe(b)}-${Date.now().toString(36)}`
+}
+
+// בודק אם משתמש מחובר עכשיו (status פעיל + נראה לאחרונה ב-2 הדקות האחרונות)
+export async function isUserOnline(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid))
+    if (!snap.exists()) return false
+    const data = snap.data()
+    const seen = data.lastSeenAt
+    const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
+    const fresh = seenMs && (Date.now() - seenMs) < ONLINE_WINDOW_MS
+    return Boolean(fresh) && ['available', 'busy'].includes(data.status)
+  } catch (e) {
+    return false
+  }
+}
+
+// יוזם שיחת וידאו לחבר. מחזיר { callId, room }.
+export async function startVideoCall({ from, to }) {
+  const room = videoCallRoomName(from.uid, to.uid)
+  const ref = await addDoc(collection(db, 'videoCalls'), {
+    fromUid: from.uid,
+    fromName: from.name || 'משתמש',
+    fromPhoto: from.photoURL || '',
+    toUid: to.uid,
+    toName: to.name || 'משתמש',
+    room,
+    status: 'ringing',
+    createdAt: serverTimestamp(),
+  })
+  return { callId: ref.id, room }
+}
+
+// מאזין לשיחות נכנסות (ringing) של המשתמש הזה — ל-VideoCallListener.
+export function watchIncomingCalls(myUid, cb) {
+  const q = query(
+    collection(db, 'videoCalls'),
+    where('toUid', '==', myUid),
+    where('status', '==', 'ringing'),
+  )
+  return onSnapshot(q, snap => {
+    const calls = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    cb(calls)
+  }, err => {
+    console.error('watchIncomingCalls error:', err)
+  })
+}
+
+// מאזין לסטטוס של שיחה מסוימת (שני הצדדים מאזינים — לדעת אם נענתה/נדחתה/הסתיימה).
+export function watchVideoCall(callId, cb) {
+  return onSnapshot(doc(db, 'videoCalls', callId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => {
+    console.error('watchVideoCall error:', err)
+  })
+}
+
+// המקבל עונה לשיחה — מסמן accepted.
+export async function acceptVideoCall(callId) {
+  try {
+    await updateDoc(doc(db, 'videoCalls', callId), {
+      status: 'accepted',
+      answeredAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('acceptVideoCall error:', e)
+  }
+}
+
+// המקבל דוחה את השיחה — מסמן declined (המתקשר רואה ומתנתק).
+export async function declineVideoCall(callId) {
+  try {
+    await updateDoc(doc(db, 'videoCalls', callId), {
+      status: 'declined',
+      endedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('declineVideoCall error:', e)
+  }
+}
+
+// סיום שיחה (אחד הצדדים ניתק, או המתקשר ביטל לפני מענה).
+export async function endVideoCall(callId) {
+  try {
+    await updateDoc(doc(db, 'videoCalls', callId), {
+      status: 'ended',
+      endedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('endVideoCall error:', e)
+  }
+}
+
+// מחיקה סופית של doc השיחה (ניקוי אחרי שהסתיימה).
+export async function deleteVideoCall(callId) {
+  try {
+    await deleteDoc(doc(db, 'videoCalls', callId))
+  } catch (e) {
+    console.error('deleteVideoCall error:', e)
   }
 }

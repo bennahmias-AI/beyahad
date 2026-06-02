@@ -16,9 +16,9 @@ import {
   watchUser,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL, IconPhone, IconChatLine, IconGamepad } from '../icons/index.jsx'
+import { IconBackRTL, IconPhone, IconChatLine, IconGamepad, IconVideoLine } from '../icons/index.jsx'
 
-export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMessageFriend }) {
+export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMessageFriend, onVideoCall }) {
   const { authUser } = useUserStore()
   const [friends, setFriends] = useState([])
   const [incoming, setIncoming] = useState([])
@@ -136,6 +136,7 @@ export default function FriendsPage({ onBack, onCallFriend, onPlayFriend, onMess
                       onCall={() => onCallFriend && onCallFriend(f)}
                       onPlay={() => onPlayFriend && onPlayFriend(f)}
                       onMessage={() => onMessageFriend && onMessageFriend(f)}
+                      onVideo={() => onVideoCall && onVideoCall(f)}
                       onRemove={() => removeFriendship(f.docId)}
                     />
                   ))}
@@ -200,7 +201,7 @@ function LiveAvatar({ uid, name, size, online }) {
 }
 
 // ── one friend row — watches that friend's live online status ──
-function FriendRow({ friend, onCall, onPlay, onMessage, onRemove }) {
+function FriendRow({ friend, onCall, onPlay, onMessage, onVideo, onRemove }) {
   const [online, setOnline] = useState(false)
   const [prof, setProf] = useState(null)  // פרופיל חי: { name, lastName, photoURL }
 
@@ -246,11 +247,12 @@ function FriendRow({ friend, onCall, onPlay, onMessage, onRemove }) {
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      {/* 3 כפתורי עיגול — טלפון, הודעה, משחק — ישר בשורה */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-        <RoundAction icon={<IconPhone size={20} color="#fff" />} bg="var(--success)" label="שיחה" onClick={onCall} />
+      {/* 4 כפתורי עיגול — וידאו, הודעה, משחק, שיחת קפה — ישר בשורה */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <RoundAction icon={<IconVideoLine size={20} color="#fff" />} bg="#4F6B4A" label="שיחת וידאו" onClick={onVideo} />
         <RoundAction icon={<IconChatLine size={20} color="#fff" />} bg="#2C5566" label="הודעה" onClick={onMessage} />
         <RoundAction icon={<IconGamepad size={20} color="#fff" />} bg="var(--burgundy)" label="משחק" onClick={onPlay} />
+        <RoundAction icon={<IconPhone size={20} color="#fff" />} bg="var(--success)" label="קפה" onClick={onCall} />
       </div>
     </div>
   )
