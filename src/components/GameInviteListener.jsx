@@ -18,25 +18,34 @@ import {
   joinRummikubRoom, joinArenaRoom, joinBingoRoom, deleteGameInvite,
 } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
+import { GameIcon } from '../icons/gameIcons.jsx'
 
 // שמות המשחקים לתצוגה בחלונית
 const GAME_NAMES = {
   connect4: '4 בשורה',
   checkers: 'דמקה',
+  chess: 'שחמט',
   sheshbesh: 'שש-בש',
   rummikub: 'רמיקוב',
   arena: 'מלך הזירה',
   bingo: 'הבינגו של אמי',
+  memory: 'זיכרון',
+  trivia: 'טריוויה',
+  words: 'מילים',
 }
 
-// איקון אמוג'י לתצוגה לפי סוג המשחק
-const GAME_EMOJIS = {
-  connect4: '🔴 🟡',
-  checkers: '⚫ 🔴',
-  sheshbesh: '🎲',
-  rummikub: '🎴',
-  arena: '👑',
-  bingo: '🎱',
+// צבע רקע לעיגול האייקון לפי סוג המשחק
+const GAME_COLORS = {
+  connect4: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
+  checkers: 'linear-gradient(135deg, #2C5566, #173846)',
+  chess: 'linear-gradient(135deg, #7d5430, #4d3017)',
+  sheshbesh: 'linear-gradient(135deg, #B89048, #8A6A2E)',
+  rummikub: 'linear-gradient(135deg, #4F6B4A, #354D31)',
+  arena: 'linear-gradient(135deg, #6B3A4F, #482638)',
+  bingo: 'linear-gradient(135deg, #2C5566, #173846)',
+  memory: 'linear-gradient(135deg, #4F6B4A, #354D31)',
+  trivia: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
+  words: 'linear-gradient(135deg, #B89048, #8A6A2E)',
 }
 
 export default function GameInviteListener({ onAccept }) {
@@ -127,7 +136,17 @@ export default function GameInviteListener({ onAccept }) {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           <Avatar name={invite.fromName} size={72} />
         </div>
-        <div style={{ fontSize: 38, marginBottom: 6 }}>{GAME_EMOJIS[invite.gameType] || '🎮'}</div>
+        {/* אייקון המשחק — האייקון החדש בתוך עיגול צבעוני */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 18,
+            background: GAME_COLORS[invite.gameType] || 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <GameIcon id={invite.gameType} size={44} />
+          </div>
+        </div>
         <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 6 }}>
           {invite.fromName} מזמין/ה אותך לשחק
         </div>

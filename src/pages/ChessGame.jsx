@@ -650,6 +650,7 @@ function ChessBoard({ board, selected, legalDests, lastMove, checkSq, onCellTap,
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)',
           borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(0,0,0,.3)',
+          direction: 'ltr',
         }}>
           {order.map(s => {
             const [r, c] = rc(s)
