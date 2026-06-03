@@ -20,6 +20,9 @@ import {
   getMessaging, getToken, onMessage, isSupported as isMessagingSupported,
 } from 'firebase/messaging'
 
+// מאגר המתכונים לדוגמה (מקור אמת אחד, משמש גם את סקריפט התמונות)
+import { SEED_RECIPES } from '../data/seedRecipes.js'
+
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -471,16 +474,6 @@ export async function togglePostLike(postId, uid) {
 // (authenticated user) so it passes the security rules.
 // Returns the number of items inserted.
 export async function seedCommunityContent(authorUid) {
-  const RECIPES = [
-    { title: 'לביבות תפוחי אדמה של רחל', author: 'רחל אברהמי', category: 'sides', body: 'מצרכים: 5 תפוחי אדמה גדולים, 1 בצל, 2 ביצים, 3 כפות קמח, מלח ופלפל.\n\nהכנה: מגררים את תפוחי האדמה והבצל, סוחטים היטב את הנוזלים. מוסיפים ביצים, קמח ותבלינים ומערבבים. מטגנים בשמן חם עד שמזהיב משני הצדדים. מגישים חם עם רסק תפוחים או שמנת חמוצה.' },
-    { title: 'מרק עוף של סבתא מרים', author: 'מרים שלום', category: 'soups', body: 'מצרכים: עוף שלם, 3 גזרים, 2 קישואים, שורש פטרוזיליה, בצל, מלח.\n\nהכנה: שמים את העוף בסיר עם מים ומביאים לרתיחה. מסירים את הקצף. מוסיפים את כל הירקות חתוכים גס ומבשלים על אש נמוכה שעה וחצי. הסוד — בישול איטי ולא ממהרים.' },
-    { title: 'עוגת תפוחים של חנה', author: 'חנה גולדמן', category: 'cakes', body: 'מצרכים: 4 תפוחי עץ, 3 ביצים, כוס סוכר, כוס שמן, 2 כוסות קמח, אבקת אפייה, קינמון.\n\nהכנה: מקציפים ביצים וסוכר, מוסיפים שמן. מוסיפים קמח ואבקת אפייה. שופכים חצי לתבנית, מסדרים פרוסות תפוח עם קינמון, שופכים את השאר. אופים בחום 180 מעלות כ-45 דקות.' },
-    { title: 'חמין של יעקב', author: 'יעקב לוי', category: 'holiday', body: 'מצרכים: שעועית יבשה, גריסים, 4 תפוחי אדמה, בשר בקר, 4 ביצים, בצל, פפריקה.\n\nהכנה: משרים את השעועית מהלילה. מסדרים בסיר את כל המצרכים בשכבות, מוסיפים מים שיכסו. מתבלים בפפריקה, מלח ופלפל. מבשלים על אש קטנה מאוד כל הלילה. מגישים בצהריים — ארוחה שמחממת את הלב.' },
-    { title: 'סלט ירקות קצוץ של אסתר', author: 'אסתר כהן', category: 'salads', body: 'מצרכים: 4 עגבניות, 3 מלפפונים, בצל סגול, פלפל, פטרוזיליה, לימון, שמן זית.\n\nהכנה: קוצצים את כל הירקות לקוביות קטנות ואחידות — זה הסוד לסלט טוב. מוסיפים פטרוזיליה קצוצה. מתבלים במיץ לימון סחוט טרי, שמן זית, מלח. מערבבים ומגישים מיד.' },
-    { title: 'קציצות בקר ברוטב של דוד', author: 'דוד פרץ', category: 'meat', body: 'מצרכים: חצי קילו בשר טחון, ביצה, פירורי לחם, בצל, שום. לרוטב: רסק עגבניות, מים, פפריקה.\n\nהכנה: מערבבים את הבשר עם ביצה, פירורי לחם ובצל מגורר. מגלגלים כדורים. מכינים רוטב מרסק עגבניות ומים, מביאים לרתיחה ומכניסים את הקציצות. מבשלים על אש נמוכה 40 דקות.' },
-    { title: 'עוגיות שוקולד צ׳יפ של לאה', author: 'לאה ברקוביץ', category: 'cakes', body: 'מצרכים: 200 גרם חמאה, כוס סוכר חום, ביצה, 2 כוסות קמח, שוקולד צ׳יפס.\n\nהכנה: מקציפים חמאה רכה עם סוכר. מוסיפים ביצה וקמח. מוסיפים שוקולד צ׳יפס בנדיבות. יוצרים כדורים קטנים על תבנית עם נייר אפייה. אופים 12 דקות בחום 175. מצוין עם כוס תה.' },
-    { title: 'שקשוקה של משה', author: 'משה דניאל', category: 'breakfast', body: 'מצרכים: 5 עגבניות בשלות, פלפל אדום, בצל, שום, 4 ביצים, פפריקה, כמון.\n\nהכנה: מטגנים בצל ופלפל עד שמתרככים. מוסיפים עגבניות מגוררות ותבלינים, מבשלים 15 דקות עד שהרוטב סמיך. שוברים את הביצים לתוך הרוטב, מכסים ומבשלים עד שהחלבון מתייצב. מגישים עם לחם טרי.' },
-  ]
   const TIPS = [
     { title: 'השקיה נכונה של בגוניה', author: 'משה דניאל', body: 'בגוניה אוהבת לחות אבל שונאת הצפה. הכלל הפשוט: בודקים את האדמה עם האצבע — אם השכבה העליונה יבשה, הגיע הזמן להשקות. בקיץ פעמיים בשבוע, בחורף פעם בשבוע. חשוב שהעציץ יהיה עם ניקוז טוב, אחרת השורשים נרקבים.' },
     { title: 'איך לחסוך בחשבון החשמל', author: 'יעקב לוי', body: 'כמה הרגלים קטנים שחוסכים הרבה: מנתקים מהשקע מכשירים שלא בשימוש (גם במצב כבוי הם צורכים). משתמשים בנורות LED. מפעילים מכונת כביסה רק כשהיא מלאה. בחורף סוגרים תריסים בלילה לשמירת חום.' },
@@ -492,28 +485,28 @@ export async function seedCommunityContent(authorUid) {
     { title: 'לשמור על קשר עם הנכדים', author: 'מרים שלום', body: 'הנכדים עסוקים, אבל הקשר חשוב לשני הצדדים. שיחת וידאו קצרה שווה יותר משיחת טלפון ארוכה. מתעניינים בדברים שלהם — המשחקים, החברים. שולחים תמונה או מסר קצר באמצע השבוע. הקשר נבנה מהדברים הקטנים והקבועים.' },
   ]
 
-  // מיפוי שם מתכון-לדוגמה → תמונת שער (נוצרות עם npm run gen-recipes).
-  // אם התמונה לא קיימת עדיין — הכרטיס מציג אימוג'י (התנהגות רגילה למתכון בלי תמונה).
-  const SEED_IMG = {
-    'לביבות תפוחי אדמה של רחל': '/recipe-seed/levivot.jpg',
-    'מרק עוף של סבתא מרים': '/recipe-seed/marak-of.jpg',
-    'עוגת תפוחים של חנה': '/recipe-seed/ugat-tapuchim.jpg',
-    'חמין של יעקב': '/recipe-seed/chamin.jpg',
-    'סלט ירקות קצוץ של אסתר': '/recipe-seed/salat.jpg',
-    'קציצות בקר ברוטב של דוד': '/recipe-seed/ktzitzot.jpg',
-    'שקשוקה של משה': '/recipe-seed/shakshuka.jpg',
-  }
-
   let count = 0
-  for (const r of RECIPES) {
-    const cover = SEED_IMG[r.title]
+  // מתכונים מובנים (מצרכים + שלבים) מתוך המאגר המרכזי.
+  // תמונה נוספת רק למתכונים עם hasImage (הקובץ /recipe-seed/{id}.jpg).
+  for (const r of SEED_RECIPES) {
+    const cover = r.hasImage ? `/recipe-seed/${r.id}.jpg` : null
     await addDoc(collection(db, 'communityPosts'), {
-      kind: 'recipe', title: r.title, body: r.body,
+      kind: 'recipe',
+      title: r.title,
+      body: '',
       category: r.category || 'other',
+      recipe: {
+        ingredients: r.ingredients || [],
+        steps: r.steps || [],
+        cookTime: '',
+      },
       photos: cover ? [cover] : [],
-      authorUid: authorUid || 'seed', authorName: r.author,
+      cooked: [],
+      authorUid: authorUid || 'seed',
+      authorName: r.author,
       views: Math.floor(Math.random() * 80) + 12,
-      likes: [], createdAt: serverTimestamp(),
+      likes: [],
+      createdAt: serverTimestamp(),
     })
     count++
   }

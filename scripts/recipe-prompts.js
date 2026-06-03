@@ -5,14 +5,15 @@
 // שתי קבוצות:
 //   CATEGORY_IMAGES — תמונת שער ריאליסטית אחת לכל קטגוריה (12).
 //                     נשמרות ב-public/recipe-categories/{id}.png
-//   SEED_IMAGES     — תמונה ריאליסטית לכל מתכון לדוגמה (7).
+//   SEED_IMAGES     — תמונה לכל מתכון לדוגמה עם hasImage:true.
+//                     נגזרות אוטומטית מ-src/data/seedRecipes.js.
 //                     נשמרות ב-public/recipe-seed/{id}.png
 //
 // הפרומפטים מתוכננים לתמונות אוכל מקצועיות, מפתות, בתאורה טבעית.
 // ─────────────────────────────────────────────────────────────
+import { SEED_RECIPES } from '../src/data/seedRecipes.js'
 
 // ── תבנית בסיס לצילום אוכל מקצועי ──
-// (בניגוד לרקעי הברכה — כאן דווקא רוצים שהמנה תמלא את הפריים)
 const food = (dish) =>
   'Professional food photography, appetizing and beautiful, ' +
   'soft natural window light, shallow depth of field, ' +
@@ -39,27 +40,14 @@ export const CATEGORY_IMAGES = [
   { id: 'drinks',    dish: 'colorful fruit smoothies and fresh juice in glasses, banana and berry shakes' },
 ]
 
-// ── תמונות למתכונים לדוגמה (7) ──
-// id חייב להתאים למתכון ב-seedCommunityContent (לפי הסדר/שם)
-export const SEED_IMAGES = [
-  { id: 'levivot',   dish: 'crispy golden potato latkes (levivot) stacked on a plate with sour cream' },
-  { id: 'marak-of',  dish: 'a clear golden chicken soup with carrots and zucchini in a bowl' },
-  { id: 'ugat-tapuchim', dish: 'a homemade apple cake with cinnamon, sliced, dusted with powdered sugar' },
-  { id: 'chamin',    dish: 'a traditional Jewish cholent (chamin) stew with beans, potatoes, meat and eggs in a pot' },
-  { id: 'salat',     dish: 'a finely chopped Israeli vegetable salad with tomatoes, cucumbers and parsley' },
-  { id: 'ktzitzot',  dish: 'beef meatballs in rich red tomato sauce in a pan, garnished with parsley' },
-  { id: 'shakshuka', dish: 'a classic shakshuka, eggs poached in spiced tomato pepper sauce in a cast iron pan' },
-]
-
-// ממפה שם מתכון לדוגמה → id של תמונה (לחיבור בקוד)
-export const SEED_TITLE_TO_IMAGE = {
-  'לביבות תפוחי אדמה של רחל': 'levivot',
-  'מרק עוף של סבתא מרים': 'marak-of',
-  'עוגת תפוחים של חנה': 'ugat-tapuchim',
-  'חמין של יעקב': 'chamin',
-  'סלט ירקות קצוץ של אסתר': 'salat',
-  'קציצות בקר ברוטב של דוד': 'ktzitzot',
-  'שקשוקה של משה': 'shakshuka',
-}
+// ── תמונות למתכונים לדוגמה ──
+// נגזר אוטומטית: כל מתכון עם hasImage:true מקבל תמונה.
+// ה-dish נבנה משם המתכון + רשימת המצרכים, כדי שהתמונה תתאים למנה.
+export const SEED_IMAGES = SEED_RECIPES
+  .filter(r => r.hasImage)
+  .map(r => ({
+    id: r.id,
+    dish: `${r.title} — a homemade Israeli dish. Key ingredients: ${(r.ingredients || []).slice(0, 4).join(', ')}`,
+  }))
 
 export { food }
