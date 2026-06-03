@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "gen-bg": "node scripts/generate-backgrounds.js",
+    "gen-recipes": "node scripts/generate-recipe-images.js",
+    "compress-recipes": "node scripts/compress-recipe-images.js",
     "download-fonts": "node scripts/download-fonts.js"
   },
   "dependencies": {

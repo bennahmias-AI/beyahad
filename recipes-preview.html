@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ביחד — מתכונים (תצוגה מקדימה)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg-page:   #EFE8DA;
+    --bg-app:    #F6F0E3;
+    --surface:   #FBF7EE;
+    --surface-2: #EBE4D2;
+    --ink:       #1B2540;
+    --ink-2:     #4A5274;
+    --ink-3:     #8389A4;
+    --line:      #DDD3BE;
+    --line-strong: #C3B695;
+    --accent:    #7E2C2E;
+    --accent-deep: #5A1D1E;
+    --accent-soft: #E8D0CF;
+    --shadow-sm: 0 1px 2px rgba(20,23,42,.04), 0 2px 6px rgba(20,23,42,.06);
+    --shadow-lg: 0 16px 40px -12px rgba(20,23,42,.22);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg-page);
+    color: var(--ink);
+    direction: rtl;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .app {
+    width: 100%;
+    max-width: 430px;
+    background: var(--bg-app);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 18px 12px;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg-app);
+  }
+  .header__back {
+    width: 44px; height: 44px; border-radius: 13px;
+    background: var(--surface); border: 1px solid var(--line);
+    box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; font-size: 20px; color: var(--ink);
+    transition: transform .08s;
+  }
+  .header__back:active { transform: scale(.94); }
+  .header__title { font-size: 26px; font-weight: 900; letter-spacing: -.02em; flex: 1; line-height: 1.1; }
+  .header__sub { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+
+  .body { padding: 4px 18px 40px; }
+
+  /* ── Search ── */
+  .search {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .search input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 16px;
+    padding: 13px 16px; border-radius: 13px;
+    border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink); outline: none; direction: rtl;
+  }
+  .search button {
+    width: 52px; flex-shrink: 0; border-radius: 13px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color: #fff; font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Category grid ── */
+  .section-label { font-size: 15px; font-weight: 800; margin-bottom: 12px; color: var(--ink); }
+  .cat-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .cat-card {
+    border: none; padding: 0; cursor: pointer; font-family: inherit;
+    border-radius: 18px; overflow: hidden; position: relative;
+    aspect-ratio: 1 / 0.78; box-shadow: var(--shadow-sm);
+    background: var(--surface-2);
+    transition: transform .1s;
+  }
+  .cat-card:active { transform: scale(.97); }
+  .cat-card img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .cat-card__overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(20,23,42,.78) 0%, rgba(20,23,42,.15) 55%, rgba(20,23,42,.05) 100%);
+  }
+  .cat-card__text {
+    position: absolute; bottom: 0; right: 0; left: 0;
+    padding: 12px 14px; text-align: right;
+  }
+  .cat-card__name { color: #fff; font-size: 19px; font-weight: 800; line-height: 1.1; text-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .cat-card__count { color: rgba(255,255,255,.85); font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+
+  /* ── Recipe list ── */
+  .recipe-list { display: flex; flex-direction: column; gap: 14px; }
+  .recipe-card {
+    border: 1px solid var(--line); padding: 0; cursor: pointer; font-family: inherit;
+    border-radius: 18px; overflow: hidden; background: var(--surface);
+    box-shadow: var(--shadow-sm); text-align: right; display: block; width: 100%;
+    transition: transform .1s;
+  }
+  .recipe-card:active { transform: scale(.99); }
+  .recipe-card__img { width: 100%; height: 170px; object-fit: cover; background: var(--surface-2); display: block; }
+  .recipe-card__body { padding: 13px 15px 15px; }
+  .recipe-card__cat {
+    display: inline-block; font-size: 11.5px; font-weight: 800; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 10px; border-radius: 999px; margin-bottom: 7px;
+  }
+  .recipe-card__title { font-size: 19px; font-weight: 800; line-height: 1.2; color: var(--ink); }
+  .recipe-card__meta {
+    display: flex; align-items: center; gap: 14px; margin-top: 9px;
+    font-size: 13px; color: var(--ink-3); font-weight: 600;
+  }
+  .recipe-card__meta .go { margin-inline-start: auto; color: var(--accent); font-weight: 800; }
+
+  /* ── Recipe detail ── */
+  .detail-hero { width: 100%; height: 250px; object-fit: cover; background: var(--surface-2); display: block; }
+  .detail-body { padding: 20px 20px 50px; }
+  .detail-cat {
+    display: inline-block; font-size: 12px; font-weight: 800; color: var(--accent);
+    background: var(--accent-soft); padding: 4px 12px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .detail-title { font-size: 27px; font-weight: 900; line-height: 1.2; letter-spacing: -.02em; margin-bottom: 6px; }
+  .detail-author { font-size: 14px; color: var(--ink-3); font-weight: 600; margin-bottom: 16px; }
+  .detail-meta-row { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-2); border-radius: 999px; padding: 7px 14px;
+    font-size: 13.5px; font-weight: 700; color: var(--ink-2);
+  }
+  .detail-section-title { font-size: 20px; font-weight: 800; color: var(--accent); margin-bottom: 12px; }
+  .ingredients-box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 6px 16px; margin-bottom: 26px;
+  }
+  .ingredient {
+    display: flex; align-items: flex-start; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid var(--line); font-size: 16px; line-height: 1.4;
+  }
+  .ingredient:last-child { border-bottom: none; }
+  .ingredient .dot { color: var(--accent); font-weight: 800; flex-shrink: 0; }
+  .steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+  .step { display: flex; gap: 13px; align-items: flex-start; }
+  .step__num {
+    width: 33px; height: 33px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 800; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step__text { flex: 1; font-size: 16px; line-height: 1.6; padding-top: 4px; color: var(--ink); }
+  .detail-actions { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; border: none; border-radius: 16px; padding: 15px; font-family: inherit;
+    font-size: 16px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn--like { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); }
+  .btn--cooked { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); }
+
+  /* ── Chips row for filtering inside category ── */
+  .filter-note {
+    font-size: 13px; color: var(--ink-3); font-weight: 600; margin-bottom: 14px;
+  }
+
+  .hidden { display: none; }
+  .fade { animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// תצוגה מקדימה — מתכונים בקונספט קטגוריות (בהשראת 10dakot)
+// תמונות: Unsplash (חינמי, ללא בעיית זכויות יוצרים)
+// ─────────────────────────────────────────────────────────────
+
+// כל קטגוריה: id, שם, אימוג'י לכותרת, ומילת-מפתח לתמונת השער
+const CATEGORIES = [
+  { id: 'cakes',    name: 'עוגות וקינוחים', img: 'cake,dessert' },
+  { id: 'soups',    name: 'מרקים',          img: 'soup,bowl' },
+  { id: 'salads',   name: 'סלטים',          img: 'salad,vegetables' },
+  { id: 'meat',     name: 'בשרים ועוף',     img: 'roast,meat,chicken' },
+  { id: 'pasta',    name: 'פסטה ואיטלקי',   img: 'pasta,italian' },
+  { id: 'baking',   name: 'מאפים ולחמים',   img: 'bread,bakery' },
+  { id: 'breakfast',name: 'ארוחת בוקר',     img: 'breakfast,eggs' },
+  { id: 'fish',     name: 'דגים',           img: 'fish,seafood' },
+  { id: 'vegan',    name: 'צמחוני וטבעוני', img: 'vegan,vegetables' },
+  { id: 'holiday',  name: 'אוכל לחג',       img: 'holiday,feast' },
+  { id: 'sides',    name: 'תוספות',         img: 'rice,potato' },
+  { id: 'drinks',   name: 'שתייה ושייקים',  img: 'smoothie,juice' },
+];
+
+const AUTHORS = ['רחל אברהמי', 'מרים שלום', 'דוד פרץ', 'חנה גולדמן', 'יעקב לוי', 'אסתר כהן', 'לאה ברקוביץ', 'משה דניאל'];
+
+// בנק שמות מתכונים לכל קטגוריה (לבניית ~100 מתכונים)
+const RECIPE_NAMES = {
+  cakes: ['עוגת תפוחים של סבתא', 'עוגת שוקולד נימוחה', 'עוגת גבינה אפויה', 'עוגת דבש לראש השנה', 'בראוניז שוקולד', 'עוגת לימון ופרג', 'עוגת יום הולדת קלאסית', 'מוס שוקולד בכוסות', 'עוגת גזר עם ציפוי', 'טירמיסו ביתי'],
+  soups: ['מרק עוף של סבתא', 'מרק עדשים כתום', 'מרק ירקות חורפי', 'מרק קישואים וקרם', 'מרק בצל צרפתי', 'מרק עגבניות קטיפתי', 'מרק כרובית', 'מרק אפונה', 'מרק דלעת ערמונים'],
+  salads: ['סלט ירקות קצוץ', 'סלט יווני', 'סלט קיסר', 'סלט קינואה וירקות', 'סלט חסה ואגוזים', 'סלט סלק קלוי', 'טאבולה', 'סלט אבוקדו', 'סלט כרוב סגול'],
+  meat: ['קציצות בקר ברוטב', 'שניצל פריך', 'צלי בקר נימוח', 'עוף בתנור עם תפוחי אדמה', 'כבד עוף מטוגן', 'המבורגר ביתי', 'שיפודי פרגית', 'אסאדו על האש', 'כדורי בשר ברוטב עגבניות'],
+  pasta: ['פסטה ברוטב עגבניות', 'פסטה אלפרדו', 'לזניה בולונז', 'ספגטי קרבונרה', 'פנה ארביאטה', 'פסטה ברוקולי ושום', 'רביולי בחמאה ומרווה', 'מאק אנד צ׳יז'],
+  baking: ['לחם ביתי פריך', 'חלה לשבת', 'בורקס גבינה', 'מאפה תרד', 'פיתות ביתיות', 'לחמניות רכות', 'פוקצ׳ה עם רוזמרין', 'רוגעלך שוקולד'],
+  breakfast: ['שקשוקה', 'חביתת ירק', 'פנקייק אמריקאי', 'גרנולה ביתית', 'טוסט אבוקדו', 'ביצים בנדיקט', 'דייסת שיבולת שועל', 'אומלט גבינות'],
+  fish: ['סלמון בתנור עם לימון', 'דג מושט ברוטב', 'פילה דניס צרוב', 'קציצות דגים', 'טונה צרובה', 'דג אפוי בעשבי תיבול'],
+  vegan: ['קציצות עדשים', 'קארי ירקות וקוקוס', 'חומוס ביתי', 'טופו מוקפץ', 'מג׳דרה', 'ממולאים צמחוניים', 'בורגר שעועית שחורה'],
+  holiday: ['חמין לשבת', 'קציצות דגים לפסח', 'לביבות חנוכה', 'אורז לראש השנה', 'צלי לחג', 'סופגניות ממולאות', 'מרק כופתאות', 'דלעת ממולאת'],
+  sides: ['אורז לבן מושלם', 'תפוחי אדמה בתנור', 'אורז עם אטריות', 'פירה חמאתי', 'בטטה קלויה', 'ירקות מוקפצים', 'קוסקוס עם ירקות'],
+  drinks: ['שייק בננה ותמרים', 'לימונענע קר', 'שוקו חם ביתי', 'שייק פירות יער', 'תה צמחים מרגיע', 'מילקשייק וניל', 'מיץ תפוזים סחוט'],
+};
+
+// מאגרי מצרכים והוראות גנריים (לדמו)
+const SAMPLE_INGREDIENTS = [
+  '2 כוסות קמח', '1 כוס סוכר', '3 ביצים', '100 גרם חמאה', '1 כפית אבקת אפייה',
+  'מלח ופלפל לפי הטעם', '2 כפות שמן זית', '1 בצל קצוץ', '3 שיני שום', '2 עגבניות',
+  '1 כוס מים', 'חצי כוס חלב', 'כף סוכר חום', 'קורט וניל',
+];
+const SAMPLE_STEPS = [
+  'מחממים את התנור ל-180 מעלות ומכינים את התבנית.',
+  'מערבבים יחד את כל החומרים היבשים בקערה גדולה.',
+  'מוסיפים את הנוזלים ומערבבים עד לקבלת תערובת אחידה.',
+  'יוצקים לתבנית ומיישרים את פני התערובת.',
+  'אופים כ-40 דקות עד שמזהיב ושיפוד יוצא יבש.',
+  'מצננים מעט לפני ההגשה. בתיאבון!',
+];
+
+// תמונה מ-Unsplash לפי מילות מפתח (חינמי, ללא זכויות יוצרים)
+function img(keywords, seed) {
+  // source.unsplash מחזיר תמונה אקראית מתאימה למילות המפתח
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(keywords)}&sig=${seed}`;
+}
+
+// בונים את כל המתכונים (~100) מתוך בנק השמות
+let RECIPES = [];
+let seed = 1;
+for (const cat of CATEGORIES) {
+  const names = RECIPE_NAMES[cat.id] || [];
+  names.forEach((name, i) => {
+    RECIPES.push({
+      id: `${cat.id}-${i}`,
+      title: name,
+      category: cat.id,
+      categoryName: cat.name,
+      author: AUTHORS[seed % AUTHORS.length],
+      time: [15, 20, 25, 30, 40, 45, 60, 90][seed % 8] + ' דקות',
+      difficulty: ['קל', 'בינוני', 'קל מאוד'][seed % 3],
+      likes: 5 + (seed * 7) % 95,
+      img: img(cat.img + ',food', seed),
+      ingredients: SAMPLE_INGREDIENTS.slice(0, 5 + (seed % 5)),
+      steps: SAMPLE_STEPS.slice(0, 4 + (seed % 3)),
+    });
+    seed++;
+  });
+}
+
+function countFor(catId) { return RECIPES.filter(r => r.category === catId).length; }
+
+// ── State & navigation ──
+let view = 'categories';   // categories | list | detail
+let activeCat = null;
+let activeRecipe = null;
+
+const app = document.getElementById('app');
+
+function render() {
+  if (view === 'categories') renderCategories();
+  else if (view === 'list') renderList();
+  else if (view === 'detail') renderDetail();
+  window.scrollTo(0, 0);
+}
+
+function renderCategories() {
+  app.innerHTML = `
+    <div class="header">
+      <div class="header__title">מתכונים<div class="header__sub">${RECIPES.length} מתכונים ב-${CATEGORIES.length} קטגוריות</div></div>
+    </div>
+    <div class="body fade">
+      <div class="search">
+        <input placeholder="חיפוש חופשי" />
+        <button>🔍</button>
+      </div>
+      <div class="section-label">עיינו לפי קטגוריה:</div>
+      <div class="cat-grid">
+        ${CATEGORIES.map(c => `
+          <button class="cat-card" onclick="openCat('${c.id}')">
+            <img src="${img(c.img + ',food', c.id.length * 13 + 3)}" alt="${c.name}" loading="lazy" />
+            <div class="cat-card__overlay"></div>
+            <div class="cat-card__text">
+              <div class="cat-card__name">${c.name}</div>
+              <div class="cat-card__count">${countFor(c.id)} מתכונים</div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderList() {
+  const cat = CATEGORIES.find(c => c.id === activeCat);
+  const list = RECIPES.filter(r => r.category === activeCat);
+  app.innerHTML = `
+    <div class="header">
+      <div class="header__back" onclick="goCategories()">→</div>
+      <div class="header__title">${cat.name}<div class="header__sub">${list.length} מתכונים</div></div>
+    </div>
+    <div class="body fade">
+      <div class="recipe-list">
+        ${list.map(r => `
+          <button class="recipe-card" onclick="openRecipe('${r.id}')">
+            <img class="recipe-card__img" src="${r.img}" alt="${r.title}" loading="lazy" />
+            <div class="recipe-card__body">
+              <span class="recipe-card__cat">${r.categoryName}</span>
+              <div class="recipe-card__title">${r.title}</div>
+              <div class="recipe-card__meta">
+                <span>⏱ ${r.time}</span>
+                <span>📊 ${r.difficulty}</span>
+                <span>❤ ${r.likes}</span>
+                <span class="go">למתכון ←</span>
+              </div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderDetail() {
+  const r = activeRecipe;
+  app.innerHTML = `
+    <div class="fade">
+      <div style="position:relative;">
+        <img class="detail-hero" src="${r.img}" alt="${r.title}" />
+        <div class="header__back" style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,.92);" onclick="backToList()">→</div>
+      </div>
+      <div class="detail-body">
+        <span class="detail-cat">${r.categoryName}</span>
+        <div class="detail-title">${r.title}</div>
+        <div class="detail-author">מאת ${r.author}</div>
+        <div class="detail-meta-row">
+          <span class="meta-chip">⏱ ${r.time}</span>
+          <span class="meta-chip">📊 ${r.difficulty}</span>
+          <span class="meta-chip">❤ ${r.likes} אהבו</span>
+        </div>
+
+        <div class="detail-section-title">🧺 מצרכים</div>
+        <div class="ingredients-box">
+          ${r.ingredients.map(i => `<div class="ingredient"><span class="dot">•</span><span>${i}</span></div>`).join('')}
+        </div>
+
+        <div class="detail-section-title">👩‍🍳 אופן ההכנה</div>
+        <div class="steps">
+          ${r.steps.map((s, i) => `<div class="step"><span class="step__num">${i+1}</span><div class="step__text">${s}</div></div>`).join('')}
+        </div>
+
+        <div class="detail-actions">
+          <button class="btn btn--like">❤ אהבתי · ${r.likes}</button>
+          <button class="btn btn--cooked">🍳 הכנתי</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Navigation handlers (global) ──
+window.openCat = (id) => { activeCat = id; view = 'list'; render(); };
+window.goCategories = () => { view = 'categories'; render(); };
+window.openRecipe = (id) => { activeRecipe = RECIPES.find(r => r.id === id); view = 'detail'; render(); };
+window.backToList = () => { view = 'list'; render(); };
+
+render();
+</script>
+</body>
+</html>

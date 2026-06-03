@@ -19,6 +19,7 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart } from '../icons/index.jsx'
+import { RECIPE_CATEGORIES, categoryOf } from '../data/recipeCategories.js'
 
 const ACCENT = '#7E2C2E'
 const ACCENT_DEEP = '#5A1D1E'
@@ -59,6 +60,7 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
   const [composing, setComposing] = useState(false)
   const [editingPost, setEditingPost] = useState(null)   // מתכון שעורכים כרגע (null = יצירה חדשה)
   const [tab, setTab] = useState('all')                  // 'all' = כל המתכונים / 'mine' = המתכונים שלי
+  const [activeCat, setActiveCat] = useState(null)       // קטגוריה נבחרת בלשונית "כל המתכונים" (null = גריד הקטגוריות)
   const [seeding, setSeeding] = useState(false)
   const openedInitialRef = useRef(false)
 
@@ -88,6 +90,15 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
   // המתכונים שאני כתבתי (לפי authorUid)
   const myUid = authUser?.uid
   const myRecipes = myUid ? posts.filter(p => p.authorUid === myUid) : []
+
+  // ספירת מתכונים לכל קטגוריה (מתכון ללא קטגוריה → 'other')
+  const countByCat = {}
+  for (const p of posts) {
+    const c = p.category || 'other'
+    countByCat[c] = (countByCat[c] || 0) + 1
+  }
+  // מתכוני הקטגוריה הנבחרת
+  const catRecipes = activeCat ? posts.filter(p => (p.category || 'other') === activeCat) : []
 
   const openItem = async (post) => {
     setOpenPost(post)
@@ -142,7 +153,7 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
           display: 'flex', gap: 8, marginBottom: 18, background: 'var(--surface-2)',
           borderRadius: 14, padding: 5,
         }}>
-          <TabButton active={tab === 'all'} onClick={() => setTab('all')}>🍽️ כל המתכונים</TabButton>
+          <TabButton active={tab === 'all'} onClick={() => { setTab('all'); setActiveCat(null) }}>🍽️ כל המתכונים</TabButton>
           <TabButton active={tab === 'mine'} onClick={() => setTab('mine')}>📖 המתכונים שלי{myRecipes.length > 0 ? ` (${myRecipes.length})` : ''}</TabButton>
         </div>
 
@@ -170,7 +181,7 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
             </div>
           )
         ) : (
-          /* ── לשונית "כל המתכונים" ── */
+          /* ── לשונית "כל המתכונים" — מבנה קטגוריות ── */
           posts.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--ink-2)' }}>
               <div style={{ fontSize: 56, marginBottom: 12 }}>🍲</div>
@@ -182,12 +193,39 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
                 fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
               }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
             </div>
+          ) : activeCat ? (
+            /* קטגוריה נבחרה — רשימת המתכונים שלה */
+            <>
+              <CategoryHeader cat={categoryOf(activeCat)} count={catRecipes.length} onBack={() => setActiveCat(null)} />
+              {catRecipes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--ink-2)' }}>
+                  <div style={{ fontSize: 48, marginBottom: 10 }}>{categoryOf(activeCat).emoji}</div>
+                  <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>עדיין אין מתכונים בקטגוריה זו</div>
+                  <div style={{ fontSize: 14, marginTop: 4 }}>היה הראשון להוסיף!</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {catRecipes.map(post => (
+                    <RecipeCard key={post.id} post={post} myUid={authUser?.uid} onClick={() => openItem(post)} />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {posts.map(post => (
-                <RecipeCard key={post.id} post={post} myUid={authUser?.uid} onClick={() => openItem(post)} />
-              ))}
-            </div>
+            /* גריד הקטגוריות */
+            <>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 12 }}>עיינו לפי קטגוריה:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                {RECIPE_CATEGORIES.filter(c => c.id !== 'other' || (countByCat['other'] || 0) > 0).map(cat => (
+                  <CategoryCard
+                    key={cat.id}
+                    cat={cat}
+                    count={countByCat[cat.id] || 0}
+                    onClick={() => setActiveCat(cat.id)}
+                  />
+                ))}
+              </div>
+            </>
           )
         )}
       </div>
@@ -196,12 +234,12 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
         <RecipeComposer
           editPost={editingPost}
           onClose={() => { setComposing(false); setEditingPost(null) }}
-          onSubmit={async ({ title, recipe, photos }) => {
+          onSubmit={async ({ title, recipe, photos, category }) => {
             if (editingPost) {
-              await updateCommunityPost(editingPost.id, { title, recipe, photos })
+              await updateCommunityPost(editingPost.id, { title, recipe, photos, category })
             } else {
               await createCommunityPost({
-                kind: 'recipe', title, recipe, photos,
+                kind: 'recipe', title, recipe, photos, category,
                 authorUid: authUser?.uid, authorName: profile?.name || 'משתמש',
               })
             }
@@ -238,6 +276,79 @@ function TabButton({ active, onClick, children }) {
       boxShadow: active ? 'var(--shadow-sm)' : 'none',
       transition: 'background .15s, color .15s',
     }}>{children}</button>
+  )
+}
+
+// ── כרטיס קטגוריה (גריד) — תמונת שער ריאליסטית עם fallback לגרדיאנט ──
+function CategoryCard({ cat, count, onClick }) {
+  const [imgOk, setImgOk] = useState(Boolean(cat.img))
+  const showImg = cat.img && imgOk
+  return (
+    <button onClick={onClick} style={{
+      border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+      borderRadius: 18, overflow: 'hidden', position: 'relative',
+      aspectRatio: '1 / 0.82', boxShadow: 'var(--shadow-sm)',
+      background: `linear-gradient(145deg, ${cat.grad[0]}, ${cat.grad[1]})`,
+      display: 'block', width: '100%',
+    }}>
+      {/* תמונה ריאליסטית (אם קיימת ונטענה בהצלחה) */}
+      {showImg && (
+        <img
+          src={cat.img}
+          alt={cat.name}
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
+      {/* אימוג'י גדול שקוף — רק כשאין תמונה (על הגרדיאנט) */}
+      {!showImg && (
+        <span style={{
+          position: 'absolute', insetInlineStart: -6, bottom: -14, fontSize: 88,
+          opacity: 0.28, lineHeight: 1, transform: 'rotate(-8deg)',
+        }}>{cat.emoji}</span>
+      )}
+      {/* טקסט — עם הכהה תחתונה לקריאות על התמונה */}
+      <div style={{
+        position: 'absolute', inset: 0, padding: '14px 15px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        textAlign: 'right',
+        background: showImg
+          ? 'linear-gradient(to top, rgba(20,23,42,.78) 0%, rgba(20,23,42,.15) 55%, rgba(20,23,42,0) 100%)'
+          : 'linear-gradient(to top, rgba(20,23,42,.30) 0%, rgba(20,23,42,0) 60%)',
+      }}>
+        <div style={{ color: '#fff', fontSize: 19, fontWeight: 900, lineHeight: 1.15, textShadow: '0 1px 4px rgba(0,0,0,.4)' }}>
+          {cat.name}
+        </div>
+        <div style={{ color: 'rgba(255,255,255,.92)', fontSize: 12.5, fontWeight: 700, marginTop: 2 }}>
+          {count} {count === 1 ? 'מתכון' : 'מתכונים'}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ── כותרת קטגוריה (מעל רשימת המתכונים) עם כפתור חזרה ──
+function CategoryHeader({ cat, count, onBack }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <button onClick={onBack} aria-label="חזרה לקטגוריות" style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
+        border: '1px solid var(--line)', background: 'var(--surface)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <IconBackRTL size={20} color="#1B2540" />
+      </button>
+      <span style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0, fontSize: 22,
+        background: `linear-gradient(145deg, ${cat.grad[0]}, ${cat.grad[1]})`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>{cat.emoji}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="h-display" style={{ fontSize: 21, color: 'var(--ink)', lineHeight: 1.1 }}>{cat.name}</div>
+        <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>{count} {count === 1 ? 'מתכון' : 'מתכונים'}</div>
+      </div>
+    </div>
   )
 }
 
@@ -300,6 +411,13 @@ function RecipeCard({ post, myUid, onClick }) {
         </div>
       )}
       <div style={{ padding: '14px 16px' }}>
+        {/* תגית קטגוריה */}
+        {post.category && (
+          <span style={{
+            display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: ACCENT,
+            background: 'var(--burgundy-soft)', padding: '3px 10px', borderRadius: 999, marginBottom: 8,
+          }}>{categoryOf(post.category).name}</span>
+        )}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Avatar name={post.authorName} size={44} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -343,13 +461,14 @@ function RecipeCard({ post, myUid, onClick }) {
 // ════════════════════════════════════════════════════════
 function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
   const [title, setTitle] = useState(editPost?.title || '')
-  const [ingredients, setIngredients] = useState(
-    editPost?.recipe?.ingredients?.length ? [...editPost.recipe.ingredients] : ['']
+  const [category, setCategory] = useState(editPost?.category || 'cakes')
+  // מצרכים ושלבים כטקסט חופשי — שורה לכל פריט (הרבה יותר נוח מהפלוס)
+  const [ingredientsText, setIngredientsText] = useState(
+    (editPost?.recipe?.ingredients || []).join('\n')
   )
-  const [steps, setSteps] = useState(
-    editPost?.recipe?.steps?.length ? [...editPost.recipe.steps] : ['']
+  const [stepsText, setStepsText] = useState(
+    (editPost?.recipe?.steps || []).join('\n')
   )
-  const [cookTime, setCookTime] = useState(editPost?.recipe?.cookTime || '')
   const [photos, setPhotos] = useState(
     (editPost?.photos || []).map((url, i) => ({ url, uploading: false, key: `existing-${i}` }))
   )
@@ -358,18 +477,12 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
   const fileRef = useRef(null)
 
   const canSubmit = title.trim().length > 0
-    && ingredients.some(i => i.trim())
-    && steps.some(s => s.trim())
+    && ingredientsText.trim().length > 0
+    && stepsText.trim().length > 0
 
-  // ── מצרכים ──
-  const setIngredient = (i, val) => setIngredients(prev => prev.map((x, idx) => idx === i ? val : x))
-  const addIngredient = () => setIngredients(prev => [...prev, ''])
-  const removeIngredient = (i) => setIngredients(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev)
-
-  // ── שלבים ──
-  const setStep = (i, val) => setSteps(prev => prev.map((x, idx) => idx === i ? val : x))
-  const addStep = () => setSteps(prev => [...prev, ''])
-  const removeStep = (i) => setSteps(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev)
+  // מפצלים טקסט לשורות, מנקים שורות ריקות
+  const splitLines = (text) =>
+    text.split('\n').map(l => l.trim()).filter(Boolean)
 
   // ── תמונות ──
   const handlePhotoPick = async (e) => {
@@ -402,10 +515,11 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
     try {
       await onSubmit({
         title,
+        category,
         recipe: {
-          ingredients: ingredients.map(i => i.trim()).filter(Boolean),
-          steps: steps.map(s => s.trim()).filter(Boolean),
-          cookTime,
+          ingredients: splitLines(ingredientsText),
+          steps: splitLines(stepsText),
+          cookTime: '',
         },
         photos: photos.map(p => p.url).filter(Boolean),
       })
@@ -418,7 +532,8 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
     width: '100%', fontSize: 16, fontFamily: 'inherit', padding: '12px 14px', borderRadius: 12,
     border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)', direction: 'rtl',
   }
-  const labelStyle = { fontSize: 15, fontWeight: 800, color: 'var(--ink)', display: 'block', marginBottom: 8, marginTop: 18 }
+  const labelStyle = { fontSize: 15, fontWeight: 800, color: 'var(--ink)', display: 'block', marginBottom: 4, marginTop: 18 }
+  const hintStyle = { fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 8 }
 
   return (
     <div style={{
@@ -438,66 +553,49 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
         <label style={labelStyle}>שם המתכון</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="למשל: עוגת תפוחים של ענת" style={inputStyle} />
 
-        {/* מצרכים */}
+        {/* קטגוריה — צ'יפים נבחרים */}
+        <label style={labelStyle}>קטגוריה</label>
+        <div style={hintStyle}>בחרו לאיזה סוג מתאים המתכון</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {RECIPE_CATEGORIES.filter(c => c.id !== 'other').map(c => {
+            const sel = category === c.id
+            return (
+              <button key={c.id} type="button" onClick={() => setCategory(c.id)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '9px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 14.5, fontWeight: 700,
+                border: `1.5px solid ${sel ? ACCENT : 'var(--line-strong)'}`,
+                background: sel ? ACCENT : 'var(--surface)',
+                color: sel ? '#fff' : 'var(--ink)',
+              }}>
+                <span style={{ fontSize: 17 }}>{c.emoji}</span>
+                <span>{c.name}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* מצרכים — שדה טקסט חופשי, שורה לכל מצרך */}
         <label style={labelStyle}>🧺 מצרכים</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {ingredients.map((ing, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ color: ACCENT, fontWeight: 800, fontSize: 18, flexShrink: 0 }}>•</span>
-              <input
-                value={ing}
-                onChange={e => setIngredient(i, e.target.value)}
-                placeholder="למשל: 2 כוסות קמח"
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              {ingredients.length > 1 && (
-                <button onClick={() => removeIngredient(i)} aria-label="הסר מצרך" style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0, border: '1px solid var(--line)',
-                  background: 'var(--surface)', color: 'var(--ink-3)', fontSize: 18, cursor: 'pointer',
-                }}>✕</button>
-              )}
-            </div>
-          ))}
-        </div>
-        <button onClick={addIngredient} style={{
-          marginTop: 8, background: 'none', border: 'none', color: ACCENT, fontWeight: 800,
-          fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', padding: '4px 0',
-        }}>➕ הוסף מצרך</button>
+        <div style={hintStyle}>כתבו כל מצרך בשורה נפרדת</div>
+        <textarea
+          value={ingredientsText}
+          onChange={e => setIngredientsText(e.target.value)}
+          placeholder={'2 כוסות קמח\n1 כוס סוכר\n3 ביצים\n100 גרם חמאה'}
+          rows={6}
+          style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.7 }}
+        />
 
-        {/* אופן ההכנה */}
+        {/* אופן ההכנה — שדה טקסט חופשי */}
         <label style={labelStyle}>👩‍🍳 אופן ההכנה</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {steps.map((step, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <span style={{
-                width: 28, height: 28, borderRadius: '50%', background: ACCENT, color: '#fff',
-                fontSize: 14, fontWeight: 800, flexShrink: 0, marginTop: 6,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>{i + 1}</span>
-              <textarea
-                value={step}
-                onChange={e => setStep(i, e.target.value)}
-                placeholder="תארו את השלב..."
-                rows={2}
-                style={{ ...inputStyle, flex: 1, resize: 'vertical', lineHeight: 1.5 }}
-              />
-              {steps.length > 1 && (
-                <button onClick={() => removeStep(i)} aria-label="הסר שלב" style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0, border: '1px solid var(--line)',
-                  background: 'var(--surface)', color: 'var(--ink-3)', fontSize: 18, cursor: 'pointer', marginTop: 2,
-                }}>✕</button>
-              )}
-            </div>
-          ))}
-        </div>
-        <button onClick={addStep} style={{
-          marginTop: 8, background: 'none', border: 'none', color: ACCENT, fontWeight: 800,
-          fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', padding: '4px 0',
-        }}>➕ הוסף שלב</button>
-
-        {/* זמן בישול/אפייה */}
-        <label style={labelStyle}>⏱ זמן בישול / אפייה</label>
-        <input value={cookTime} onChange={e => setCookTime(e.target.value)} placeholder="למשל: 45 דקות" style={inputStyle} />
+        <div style={hintStyle}>כתבו כל שלב בשורה נפרדת</div>
+        <textarea
+          value={stepsText}
+          onChange={e => setStepsText(e.target.value)}
+          placeholder={'מחממים את התנור ל-180 מעלות\nמערבבים את החומרים היבשים\nמוסיפים את הביצים ומערבבים\nאופים 45 דקות'}
+          rows={7}
+          style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.7 }}
+        />
 
         {/* תמונות */}
         <label style={labelStyle}>📷 תמונות (עד 3)</label>
@@ -619,6 +717,12 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
           </div>
 
           {/* שם */}
+          {post.category && (
+            <span style={{
+              display: 'inline-block', fontSize: 12, fontWeight: 800, color: ACCENT,
+              background: 'var(--burgundy-soft)', padding: '4px 12px', borderRadius: 999, marginBottom: 10,
+            }}>{categoryOf(post.category).name}</span>
+          )}
           <div className="h-display" style={{ fontSize: 26, color: 'var(--ink)', lineHeight: 1.25, marginBottom: 8 }}>
             {post.title}
           </div>

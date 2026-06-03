@@ -8,9 +8,13 @@
 // תמונת הפרופיל מכווצת ל-256x256 ונשמרת כ-base64 ישירות
 // במסמך המשתמש ב-Firestore — ללא צורך ב-Storage נפרד.
 // ─────────────────────────────────────────────────────────────
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { createOrUpdateUser, getUser } from '../services/firebase.js'
+import {
+  createOrUpdateUser, getUser,
+  enableNotifications, disableNotifications,
+  notificationsSupported, getNotificationPermission,
+} from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import AvatarPicker from '../components/AvatarPicker.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
@@ -261,6 +265,9 @@ export default function ProfilePage({ onBack }) {
           </div>
         </Field>
 
+        {/* ── התראות לטלפון ──────────────────── */}
+        <NotificationsToggle uid={authUser?.uid} />
+
         {/* ── Save ───────────────────────────────────────── */}
         <button
           onClick={handleSave}
@@ -307,6 +314,109 @@ function Field({ label, children }) {
       {children}
     </div>
   )
+}
+
+// ── מתג התראות לטלפון ───────────────────────────────────
+// מאפשר למשתמש להפעיל/לכבות התראות push למכשיר הזה.
+function NotificationsToggle({ uid }) {
+  const [supported, setSupported] = useState(null)   // null=בודק, true/false
+  const [permission, setPermission] = useState('default')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    notificationsSupported().then(s => {
+      if (!alive) return
+      setSupported(s)
+      setPermission(getNotificationPermission())
+    })
+    return () => { alive = false }
+  }, [])
+
+  const on = permission === 'granted'
+
+  const handleEnable = async () => {
+    setBusy(true); setNote('')
+    const res = await enableNotifications(uid)
+    setPermission(getNotificationPermission())
+    if (res.ok) {
+      setNote('✓ התראות הופעלו! תקבלו התראה כשחבר מתקשר או שולח הודעה.')
+    } else if (res.reason === 'denied') {
+      setNote('⚠ ההרשאה נחסמה. כדי לאפשר התראות, יש לאפשר אותן בהגדרות הדפדפן/טלפון.')
+    } else if (res.reason === 'no-vapid-key') {
+      setNote('⚠ חסר מפתח VAPID — צריך להגדיר אותו תחילה.')
+    } else if (res.reason === 'unsupported') {
+      setNote('⚠ המכשיר או הדפדפן לא תומך בהתראות.')
+    } else {
+      setNote('לא הצלחנו להפעיל התראות — נסו שוב.')
+    }
+    setBusy(false)
+  }
+
+  const handleDisable = async () => {
+    setBusy(true); setNote('')
+    await disableNotifications(uid)
+    setNote('התראות כובו למכשיר הזה. (כדי לבטל לגמרי — יש לחסום גם בהגדרות הדפדפן.)')
+    setBusy(false)
+  }
+
+  // בזמן בדיקת תמיכה — לא מציגים כלום
+  if (supported === null) return null
+
+  // המכשיר לא תומך — הסבר עדין
+  if (!supported) {
+    return (
+      <div style={notifBoxStyle}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>🔔 התראות</div>
+        <div style={{ fontSize: 13.5, color: 'var(--ink-3)', fontWeight: 500, lineHeight: 1.5 }}>
+          המכשיר או הדפדפן הזה לא תומך בהתראות. באייפון — יש להתקין קודם את האפליקציה למסך הבית.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={notifBoxStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--ink)', marginBottom: 3 }}>🔔 התראות לטלפון</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 500, lineHeight: 1.45 }}>
+            {on
+              ? 'מופעל — תקבלו התראה על שיחות, הודעות והזמנות למשחק.'
+              : 'הפעילו כדי לקבל התראה גם כשהאפליקציה סגורה.'}
+          </div>
+        </div>
+        <button
+          onClick={on ? handleDisable : handleEnable}
+          disabled={busy}
+          style={{
+            flexShrink: 0, padding: '11px 20px', borderRadius: 999,
+            fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+            border: 'none',
+            background: on ? 'var(--surface-2)' : 'var(--burgundy)',
+            color: on ? 'var(--ink)' : '#fff',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? '...' : (on ? 'כבה' : 'הפעל')}
+        </button>
+      </div>
+      {note && (
+        <div style={{
+          marginTop: 10, fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+          color: note.startsWith('✓') ? 'var(--success)' : 'var(--ink-2)',
+        }}>
+          {note}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const notifBoxStyle = {
+  marginBottom: 18, padding: '16px 18px', borderRadius: 16,
+  background: 'var(--surface)', border: '1px solid var(--line)',
 }
 
 const inputStyle = {

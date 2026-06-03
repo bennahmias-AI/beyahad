@@ -159,3 +159,25 @@ export const RADIO_COUNTRIES = [
   { code: 'KR', flag: '🇰🇷', name: 'דרום קוריאה' },
   { code: 'ZA', flag: '🇿🇦', name: 'דרום אפריקה' },
 ]
+
+// ─── קטגוריות חיפוש מהירות ───────────────────────────────────
+// כל קטגוריה: id, אמוג'י, שם בעברית, וסוג:
+//   kind: 'country'  → פותח את רשת המדינות (מטופל ב-UI)
+//   kind: 'tag'      → מריץ fetchStationsByTag עם התגית tag
+// העשורים משתמשים בתגיות שמקובלות ב-Radio Browser (50s, 60s, oldies וכו').
+export const RADIO_CATEGORIES = [
+  { id: 'country', emoji: '🌍', name: 'לפי מדינה', kind: 'country' },
+  { id: '50s',     emoji: '🎙️', name: 'שנות ה-50', kind: 'tag', tag: '50s' },
+  { id: '60s',     emoji: '🎵', name: 'שנות ה-60', kind: 'tag', tag: '60s' },
+  { id: '70s',     emoji: '🕺', name: 'שנות ה-70', kind: 'tag', tag: '70s' },
+  { id: '80s',     emoji: '📼', name: 'שנות ה-80', kind: 'tag', tag: '80s' },
+  { id: '90s',     emoji: '💿', name: 'שנות ה-90', kind: 'tag', tag: '90s' },
+  { id: '2000s',   emoji: '📀', name: 'שנות ה-2000', kind: 'tag', tag: '2000s' },
+  { id: 'oldies',  emoji: '🎶', name: 'נוסטלגיה', kind: 'tag', tag: 'oldies' },
+  { id: 'classical', emoji: '🎻', name: 'קלאסי', kind: 'tag', tag: 'classical' },
+  { id: 'jazz',    emoji: '🎷', name: 'ג׳אז', kind: 'tag', tag: 'jazz' },
+  { id: 'pop',     emoji: '🎤', name: 'פופ', kind: 'tag', tag: 'pop' },
+  { id: 'rock',    emoji: '🎸', name: 'רוק', kind: 'tag', tag: 'rock' },
+  { id: 'news',    emoji: '📰', name: 'חדשות', kind: 'tag', tag: 'news' },
+  { id: 'talk',    emoji: '🗣️', name: 'דיבורים', kind: 'tag', tag: 'talk' },
+]

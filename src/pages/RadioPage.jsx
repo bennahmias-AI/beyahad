@@ -8,8 +8,9 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useRadioStore } from '../stores/radioStore.js'
-import { fetchIsraeliStations, searchStations, fetchStationsByCountry, RADIO_COUNTRIES } from '../services/radio.js'
+import { fetchIsraeliStations, searchStations, fetchStationsByCountry, fetchStationsByTag, RADIO_COUNTRIES, RADIO_CATEGORIES } from '../services/radio.js'
 import { IconBackRTL, IconSearch, IconPlay, IconPause, IconHeart } from '../icons/index.jsx'
+import { RadioCatIcon } from '../icons/radioIcons.jsx'
 
 const ACCENT = '#6B3A4F'
 const ACCENT_DEEP = '#482638'
@@ -20,15 +21,24 @@ export default function RadioPage({ onBack }) {
   const [israeli, setIsraeli] = useState([])
   const [loadingIsraeli, setLoadingIsraeli] = useState(true)
 
-  // חיפוש
+  // חיפוש — מבנה תת-מסכים:
+  //   view: 'home' = שדה חיפוש + רשת קטגוריות (ברירת מחדל)
+  //         'countries' = רשת כל המדינות
+  //         'country' = תחנות של מדינה נבחרת
+  //         'tag' = תחנות לפי קטגוריה (עשור/סוגה)
+  //         'search' = תוצאות חיפוש חופשי
+  const [view, setView] = useState('home')
   const [term, setTerm] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
-  const [searched, setSearched] = useState(false)
-  // מדינה נבחרת לחיפוש לפי מדינה
+  // מדינה נבחרת
   const [country, setCountry] = useState(null)         // { code, flag, name } או null
   const [countryStations, setCountryStations] = useState([])
   const [loadingCountry, setLoadingCountry] = useState(false)
+  // קטגוריה (תגית) נבחרת
+  const [activeCat, setActiveCat] = useState(null)     // { id, emoji, name, tag } או null
+  const [catStations, setCatStations] = useState([])
+  const [loadingCat, setLoadingCat] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -41,25 +51,44 @@ export default function RadioPage({ onBack }) {
 
   const runSearch = async () => {
     if (!term.trim()) return
-    setCountry(null)   // חיפוש חופשי מבטל בחירת מדינה
-    setSearching(true); setSearched(true)
+    setView('search')
+    setSearching(true)
     const list = await searchStations(term)
     setResults(list)
     setSearching(false)
   }
 
-  // בחירת מדינה — טוען את התחנות שלה (או מנקה אם לוחצה שוב)
-  const pickCountry = async (c) => {
-    if (country?.code === c.code) {
-      setCountry(null); setCountryStations([])
+  // בחירת קטגוריה מהרשת: מדינה → מסך מדינות; תגית → חיפוש לפי תגית
+  const pickCategory = async (cat) => {
+    if (cat.kind === 'country') {
+      setView('countries')
       return
     }
+    // קטגוריית תגית (עשור/סוגה)
+    setActiveCat(cat)
+    setView('tag')
+    setLoadingCat(true)
+    const list = await fetchStationsByTag(cat.tag)
+    setCatStations(list)
+    setLoadingCat(false)
+  }
+
+  // בחירת מדינה — טוען את התחנות שלה ועובר לתצוגת תחנות
+  const pickCountry = async (c) => {
     setCountry(c)
-    setTerm('')
+    setView('country')
     setLoadingCountry(true)
     const list = await fetchStationsByCountry(c.code)
     setCountryStations(list)
     setLoadingCountry(false)
+  }
+
+  // חזרה למסך הקטגוריות (מתוך תת-מסך)
+  const backToHome = () => {
+    setView('home')
+    setCountry(null); setCountryStations([])
+    setActiveCat(null); setCatStations([])
+    setResults([])
   }
 
   const onPick = (s) => {
@@ -84,7 +113,7 @@ export default function RadioPage({ onBack }) {
           borderRadius: 14, padding: 5,
         }}>
           <Tab active={tab === 'israel'} onClick={() => setTab('israel')}>🇮🇱 ישראל</Tab>
-          <Tab active={tab === 'search'} onClick={() => setTab('search')}>🔎 חיפוש</Tab>
+          <Tab active={tab === 'search'} onClick={() => { setTab('search'); setView('home') }}>🔎 חיפוש</Tab>
           <Tab active={tab === 'favorites'} onClick={() => setTab('favorites')}>❤ מועדפים{favorites.length > 0 ? ` (${favorites.length})` : ''}</Tab>
         </div>
 
@@ -102,74 +131,115 @@ export default function RadioPage({ onBack }) {
         {/* ── לשונית חיפוש ── */}
         {tab === 'search' && (
           <>
-            {/* בורר מדינות — רשת דגלים נפרשת לאורך */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>לפי מדינה:</div>
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
-              }}>
-                {RADIO_COUNTRIES.map(c => {
-                  const sel = country?.code === c.code
-                  return (
+            {/* מסך הבית של החיפוש: שדה חיפוש + רשת קטגוריות */}
+            {view === 'home' && (
+              <>
+                {/* חיפוש חופשי לפי שם — למעלה */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                  <input
+                    value={term}
+                    onChange={e => setTerm(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && runSearch()}
+                    placeholder="חיפוש חופשי"
+                    style={{
+                      flex: 1, minWidth: 0, fontSize: 16, fontFamily: 'inherit', padding: '12px 16px', borderRadius: 12,
+                      border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)', direction: 'rtl',
+                    }}
+                  />
+                  <button onClick={runSearch} aria-label="חפש" style={{
+                    width: 52, flexShrink: 0, borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <IconSearch size={22} color="#fff" />
+                  </button>
+                </div>
+
+                {/* רשת קטגוריות */}
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>עיינו לפי קטגוריה:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                  {RADIO_CATEGORIES.map(cat => (
+                    <button key={cat.id} onClick={() => pickCategory(cat)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '14px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit',
+                      fontSize: 16, fontWeight: 800, textAlign: 'right',
+                      border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)',
+                      boxShadow: 'var(--shadow-sm)',
+                    }}>
+                      <span style={{
+                        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                        background: 'rgba(107,58,79,.10)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <RadioCatIcon id={cat.id} size={24} color={ACCENT} />
+                      </span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* תת-מסך: רשת כל המדינות */}
+            {view === 'countries' && (
+              <>
+                <SubHeader title="🌍 לפי מדינה" onBack={backToHome} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  {RADIO_COUNTRIES.map(c => (
                     <button key={c.code} onClick={() => pickCountry(c)} style={{
                       display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '11px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+                      padding: '13px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
                       fontSize: 15, fontWeight: 700, textAlign: 'right',
-                      border: `1.5px solid ${sel ? ACCENT : 'var(--line-strong)'}`,
-                      background: sel ? ACCENT : 'var(--surface)',
-                      color: sel ? '#fff' : 'var(--ink)',
+                      border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)',
                     }}>
                       <span style={{ fontSize: 20, flexShrink: 0 }}>{c.flag}</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     </button>
-                  )
-                })}
-              </div>
-            </div>
+                  ))}
+                </div>
+              </>
+            )}
 
-            {/* חיפוש חופשי לפי שם */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <input
-                value={term}
-                onChange={e => setTerm(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
-                placeholder="או חפשו שם תחנה..."
-                style={{
-                  flex: 1, fontSize: 16, fontFamily: 'inherit', padding: '12px 16px', borderRadius: 12,
-                  border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)', direction: 'rtl',
-                }}
-              />
-              <button onClick={runSearch} aria-label="חפש" style={{
-                width: 52, flexShrink: 0, borderRadius: 12, border: 'none', cursor: 'pointer',
-                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, color: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <IconSearch size={22} color="#fff" />
-              </button>
-            </div>
-
-            {/* תוכן — אם נבחרה מדינה מציגים את התחנות שלה, אחרת תוצאות חיפוש */}
-            {country ? (
-              loadingCountry ? (
-                <Loading />
-              ) : countryStations.length === 0 ? (
-                <Empty icon={country.flag} title={`לא נמצאו תחנות ב${country.name}`} sub="נסו מדינה אחרת" />
-              ) : (
-                <>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 10 }}>
-                    {country.flag} תחנות מ{country.name} ({countryStations.length})
-                  </div>
+            {/* תת-מסך: תחנות של מדינה נבחרת */}
+            {view === 'country' && country && (
+              <>
+                <SubHeader title={`${country.flag} ${country.name}`} onBack={() => setView('countries')} />
+                {loadingCountry ? (
+                  <Loading />
+                ) : countryStations.length === 0 ? (
+                  <Empty icon={country.flag} title={`לא נמצאו תחנות ב${country.name}`} sub="נסו מדינה אחרת" />
+                ) : (
                   <StationList stations={countryStations} current={station} playing={playing} onPick={onPick} favorites={favorites} onFav={toggleFavorite} />
-                </>
-              )
-            ) : searching ? (
-              <Loading />
-            ) : !searched ? (
-              <Empty icon="🌍" title="בחרו מדינה או חפשו תחנה" sub="לחצו על דגל למעלה, או הקלידו שם תחנה" />
-            ) : results.length === 0 ? (
-              <Empty icon="🔎" title="לא נמצאו תחנות" sub="נסו שם אחר" />
-            ) : (
-              <StationList stations={results} current={station} playing={playing} onPick={onPick} favorites={favorites} onFav={toggleFavorite} />
+                )}
+              </>
+            )}
+
+            {/* תת-מסך: תחנות לפי קטגוריה (עשור/סוגה) */}
+            {view === 'tag' && activeCat && (
+              <>
+                <SubHeader title={activeCat.name} iconId={activeCat.id} onBack={backToHome} />
+                {loadingCat ? (
+                  <Loading />
+                ) : catStations.length === 0 ? (
+                  <Empty icon="📻" title={`לא נמצאו תחנות ב${activeCat.name}`} sub="נסו קטגוריה אחרת" />
+                ) : (
+                  <StationList stations={catStations} current={station} playing={playing} onPick={onPick} favorites={favorites} onFav={toggleFavorite} />
+                )}
+              </>
+            )}
+
+            {/* תת-מסך: תוצאות חיפוש חופשי */}
+            {view === 'search' && (
+              <>
+                <SubHeader title={`🔎 תוצאות עבור “${term}”`} onBack={backToHome} />
+                {searching ? (
+                  <Loading />
+                ) : results.length === 0 ? (
+                  <Empty icon="🔎" title="לא נמצאו תחנות" sub="נסו שם אחר" />
+                ) : (
+                  <StationList stations={results} current={station} playing={playing} onPick={onPick} favorites={favorites} onFav={toggleFavorite} />
+                )}
+              </>
             )}
           </>
         )}
@@ -197,6 +267,33 @@ function Tab({ active, onClick, children }) {
       color: active ? ACCENT : 'var(--ink-3)',
       boxShadow: active ? 'var(--shadow-sm)' : 'none',
     }}>{children}</button>
+  )
+}
+
+// ── כותרת תת-מסך עם כפתור חזרה ──
+function SubHeader({ title, iconId, onBack }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <button onClick={onBack} aria-label="חזרה" style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
+        border: '1px solid var(--line)', background: 'var(--surface)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <IconBackRTL size={20} color="#1B2540" />
+      </button>
+      {iconId && (
+        <span style={{
+          width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+          background: 'rgba(107,58,79,.10)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <RadioCatIcon id={iconId} size={22} color={ACCENT} />
+        </span>
+      )}
+      <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {title}
+      </div>
+    </div>
   )
 }
 
