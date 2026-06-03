@@ -14,6 +14,7 @@ import RadioPage from './pages/RadioPage.jsx'
 import RadioPlayer from './components/RadioPlayer.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
 import DirectChatPage from './pages/DirectChatPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
@@ -37,6 +38,7 @@ import {
   PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
+import { applyAccessibilityFromStorage } from './utils/accessibility.js'
 
 export default function App() {
   useAuth()
@@ -88,6 +90,20 @@ export default function App() {
       vv.removeEventListener('scroll', onResize)
     }
   }, [])
+
+  // ── נגישות — מחילים את העדפות המשתמש (גודל טקסט/ניגודיות/אנימציות) בעליית האפליקציה ──
+  useEffect(() => {
+    applyAccessibilityFromStorage()
+  }, [])
+
+  // חזרה למסך הבית — מנקה כל מצב חדר/חבר וחוזר ל-hub.
+  // משמש את כפתור הבית שליד כפתור החזרה בכל המסכים.
+  function goHome() {
+    setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
+    setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
+    setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
+    setPage('hub')
+  }
 
   // ניווט מהתראה (מהפעמון במסך הבית) — לפי סוג ההתראה
   function handleOpenNotification(it) {
@@ -268,14 +284,16 @@ export default function App() {
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
-      {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} kind="tip" initialPostId={initialPostId} />}
-      {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} initialPostId={initialPostId} />}
-      {page === 'radio' && <RadioPage onBack={() => setPage('hub')} />}
-      {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} />}
-      {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} />}
+      {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} />}
+      {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} />}
+      {page === 'radio' && <RadioPage onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'settings' && <SettingsPage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'friends' && (
         <FriendsPage
           onBack={() => setPage('hub')}
+          onHome={goHome}
           onMessageFriend={(f) => { setChatFriend(f); setPage('chat') }}
         />
       )}
@@ -283,6 +301,7 @@ export default function App() {
         <DirectChatPage
           friend={chatFriend}
           onBack={() => { setChatFriend(null); setPage('friends') }}
+          onHome={goHome}
           onVideoCall={(f) => handleVideoCall(f, false)}
           onCallFriend={(f) => handleVideoCall(f, true)}
           onPlayFriend={(f) => { setPlayFriend(f); setPage('games') }}
@@ -291,6 +310,7 @@ export default function App() {
       {page === 'games' && (
         <GamesArenaPage
           onBack={() => { setPlayFriend(null); setPage('hub') }}
+          onHome={goHome}
           inviteFriend={playFriend}
           onGoMemory={() => setPage('memory-game')}
           onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
@@ -303,10 +323,11 @@ export default function App() {
           onGoBingo={() => { setBingoRoom(null); setPage('bingo-game') }}
         />
       )}
-      {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} />}
+      {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}
+          onHome={goHome}
           uid={authUser?.uid}
           userName={profile?.name || 'משתמש'}
         />
@@ -316,6 +337,7 @@ export default function App() {
           initialRoomId={rummikubRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setRummikubRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'arena-game' && (
@@ -323,6 +345,7 @@ export default function App() {
           initialRoomId={arenaRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setArenaRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'bingo-game' && (
@@ -330,6 +353,7 @@ export default function App() {
           initialRoomId={bingoRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setBingoRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'connect4-game' && (
@@ -337,6 +361,7 @@ export default function App() {
           initialRoomId={connect4Room}
           autoInviteFriend={playFriend}
           onBack={() => { setConnect4Room(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'checkers-game' && (
@@ -344,6 +369,7 @@ export default function App() {
           initialRoomId={checkersRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setCheckersRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'chess-game' && (
@@ -351,6 +377,7 @@ export default function App() {
           initialRoomId={chessRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setChessRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'sheshbesh-game' && (
@@ -358,6 +385,7 @@ export default function App() {
           initialRoomId={sheshbeshRoom}
           autoInviteFriend={playFriend}
           onBack={() => { setSheshbeshRoom(null); setPlayFriend(null); setPage('games') }}
+          onHome={goHome}
         />
       )}
       {page === 'waiting' && (
@@ -376,6 +404,7 @@ export default function App() {
           onGoRadio={() => setPage('radio')}
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
+          onGoSettings={() => setPage('settings')}
           onGoFriends={() => setPage('friends')}
           onGoGames={() => setPage('games')}
           onOpenNotification={handleOpenNotification}

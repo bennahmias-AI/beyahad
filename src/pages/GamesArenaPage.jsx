@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 
 // ── רשימת המשחקים ─────────────────────────────────────────
 // status: 'available' / 'coming-soon' / 'live'
@@ -111,7 +112,7 @@ const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
 const MULTI_PLAYER = ['rummikub', 'arena', 'bingo']
 
-export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -171,6 +172,7 @@ export default function GamesArenaPage({ onBack, onGoMemory, onGoConnect4, onGoC
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">{friendMode ? 'בחרו משחק' : 'זירת המשחקים'}</div>
       </div>
 

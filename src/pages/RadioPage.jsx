@@ -11,11 +11,12 @@ import { useRadioStore } from '../stores/radioStore.js'
 import { fetchIsraeliStations, searchStations, fetchStationsByCountry, fetchStationsByTag, RADIO_COUNTRIES, RADIO_CATEGORIES } from '../services/radio.js'
 import { IconBackRTL, IconSearch, IconPlay, IconPause, IconHeart } from '../icons/index.jsx'
 import { RadioCatIcon } from '../icons/radioIcons.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 
 const ACCENT = '#6B3A4F'
 const ACCENT_DEEP = '#482638'
 
-export default function RadioPage({ onBack }) {
+export default function RadioPage({ onBack, onHome }) {
   const { station, playing, playStation, togglePlay, favorites, toggleFavorite } = useRadioStore()
   const [tab, setTab] = useState('israel')   // israel | search | favorites
   const [israeli, setIsraeli] = useState([])
@@ -103,6 +104,7 @@ export default function RadioPage({ onBack }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">רדיו</div>
       </div>
 

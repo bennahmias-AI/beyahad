@@ -176,6 +176,15 @@ export const IconSpeaker = (p) => (
   </LineIcon>
 )
 
+// רמקול מושתק — רמקול עם X (למצב השתקה)
+export const IconSpeakerOff = (p) => (
+  <LineIcon {...p}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="22" y1="9" x2="16" y2="15" />
+    <line x1="16" y1="9" x2="22" y2="15" />
+  </LineIcon>
+)
+
 export const IconBack = (p) => (
   <LineIcon {...p}>
     <line x1="19" y1="12" x2="5" y2="12" />
@@ -187,6 +196,16 @@ export const IconBackRTL = (p) => (
   <LineIcon {...p}>
     <line x1="5" y1="12" x2="19" y2="12" />
     <polyline points="12 5 19 12 12 19" />
+  </LineIcon>
+)
+
+// בית (קו פשוט) — לכפתור "חזרה למסך הבית".
+// גג משולש + קירות + דלת קטנה. תואם בדיוק לסגנון IconBackRTL.
+export const IconHomeLine = (p) => (
+  <LineIcon {...p}>
+    <path d="M3 10.5 12 4l9 6.5" />
+    <path d="M5 9.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
+    <rect x="10" y="14" width="4" height="6" />
   </LineIcon>
 )
 

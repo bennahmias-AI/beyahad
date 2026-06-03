@@ -20,6 +20,7 @@ import { saveMillionaireScore, getMillionaireLeaderboard } from '../services/fir
 import { isMuted, setMuted } from '../utils/gameSounds.js'
 import { playTriviaSound, warmTriviaAudio } from '../utils/triviaSounds.js'
 import { BANK } from '../utils/triviaQuestions.js'
+import HomeButton from '../components/HomeButton.jsx'
 
 // ── סולם הנקודות (15 שלבים) ────────────────────────────
 const LADDER = [
@@ -91,7 +92,7 @@ function guaranteedAt(answeredCount) {
 
 const LETTERS = ['א', 'ב', 'ג', 'ד']
 
-export default function MillionaireGame({ onBack, uid, userName }) {
+export default function MillionaireGame({ onBack, onHome, uid, userName }) {
   const [questions, setQuestions] = useState(() => buildQuestions())
   const [level, setLevel] = useState(0)
   const [selected, setSelected] = useState(null)
@@ -236,6 +237,7 @@ export default function MillionaireGame({ onBack, uid, userName }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">מי רוצה להיות מיליונר</div>
       </div>
 

@@ -15,6 +15,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
 import { MEMORY_ICONS } from '../icons/memoryIcons.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 
 // ── רמות קושי ───────────────────────────────────────────
 const DIFFICULTIES = [
@@ -52,7 +53,7 @@ function fmtTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function MemoryGame({ onBack }) {
+export default function MemoryGame({ onBack, onHome }) {
   const pairCount = 8 // בינתיים תמיד 4×4
   const cols = 4
 
@@ -135,6 +136,7 @@ export default function MemoryGame({ onBack }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">משחק הזיכרון של מילי</div>
       </div>
 

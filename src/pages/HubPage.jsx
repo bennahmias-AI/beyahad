@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { setPresence, watchOnlineCount, signOut, markNotificationsSeen } from '../services/firebase.js'
+import { setPresence, watchOnlineCount, signOut, markNotificationsSeen, cancelAccountDeletion, getUser } from '../services/firebase.js'
 import { useNotifications } from '../hooks/useNotifications.js'
 import NotificationsPanel from '../components/NotificationsPanel.jsx'
 import Avatar from '../components/Avatar.jsx'
@@ -25,11 +25,28 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoRadio, onGoGreeting, onGoProfile, onGoFriends, onGoGames, onOpenNotification }) {
-  const { profile, authUser } = useUserStore()
+export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoRadio, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onOpenNotification }) {
+  const { profile, authUser, setProfile } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [cancelingDeletion, setCancelingDeletion] = useState(false)
+
+  // האם החשבון מתוזמן למחיקה (בתוך חלון 48 השעות)?
+  const deletionAt = profile?.deletionScheduledAt || null
+  const deletionPending = deletionAt && deletionAt > Date.now()
+  const deletionDateText = deletionAt
+    ? new Date(deletionAt).toLocaleString('he-IL', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : ''
+
+  // ביטול המחיקה ישירות ממסך הבית
+  const handleCancelDeletion = async () => {
+    if (!authUser?.uid) return
+    setCancelingDeletion(true)
+    await cancelAccountDeletion(authUser.uid)
+    try { const fresh = await getUser(authUser.uid); if (fresh) setProfile(fresh) } catch {}
+    setCancelingDeletion(false)
+  }
 
   // התראות — בקשות חברות, הזמנות למשחק, הודעות ולייקים
   const { items: notifications, unseenCount } = useNotifications(authUser?.uid)
@@ -138,6 +155,36 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
       </div>
 
       <div style={{ padding: '12px 20px 20px' }}>
+        {/* ── באנר מחיקת חשבון — מוצג רק אם החשבון מתוזמן למחיקה ── */}
+        {deletionPending && (
+          <div style={{
+            background: 'var(--surface)',
+            border: '2px solid var(--danger)',
+            borderRadius: 16,
+            padding: '16px 18px',
+            marginBottom: 16,
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 22 }}>⏳</span>
+              <span className="h-display" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                החשבון מתוזמן למחיקה
+              </span>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.6, marginBottom: 14 }}>
+              החשבון שלך יימחק בתאריך <strong style={{ color: 'var(--danger)' }}>{deletionDateText}</strong>. אם שינית את דעתך — אפשר לבטל עכשיו והחשבון יישאר פעיל.
+            </div>
+            <button
+              onClick={handleCancelDeletion}
+              disabled={cancelingDeletion}
+              className="big-btn big-btn--primary"
+              style={{ width: '100%', opacity: cancelingDeletion ? 0.7 : 1 }}
+            >
+              {cancelingDeletion ? 'מבטל...' : '✕ בטל את המחיקה'}
+            </button>
+          </div>
+        )}
+
         {/* ── באנר ירוק — כמה אנשים מחוברים כעת ────────── */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
@@ -476,6 +523,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
           photoURL={profile?.photoURL || null}
           onClose={() => setMenuOpen(false)}
           onEditProfile={() => { setMenuOpen(false); onGoProfile() }}
+          onSettings={() => { setMenuOpen(false); onGoSettings() }}
           onSignOut={async () => {
             setMenuOpen(false)
             try { await signOut() } catch (e) { console.error(e) }
@@ -487,7 +535,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
 }
 
 // ── Profile menu (bottom sheet) ───────────────────────────
-function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) {
+function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSettings, onSignOut }) {
   return (
     <div
       onClick={onClose}
@@ -537,6 +585,23 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSignOut }) 
           <span style={{ fontSize: 24 }}>✏️</span>
           <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
             עריכת פרופיל
+          </span>
+          <IconBackRTL size={20} color="#8389A4" />
+        </button>
+
+        <button
+          onClick={onSettings}
+          style={{
+            width: '100%', textAlign: 'right',
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            borderRadius: 14, padding: '16px 16px', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 12,
+            fontFamily: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>⚙️</span>
+          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
+            הגדרות
           </span>
           <IconBackRTL size={20} color="#8389A4" />
         </button>

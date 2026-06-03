@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import {
@@ -240,7 +241,7 @@ function aiPickColumn(board, difficulty, me, opponent) {
 // ════════════════════════════════════════════════════════
 // mode: 'ai' | 'local' | 'online-random' | 'online-friend-host' | 'online-friend-join'
 // ════════════════════════════════════════════════════════
-export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function Connect4Game({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)  // למצבי אונליין
@@ -258,6 +259,7 @@ export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend =
     return (
       <ModeSelectScreen
         onBack={onBack}
+        onHome={onHome}
         onSelectAI={(diff) => { setDifficulty(diff); setMode('ai') }}
         onSelectLocal={() => setMode('local')}
         onSelectOnlineRandom={() => setMode('online-random')}
@@ -274,6 +276,7 @@ export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend =
           mode={mode}
           autoInviteFriend={autoInviteFriend}
           onBack={onBack}
+          onHome={onHome}
           onReady={(id) => setRoomId(id)}
         />
       )
@@ -282,6 +285,7 @@ export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend =
       <OnlineGameScreen
         roomId={roomId}
         onBack={() => { setRoomId(null); setMode(null) }}
+        onHome={onHome}
         onExit={onBack}
         onFindOther={() => { setRoomId(null); setMode('online-random') }}
       />
@@ -294,6 +298,7 @@ export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend =
       mode={mode}
       difficulty={difficulty}
       onBack={() => setMode(null)}
+      onHome={onHome}
       onExit={onBack}
     />
   )
@@ -302,7 +307,7 @@ export default function Connect4Game({ onBack, initialRoomId, autoInviteFriend =
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב משחק
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [showDifficulty, setShowDifficulty] = useState(false)
 
   return (
@@ -311,6 +316,7 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">4 בשורה</div>
       </div>
 
@@ -491,7 +497,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיבור לחדר משחק (רנדומלי / חבר)
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
+function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   // phase: במצב 'online-random' מתחילים ישר ב-'searching' (כמו קפה בסלון).
   // במצב 'online-friend' מתחילים ב-'friend-list' (בחירת חבר מהרשימה).
@@ -821,6 +827,7 @@ function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">
           {mode === 'online-random' ? 'שחקן רנדומלי' : 'שחק עם חבר'}
         </div>
@@ -1232,7 +1239,7 @@ function EnterCodeScreen({ code, setCode, onJoin, errorMsg }) {
 // ════════════════════════════════════════════════════════
 // מסך המשחק — מקומי (AI / 2 שחקנים על אותו מכשיר)
 // ════════════════════════════════════════════════════════
-function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
+function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [board, setBoard] = useState(createBoard())
   const [currentPlayer, setCurrentPlayer] = useState(P1)
   const [winner, setWinner] = useState(null)
@@ -1310,6 +1317,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
   return (
     <GameScreenLayout
       onBack={onBack}
+      onHome={onHome}
       statusText={statusText}
       statusColor={statusColor}
       p1Name={mode === 'ai' ? 'אתה' : 'שחקן 1'}
@@ -1336,7 +1344,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // מסך המשחק — אונליין (סנכרון דרך Firestore)
 // ════════════════════════════════════════════════════════
-function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
+function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const { authUser, profile } = useUserStore()
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
@@ -1450,6 +1458,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
           <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
             <IconBackRTL size={24} color="#1B2540" />
           </button>
+          <HomeButton onClick={onHome} />
           <div className="screen-header__title">4 בשורה</div>
         </div>
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>
@@ -1467,6 +1476,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
           <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
             <IconBackRTL size={24} color="#1B2540" />
           </button>
+          <HomeButton onClick={onHome} />
           <div className="screen-header__title">4 בשורה</div>
         </div>
         <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#7E2C2E" accentDeep="#5A1D1E" />
@@ -1552,6 +1562,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameScreenLayout
       onBack={handleLeave}
+      onHome={onHome}
       statusText={statusText}
       statusColor={statusColor}
       p1Name={myColor === 'P1' ? (me?.name || 'אתה') : (opponent?.name || 'יריב')}
@@ -1604,7 +1615,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 // Layout משותף למסך משחק (מקומי / אונליין)
 // ════════════════════════════════════════════════════════
 function GameScreenLayout({
-  onBack, statusText, statusColor, p1Name, p2Name,
+  onBack, onHome, statusText, statusColor, p1Name, p2Name,
   currentPlayer, winner, board, winningCells, lastDropped,
   onColumnClick, disabled, onReset, onChangeMode, isOnline, children,
   withVideo, p1Uid, p2Uid, p1You, p2You, myPhoto,
@@ -1626,6 +1637,7 @@ function GameScreenLayout({
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">4 בשורה</div>
         {isOnline && meUid && (
           <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}

@@ -427,6 +427,8 @@ export { initialGame, initialBoard, legalMoves, applyMove, gameStatus, chooseAIM
 // ════════════════════════════════════════════════════════
 // סמלי הכלים (יוניקוד) + צבעים לסגנון "עץ אגוז בהיר ושנהב"
 // ════════════════════════════════════════════════════════
+// סמלים מלאים (filled) לכל הכלים — הבדל הלבן/שחור נקבע על ידי צבע הדיסקית והסמל.
+// (שימוש בסמלים מלאים אחידים מונע את התחושה ההפוכה שנגרמת מסמל חלול.)
 const GLYPH = { k: '\u265A', q: '\u265B', r: '\u265C', b: '\u265D', n: '\u265E', p: '\u265F' }
 
 // פלטת העיצוב שנבחרה (וריאציה א')
@@ -614,8 +616,12 @@ function ChessPiece({ piece }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <span style={{
-        fontSize: '1.6em', lineHeight: 1, color: dark ? C.glyphDark : C.glyphLight,
-        filter: dark ? 'drop-shadow(0 1px 1px rgba(0,0,0,.5))' : 'drop-shadow(0 1px 1px rgba(120,80,30,.3))',
+        fontSize: '1.6em', lineHeight: 1,
+        color: dark ? '#1a1008' : '#fffdf8',
+        textShadow: dark
+          ? '0 1px 1px rgba(0,0,0,.5)'
+          : '0 0 1px rgba(94,59,28,.9), 0 1px 2px rgba(94,59,28,.55)',
+        WebkitTextStroke: dark ? '0' : '0.5px rgba(94,59,28,.55)',
         marginTop: '-2px',
       }}>{GLYPH[t]}</span>
     </div>

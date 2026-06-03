@@ -17,8 +17,9 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 
-export default function FriendsPage({ onBack, onMessageFriend }) {
+export default function FriendsPage({ onBack, onHome, onMessageFriend }) {
   const { authUser } = useUserStore()
   const [friends, setFriends] = useState([])
   const [incoming, setIncoming] = useState([])
@@ -43,6 +44,7 @@ export default function FriendsPage({ onBack, onMessageFriend }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">חברים קרובים</div>
       </div>
 

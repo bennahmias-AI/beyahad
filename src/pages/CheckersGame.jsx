@@ -19,7 +19,7 @@
 // matchmaking רנדומלי, חלונית ההזמנה ו"שחק שוב" ההדדי עובדים מיד.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconSpeaker, IconSpeakerOff } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import {
@@ -1213,10 +1213,18 @@ function GameLayout({
           <IconBackRTL size={24} color="#E8C879" />
         </button>
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה {isOnline ? 'אונליין' : ''}</div>
-        {isOnline && meUid && (
-          <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}
-            bg="rgba(255,255,255,.12)" border="rgba(255,255,255,.22)" color="#E8C879" />
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'} style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0,
+          }}>{muted ? <IconSpeakerOff size={22} color="#E8C879" /> : <IconSpeaker size={22} color="#E8C879" />}</button>
+          {isOnline && meUid && (
+            <ChatHeaderButton chat={chat} open={chatOpen} onOpen={() => setChatOpen(true)}
+              bg="rgba(255,255,255,.12)" border="rgba(255,255,255,.22)" color="#E8C879" />
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '4px 16px 28px' }}>
@@ -1258,16 +1266,12 @@ function GameLayout({
           <CapturedTray count={p2Captured} pieceColor="light" label="נאכלו" />
         </div>
 
-        {/* כרטיס "אתה" + כפתורים (במצב וידאו — רק כפתור השתקה, השחקנים כבר למעלה) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          {!withVideo && <PlayerTag name={bottomName} active={bottomActive} />}
-          <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'} style={{
-            width: 46, height: 46, borderRadius: 12,
-            background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, cursor: 'pointer', flexShrink: 0,
-          }}>{muted ? '🔇' : '🔊'}</button>
-        </div>
+        {/* כרטיס "אתה" (במצב וידאו השחקנים כבר למעלה, וכפתור ההשתקה עבר לכותרת) */}
+        {!withVideo && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <PlayerTag name={bottomName} active={bottomActive} />
+          </div>
+        )}
 
         {isOnline && meUid && <ChatToast msgs={chat} meUid={meUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>

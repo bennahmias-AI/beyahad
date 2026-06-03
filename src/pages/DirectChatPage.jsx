@@ -16,9 +16,9 @@ import {
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
 import VoiceMessage from '../components/VoiceMessage.jsx'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine } from '../icons/index.jsx'
+import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine, IconHomeLine } from '../icons/index.jsx'
 
-export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFriend, onPlayFriend }) {
+export default function DirectChatPage({ friend, onBack, onHome, onVideoCall, onCallFriend, onPlayFriend }) {
   const { authUser, profile } = useUserStore()
   const myUid = authUser?.uid
   const otherUid = friend?.otherUid
@@ -161,6 +161,11 @@ export default function DirectChatPage({ friend, onBack, onVideoCall, onCallFrie
         <button onClick={onBack} aria-label="חזרה" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        {onHome && (
+          <button onClick={onHome} aria-label="חזרה למסך הבית" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+          <IconHomeLine size={24} color="#1B2540" />
+        </button>
+        )}
         <Avatar name={fullName} size={42} online={online} photoURL={photoURL} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</div>

@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   sendGameChat, sendFriendRequest, getFriendshipStatus,
 } from '../services/firebase.js'
+import { IconChatLine } from '../icons/index.jsx'
 
 // סגנון כפתור לפי ערכת הצבעים (בהיר / כהה-עץ)
 function barBtnStyle(dark) {
@@ -196,7 +197,7 @@ export function ChatHeaderButton({
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'inherit', flexShrink: 0,
     }}>
-      💬
+      <IconChatLine size={Math.round(size * 0.52)} color={color} />
       {unread > 0 && (
         <span style={{
           position: 'absolute', top: -5, insetInlineStart: -5,

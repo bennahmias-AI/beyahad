@@ -18,6 +18,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
@@ -348,7 +349,7 @@ const PRESET_GREETINGS = {
 // ═══════════════════════════════════════════════════════════════
 // המסך הראשי
 // ═══════════════════════════════════════════════════════════════
-export default function GreetingMaker({ onBack }) {
+export default function GreetingMaker({ onBack, onHome }) {
   const { profile } = useUserStore()
   const [step, setStep] = useState('text')
 
@@ -386,6 +387,7 @@ export default function GreetingMaker({ onBack }) {
             <button className="screen-header__back" onClick={goBack} aria-label="חזרה">
               <IconBackRTL size={24} color="#1B2540" />
             </button>
+            <HomeButton onClick={onHome} />
             <div className="screen-header__title">ברכה אישית</div>
           </div>
           <div style={{ padding: '8px 20px 32px' }}>

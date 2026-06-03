@@ -242,3 +242,47 @@ html, body { overflow: hidden; }
   height: 100%;
   background: transparent;
 }
+
+/* ════════════════════════════════════════════════════════
+   נגישות — הגדרות שהמשתמש שולט בהן ממסך ההגדרות.
+   נשלטות ע"י data-attributes על אלמנט ה-<html> (document.documentElement).
+   ════════════════════════════════════════════════════════ */
+
+/* ── הגדלת טקסט וממשק ──
+   האפליקציה בנויה ביחידות px, לכן שינוי font-size בלבד לא יקנה אפקט.
+   הפתרון: zoom על תוכן הגלילה — מגדיל הכול (טקסט, כפתורים, רווחים)
+   בצורה פרופורציונלית, בלי לשבור פריסות. הכותרת והמסכים הקבועים
+   (מודלים, שיחות וידאו) לא מושפעים — נשלטים בנפרד למטה. */
+html[data-font-scale="large"]   .scroll-area { zoom: 1.12; }
+html[data-font-scale="xlarge"]  .scroll-area { zoom: 1.25; }
+
+/* ── ניגודיות גבוהה ──
+   מכהה את הדיו והקווים, מבהיר משטחים — לקריאוּת טובה יותר. */
+html[data-contrast="high"] {
+  --ink:       #000000;
+  --ink-2:     #1E2436;
+  --ink-3:     #3A4258;
+  --line:      #8A8270;
+  --line-strong: #5E573F;
+  --surface:   #FFFFFF;
+  --surface-2: #F0EAD8;
+  --bg-app:    #FBF7EC;
+  --bg-page:   #F3ECDC;
+  --burgundy:      #6A1F21;
+  --burgundy-deep: #4A1314;
+}
+html[data-contrast="high"] .h-tag,
+html[data-contrast="high"] .big-btn--ghost {
+  border: 1.5px solid var(--line-strong);
+}
+
+/* ── הפחתת אנימציות ──
+   מבטל אנימציות ומעברים — עוזר למי שרגיש לתנועה או סחרחורת. */
+html[data-reduce-motion="on"] *,
+html[data-reduce-motion="on"] *::before,
+html[data-reduce-motion="on"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

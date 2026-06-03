@@ -17,6 +17,7 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 
 // הגדרות לכל סוג מסך
 const CONFIG = {
@@ -48,7 +49,7 @@ const CONFIG = {
   },
 }
 
-export default function CommunityPage({ onBack, kind = 'tip', initialPostId = null }) {
+export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPostId = null }) {
   const { profile, authUser } = useUserStore()
   const cfg = CONFIG[kind] || CONFIG.tip
 
@@ -104,6 +105,7 @@ export default function CommunityPage({ onBack, kind = 'tip', initialPostId = nu
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">{cfg.screenTitle}</div>
       </div>
 

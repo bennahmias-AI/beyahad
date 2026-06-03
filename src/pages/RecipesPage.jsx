@@ -19,6 +19,7 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { RECIPE_CATEGORIES, categoryOf } from '../data/recipeCategories.js'
 
 const ACCENT = '#7E2C2E'
@@ -52,7 +53,7 @@ function compressRecipeImage(file, maxW = 1000) {
   })
 }
 
-export default function RecipesPage({ onBack, initialPostId = null }) {
+export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   const { profile, authUser } = useUserStore()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,8 +98,12 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
     const c = p.category || 'other'
     countByCat[c] = (countByCat[c] || 0) + 1
   }
-  // מתכוני הקטגוריה הנבחרת
-  const catRecipes = activeCat ? posts.filter(p => (p.category || 'other') === activeCat) : []
+  // מתכוני הקטגוריה הנבחרת — מתכונים עם תמונה מוצגים ראשונים
+  const catRecipes = activeCat
+    ? posts
+        .filter(p => (p.category || 'other') === activeCat)
+        .sort((a, b) => ((b.photos || []).length > 0 ? 1 : 0) - ((a.photos || []).length > 0 ? 1 : 0))
+    : []
 
   const openItem = async (post) => {
     setOpenPost(post)
@@ -130,6 +135,7 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">מתכונים</div>
       </div>
 
@@ -214,7 +220,14 @@ export default function RecipesPage({ onBack, initialPostId = null }) {
           ) : (
             /* גריד הקטגוריות */
             <>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 12 }}>עיינו לפי קטגוריה:</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>עיינו לפי קטגוריה:</div>
+                <button onClick={handleSeed} disabled={seeding} style={{
+                  background: 'var(--surface)', color: 'var(--ink-3)',
+                  border: '1px dashed var(--line-strong)', borderRadius: 10, padding: '6px 12px',
+                  fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                 {RECIPE_CATEGORIES.filter(c => c.id !== 'other' || (countByCat['other'] || 0) > 0).map(cat => (
                   <CategoryCard

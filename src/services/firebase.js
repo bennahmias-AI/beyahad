@@ -5,6 +5,7 @@ import {
   signInWithPhoneNumber,
   signOut as fbSignOut,
   onAuthStateChanged,
+  deleteUser,
 } from 'firebase/auth'
 import {
   getFirestore,
@@ -88,6 +89,88 @@ export function watchUser(uid, cb) {
   })
 }
 
+// מחיקת חשבון (הזכות להישכח) — עם תקופת צינון של 48 שעות.
+//
+// כדי להגן על משתמשים (במיוחד מבוגרים) מלחיצה בטעות, אנחנו לא מוחקים
+// מיד. במקום זה מסמנים את החשבון כ"מתוזמן למחיקה" עם חותמת זמן.
+// במהלך 48 השעות המשתמש יכול להיכנס ולבטל. אחרי 48 שעות, פונקציית
+// שרת (Cloud Function מתוזמנת) אמורה למחוק את החשבון בפועל ולשלוח
+// מייל אישור.
+//
+// ⚠️ צד-שרת שעדיין צריך להיבנות (דורש Blaze + Cloud Functions):
+//   1. Scheduled Function שרצה כל כמה שעות, מוצאת users עם
+//      deletionScheduledAt שעבר, ומוחקת את המסמך + את ה-Auth user
+//      (admin.auth().deleteUser) + נתונים קשורים.
+//   2. שליחת מייל: כשמסמנים למחיקה — מייל "חשבונך יימחק בעוד 48 שעות,
+//      להלן קישור לביטול"; וכשנמחק בפועל — מייל אישור.
+// עד שהשרת ייבנה — הסימון נשמר והמשתמש יכול לבטל, אבל המחיקה
+// בפועל לא תתבצע אוטומטית.
+
+const DELETION_GRACE_MS = 48 * 60 * 60 * 1000   // 48 שעות
+
+// מסמן את החשבון למחיקה בעוד 48 שעות. מחזיר את חותמת הזמן הסופית (ms).
+export async function scheduleAccountDeletion(uid) {
+  if (!uid) return { ok: false, reason: 'no-uid' }
+  const scheduledAt = Date.now() + DELETION_GRACE_MS
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      deletionScheduledAt: scheduledAt,
+      deletionRequestedAt: Date.now(),
+      // status: 'available' עדיין — אבל מסומן למחיקה. נכבה נראות בזמן הצינון.
+    })
+    return { ok: true, scheduledAt }
+  } catch (e) {
+    console.error('scheduleAccountDeletion error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מבטל מחיקה מתוזמנת — מסיר את הסימון.
+export async function cancelAccountDeletion(uid) {
+  if (!uid) return { ok: false, reason: 'no-uid' }
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      deletionScheduledAt: null,
+      deletionRequestedAt: null,
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('cancelAccountDeletion error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מחיקה מיידית ומלאה — לשימוש פנימי / לעתיד (כשיוחלט למחוק מיד).
+// מוחק את מסמך המשתמש ואת המידע המזוהה איתו, ולבסוף את משתמש ה-Auth.
+// הערה: מחיקת Auth user דורשת התחברות טריה (recent login).
+export async function deleteUserAccount(uid) {
+  if (!uid) return { ok: false, reason: 'no-uid' }
+  // שלב 1 — מוחקים את מסמך המשתמש (הפרופיל וכל הנתונים האישיים)
+  try {
+    await deleteDoc(doc(db, 'users', uid))
+  } catch (e) {
+    console.error('deleteUserAccount: failed to delete user doc:', e)
+  }
+  // שלב 2 — ניקוי תור הקפה אם נתקע (best-effort)
+  try {
+    await deleteDoc(doc(db, 'cafeQueue', uid))
+  } catch { /* אין רשומה — בסדר */ }
+  // שלב 3 — מוחקים את משתמש ה-Auth עצמו
+  try {
+    const user = auth.currentUser
+    if (user && user.uid === uid) {
+      await deleteUser(user)
+    }
+    return { ok: true }
+  } catch (e) {
+    console.error('deleteUserAccount: failed to delete auth user:', e)
+    if (e?.code === 'auth/requires-recent-login') {
+      return { ok: false, reason: 'requires-recent-login' }
+    }
+    return { ok: false, reason: 'error' }
+  }
+}
+
 export async function setPresence(uid, status) {
   try {
     await updateDoc(doc(db, 'users', uid), { status, lastSeenAt: serverTimestamp() })
@@ -99,7 +182,7 @@ export async function getAvailableUsers(myUid, blocked = []) {
   const snap = await getDocs(q)
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .filter(u => u.id !== myUid && !blocked.includes(u.id))
+    .filter(u => u.id !== myUid && !blocked.includes(u.id) && !u.deletionScheduledAt)
 }
 
 export function watchAvailableUsers(myUid, cb, blocked = []) {
@@ -107,7 +190,7 @@ export function watchAvailableUsers(myUid, cb, blocked = []) {
   return onSnapshot(q, snap => {
     const users = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.id !== myUid && !blocked.includes(u.id))
+      .filter(u => u.id !== myUid && !blocked.includes(u.id) && !u.deletionScheduledAt)
     cb(users)
   }, err => {
     console.error('watchAvailableUsers error:', err)

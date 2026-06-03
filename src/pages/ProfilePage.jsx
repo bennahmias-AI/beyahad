@@ -12,11 +12,10 @@ import { useState, useRef, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   createOrUpdateUser, getUser,
-  enableNotifications, disableNotifications,
-  notificationsSupported, getNotificationPermission,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import AvatarPicker from '../components/AvatarPicker.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
 // כיווץ תמונה לתמונת פרופיל.
@@ -62,7 +61,7 @@ function compressImage(file, maxSize = 200) {
   })
 }
 
-export default function ProfilePage({ onBack }) {
+export default function ProfilePage({ onBack, onHome }) {
   const { profile, authUser, setProfile } = useUserStore()
   const fileRef = useRef(null)
 
@@ -135,6 +134,7 @@ export default function ProfilePage({ onBack }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">עריכת פרופיל</div>
       </div>
 
@@ -264,9 +264,6 @@ export default function ProfilePage({ onBack }) {
             זהו האימייל שאיתו נרשמת — לא ניתן לשינוי
           </div>
         </Field>
-
-        {/* ── התראות לטלפון ──────────────────── */}
-        <NotificationsToggle uid={authUser?.uid} />
 
         {/* ── Save ───────────────────────────────────────── */}
         <button
