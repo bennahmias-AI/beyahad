@@ -51,15 +51,15 @@ const CONFIG = {
 
 // קטגוריות העצות — מקבילות למבנה המתכונים
 const TIP_CATEGORIES = [
-  { id: 'home',    name: 'לבית',          emoji: '🏠', grad: ['#C97B84', '#8E4A5A'] },
-  { id: 'car',     name: 'לרכב',          emoji: '🚗', grad: ['#5E7CA6', '#33507A'] },
-  { id: 'daily',   name: 'ליום-יום',      emoji: '✨', grad: ['#C9A24B', '#9A6E22'] },
-  { id: 'travel',  name: 'טיולים ופנאי',  emoji: '✈️', grad: ['#3E8FA8', '#235A6E'] },
-  { id: 'season',  name: 'לפי עונה',      emoji: '🌦️', grad: ['#6F9A5A', '#3E6B34'] },
-  { id: 'kitchen', name: 'מטבח ובישול',   emoji: '🍳', grad: ['#A8503A', '#6E2E22'] },
-  { id: 'tech',    name: 'טכנולוגיה',     emoji: '📱', grad: ['#7E6BA6', '#4E3E78'] },
-  { id: 'family',  name: 'משפחה ונכדים',  emoji: '👨‍👩‍👧', grad: ['#C98A4B', '#8A5A22'] },
-  { id: 'other',   name: 'כללי',          emoji: '💡', grad: ['#7E7466', '#544C40'] },
+  { id: 'home',    name: 'לבית',          emoji: '🏠', grad: ['#C97B84', '#8E4A5A'], img: '/tip-categories/home.jpg' },
+  { id: 'car',     name: 'לרכב',          emoji: '🚗', grad: ['#5E7CA6', '#33507A'], img: '/tip-categories/car.jpg' },
+  { id: 'daily',   name: 'ליום-יום',      emoji: '✨', grad: ['#C9A24B', '#9A6E22'], img: '/tip-categories/daily.jpg' },
+  { id: 'travel',  name: 'טיולים ופנאי',  emoji: '✈️', grad: ['#3E8FA8', '#235A6E'], img: '/tip-categories/travel.jpg' },
+  { id: 'season',  name: 'לפי עונה',      emoji: '🌦️', grad: ['#6F9A5A', '#3E6B34'], img: '/tip-categories/season.jpg' },
+  { id: 'kitchen', name: 'מטבח ובישול',   emoji: '🍳', grad: ['#A8503A', '#6E2E22'], img: '/tip-categories/kitchen.jpg' },
+  { id: 'tech',    name: 'טכנולוגיה',     emoji: '📱', grad: ['#7E6BA6', '#4E3E78'], img: '/tip-categories/tech.jpg' },
+  { id: 'family',  name: 'משפחה ונכדים',  emoji: '👨‍👩‍👧', grad: ['#C98A4B', '#8A5A22'], img: '/tip-categories/family.jpg' },
+  { id: 'other',   name: 'כללי',          emoji: '💡', grad: ['#7E7466', '#544C40'], img: null },
 ]
 const TIP_CAT_BY_ID = Object.fromEntries(TIP_CATEGORIES.map(c => [c.id, c]))
 function tipCategoryOf(id) { return TIP_CAT_BY_ID[id] || TIP_CAT_BY_ID['other'] }
@@ -348,7 +348,14 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
               </>
             ) : (
               <>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 12 }}>עיינו לפי נושא:</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>עיינו לפי נושא:</div>
+                  <button onClick={handleSeed} disabled={seeding} style={{
+                    background: 'var(--surface)', color: 'var(--ink-3)',
+                    border: '1px dashed var(--line-strong)', borderRadius: 10, padding: '6px 12px',
+                    fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>{seeding ? 'ממלא...' : '✨ מלא עצות לדוגמה'}</button>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                   {TIP_CATEGORIES.filter(c => c.id !== 'other' || (countByCat['other'] || 0) > 0).map(cat => (
                     <TipCategoryCard key={cat.id} cat={cat} count={countByCat[cat.id] || 0} onClick={() => setActiveCat(cat.id)} />
@@ -390,8 +397,10 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
 }
 
 // ── Post card (in list) ─────────────────────────────────────
-// כרטיס קטגוריה (גריד) — גרדיאנט + אימוג'י גדול
+// כרטיס קטגוריה (גריד) — תמונת שער ריאליסטית עם fallback לאימוג'י על גרדיאנט
 function TipCategoryCard({ cat, count, onClick }) {
+  const [imgOk, setImgOk] = useState(Boolean(cat.img))
+  const showImg = cat.img && imgOk
   return (
     <button onClick={onClick} style={{
       border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
@@ -400,14 +409,27 @@ function TipCategoryCard({ cat, count, onClick }) {
       background: `linear-gradient(145deg, ${cat.grad[0]}, ${cat.grad[1]})`,
       display: 'block', width: '100%',
     }}>
-      <span style={{
-        position: 'absolute', insetInlineStart: 10, bottom: 6,
-        fontSize: 58, opacity: 0.3, lineHeight: 1, transform: 'rotate(-8deg)',
-      }}>{cat.emoji}</span>
+      {showImg && (
+        <img
+          src={cat.img}
+          alt={cat.name}
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
+      {!showImg && (
+        <span style={{
+          position: 'absolute', insetInlineStart: 10, bottom: 6,
+          fontSize: 58, opacity: 0.3, lineHeight: 1, transform: 'rotate(-8deg)',
+        }}>{cat.emoji}</span>
+      )}
       <div style={{
         position: 'absolute', inset: 0, padding: '14px 15px',
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', textAlign: 'right',
-        background: 'linear-gradient(to top, rgba(20,23,42,.34) 0%, rgba(20,23,42,0) 60%)',
+        background: showImg
+          ? 'linear-gradient(to top, rgba(20,23,42,.78) 0%, rgba(20,23,42,.15) 55%, rgba(20,23,42,0) 100%)'
+          : 'linear-gradient(to top, rgba(20,23,42,.34) 0%, rgba(20,23,42,0) 60%)',
       }}>
         <div style={{ color: '#fff', fontSize: 19, fontWeight: 900, lineHeight: 1.15, textShadow: '0 1px 4px rgba(0,0,0,.4)' }}>{cat.name}</div>
         <div style={{ color: 'rgba(255,255,255,.92)', fontSize: 12.5, fontWeight: 700, marginTop: 2 }}>{count} {count === 1 ? 'עצה' : 'עצות'}</div>

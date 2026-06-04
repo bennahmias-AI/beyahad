@@ -27,6 +27,7 @@ import MillionaireGame from './pages/MillionaireGame.jsx'
 import RummikubGame from './pages/RummikubGame.jsx'
 import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
+import AdminDashboard from './pages/AdminDashboard.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import VideoCallListener from './components/VideoCallListener.jsx'
@@ -48,7 +49,9 @@ export default function App() {
     setParliamentSession, setParliamentLivekit,
     setSingingLivekit,
   } = useSessionStore()
-  const [page, setPage] = useState('hub')
+  const [page, setPage] = useState(() =>
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin')) ? 'admin' : 'hub'
+  )
   const [loadingParliament, setLoadingParliament] = useState(false)
   const [loadingSinging, setLoadingSinging] = useState(false)
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
@@ -431,6 +434,12 @@ export default function App() {
           onPlayGame={handlePlayGame}
           onOpenNotification={handleOpenNotification}
         />
+      )}
+      {page === 'admin' && (
+        <AdminDashboard onExit={() => {
+          try { window.history.replaceState(null, '', window.location.pathname) } catch {}
+          setPage('hub')
+        }} />
       )}
       <InstallPrompt />
       <GameInviteListener onAccept={handleInviteAccept} />

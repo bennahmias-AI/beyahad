@@ -22,7 +22,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
-import { CATEGORY_IMAGES, SEED_IMAGES, food } from './recipe-prompts.js'
+import { CATEGORY_IMAGES, SEED_IMAGES, TIP_CATEGORY_IMAGES, food, scene } from './recipe-prompts.js'
 
 dotenv.config({ path: '.env.local' })
 dotenv.config({ path: '.env' })
@@ -35,6 +35,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(__dirname, '..', 'public')
 const CAT_DIR = path.join(PUBLIC, 'recipe-categories')
 const SEED_DIR = path.join(PUBLIC, 'recipe-seed')
+const TIP_DIR = path.join(PUBLIC, 'tip-categories')
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
@@ -60,7 +61,7 @@ async function generateImage(prompt) {
 }
 
 // מייצר קבוצת תמונות (קטגוריות או מתכונים) לתיקיית יעד.
-async function generateGroup(label, items, destDir) {
+async function generateGroup(label, items, destDir, promptFn = food) {
   fs.mkdirSync(destDir, { recursive: true })
   console.log(`\n── ${label} — ${items.length} תמונות ──`)
   let created = 0, skipped = 0, failed = 0
@@ -74,7 +75,7 @@ async function generateGroup(label, items, destDir) {
     }
     try {
       process.stdout.write(`  ⏳ יוצר ${item.id}.png ... `)
-      const b64 = await generateImage(food(item.dish))
+      const b64 = await generateImage(promptFn(item.dish))
       if (!b64) {
         console.log('⚠️  לא הוחזרה תמונה')
         failed++
@@ -107,6 +108,9 @@ async function main() {
 
   if (which === 'all' || which === 'categories') {
     add(await generateGroup('תמונות שער לקטגוריות', CATEGORY_IMAGES, CAT_DIR))
+  }
+  if (which === 'all' || which === 'tips') {
+    add(await generateGroup('תמונות שער לקטגוריות עצות', TIP_CATEGORY_IMAGES, TIP_DIR, scene))
   }
   if (which === 'all' || which === 'seed') {
     add(await generateGroup('תמונות למתכונים לדוגמה', SEED_IMAGES, SEED_DIR))

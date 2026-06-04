@@ -29,6 +29,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(__dirname, '..', 'public')
 const CAT_DIR = path.join(PUBLIC, 'recipe-categories')
 const SEED_DIR = path.join(PUBLIC, 'recipe-seed')
+const TIP_DIR = path.join(PUBLIC, 'tip-categories')
 
 const WIDTH = 600         // הכרטיס מוצג ~200px — 600 נותן מרווח ל-retina
 const QUALITY = 72        // איכות JPEG — איזון מצוין בין משקל לחדות לתמונת רקע
@@ -87,6 +88,9 @@ async function main() {
 
   if (which === 'all' || which === 'categories') {
     add(await compressDir('תמונות קטגוריות', CAT_DIR))
+  }
+  if (which === 'all' || which === 'tips') {
+    add(await compressDir('תמונות קטגוריות עצות', TIP_DIR))
   }
   if (which === 'all' || which === 'seed') {
     add(await compressDir('תמונות מתכונים לדוגמה', SEED_DIR))

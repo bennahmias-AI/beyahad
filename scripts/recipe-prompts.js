@@ -51,3 +51,27 @@ export const SEED_IMAGES = SEED_RECIPES
   }))
 
 export { food }
+
+// ===== תמונות שער לקטגוריות העצות =====
+// תבנית צילום לייפסטייל חמה (לא אוכל) — לכרטיסי העצות.
+const scene = (subject) =>
+  'Professional lifestyle photography, warm and inviting, ' +
+  'soft natural window light, shallow depth of field, ' +
+  'clean and tidy composition, cozy modern home aesthetic, ' +
+  'warm pleasant colors, high quality, the subject fills most of the frame. ' +
+  `The scene: ${subject}. ` +
+  'IMPORTANT: no text, no letters, no words, no logos, no visible faces.'
+
+// id חייב להתאים ל-id ב-TIP_CATEGORIES ב-src/pages/CommunityPage.jsx
+export const TIP_CATEGORY_IMAGES = [
+  { id: 'home',    dish: 'a cozy clean and tidy living room corner, neatly organized shelves, fresh and bright household scene' },
+  { id: 'car',     dish: 'a clean shiny car exterior detail, polished headlight and side mirror, sunny day, automotive care' },
+  { id: 'daily',   dish: 'an everyday life-hack still life on a wooden table: a glass jar, a bunch of keys, sewing needle and thread, small useful household objects neatly arranged' },
+  { id: 'travel',  dish: 'an open suitcase neatly packed with rolled clothes, a sun hat, a passport and small toiletry bottles, travel preparation' },
+  { id: 'season',  dish: 'a cozy home window with a warm folded blanket and a steaming cup on the sill, soft seasonal light, home comfort' },
+  { id: 'kitchen', dish: 'a clean bright kitchen counter with a wooden cutting board, fresh lemons garlic and herbs, simple cooking utensils, tidy' },
+  { id: 'tech',    dish: 'a modern smartphone resting on a clean wooden table next to reading glasses and a cup of coffee, simple calm tech still life' },
+  { id: 'family',  dish: 'warm hands of an older adult and a small child doing a paper craft together at a table, colorful papers and crayons, cozy family moment, no faces' },
+]
+
+export { scene }

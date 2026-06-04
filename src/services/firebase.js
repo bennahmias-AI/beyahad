@@ -89,6 +89,42 @@ export function watchUser(uid, cb) {
   })
 }
 
+// ===== ADMIN — ניהול =====
+// תפקידים: 'admin' | 'premium' | 'user' (ברירת מחדל ללא שדה = 'user').
+// blocked: true — משתמש חסום. האכיפה האמיתית בצד השרת נמצאת ב-firestore.rules.
+
+// מגדיר תפקיד למשתמש.
+export async function setUserRole(uid, role) {
+  await updateDoc(doc(db, 'users', uid), { role, updatedAt: serverTimestamp() })
+}
+
+// חוסם / משחרר משתמש.
+export async function setUserBlocked(uid, blocked) {
+  await updateDoc(doc(db, 'users', uid), { blocked: !!blocked, updatedAt: serverTimestamp() })
+}
+
+// מאזין לכל המשתמשים (חי — לבורד הניהול). מוגן בצד השרת שרק אדמין יקבל את כל המסמכים.
+export function watchAllUsers(cb) {
+  return onSnapshot(collection(db, 'users'), snap => {
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  }, err => {
+    console.error('watchAllUsers error:', err)
+    cb([])
+  })
+}
+
+// שליפה חד-פעמית של כל המשתמשים (לייצוא CSV).
+export async function getAllUsers() {
+  const snap = await getDocs(collection(db, 'users'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+// שליפה חד-פעמית של כל פוסטי הקהילה (לסטטיסטיקות וייצוא).
+export async function getAllCommunityPosts() {
+  const snap = await getDocs(collection(db, 'communityPosts'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
 // מחיקת חשבון (הזכות להישכח) — עם תקופת צינון של 48 שעות.
 //
 // כדי להגן על משתמשים (במיוחד מבוגרים) מלחיצה בטעות, אנחנו לא מוחקים
