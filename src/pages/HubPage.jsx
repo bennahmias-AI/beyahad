@@ -31,6 +31,7 @@ const DEMO_FRIENDS = [
 
 export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
+  const isAdmin = profile?.role === 'admin'
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -308,6 +309,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
         )}
 
         {/* ── באנר ירוק — כמה אנשים מחוברים כעת ────────── */}
+        {isAdmin && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           background: 'linear-gradient(135deg, #5B7E54 0%, #4F6B4A 100%)',
@@ -333,6 +335,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             }
           </span>
         </div>
+        )}
 
         {/* ── HERO — החברים שלך (מוצג רק אם יש מחוברים) ────── */}
         {hasFriends && (

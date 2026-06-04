@@ -188,6 +188,14 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
   const [activeCat, setActiveCat] = useState(null)   // קטגוריה נבחרת (null = גריד הקטגוריות)
   const [search, setSearch] = useState('')           // חיפוש חופשי
   const openedInitialRef = useRef(false)
+  const [notice, setNotice] = useState('')   // הודעת "נשלח לאישור" אחרי פרסום
+
+  // ההודעה נעלמת לבד אחרי כמה שניות
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(''), 6000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   // Watch posts of this kind
   useEffect(() => {
@@ -215,16 +223,22 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
     await incrementPostViews(post.id)
   }
 
+  // אדמין רואה הכל; משתמש רגיל רואה תוכן מאושר + הפוסטים שלו עצמו (גם ממתינים).
+  const isAdmin = profile?.role === 'admin'
+  const visiblePosts = posts.filter(p =>
+    p.approved !== false || (authUser?.uid && p.authorUid === authUser.uid) || isAdmin
+  )
+
   // ספירת עצות לכל קטגוריה
   const countByCat = {}
-  for (const p of posts) {
+  for (const p of visiblePosts) {
     const c = p.category || 'other'
     countByCat[c] = (countByCat[c] || 0) + 1
   }
-  const catPosts = activeCat ? posts.filter(p => (p.category || 'other') === activeCat) : []
+  const catPosts = activeCat ? visiblePosts.filter(p => (p.category || 'other') === activeCat) : []
   const searchQ = search.trim().toLowerCase()
   const searchResults = searchQ
-    ? posts.filter(p =>
+    ? visiblePosts.filter(p =>
         (p.title || '').toLowerCase().includes(searchQ) ||
         (p.body || '').toLowerCase().includes(searchQ) ||
         (p.authorName || '').toLowerCase().includes(searchQ))
@@ -242,6 +256,7 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
           await createCommunityPost({
             kind: 'tip', title: t.title, body: t.body,
             category: t.category, authorUid: authUser?.uid, authorName: t.author,
+            approved: true,   // תוכן דוגמה — מאושר אוטומטית
           })
         }
       } else {
@@ -266,6 +281,12 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
 
       {/* ── Content ────────────────────────────────────────── */}
       <div style={{ padding: '8px 20px 28px' }}>
+        {notice && (
+          <div onClick={() => setNotice('')} style={{
+            background: '#3E6B34', color: '#fff', borderRadius: 14, padding: '12px 16px',
+            fontSize: 15, fontWeight: 700, marginBottom: 14, cursor: 'pointer', lineHeight: 1.5,
+          }}>✓ {notice}</div>
+        )}
         {/* Add button */}
         <button
           onClick={() => setComposing(true)}
@@ -285,16 +306,18 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-3)', fontSize: 16 }}>טוען...</div>
-        ) : posts.length === 0 ? (
+        ) : visiblePosts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--ink-2)' }}>
             <div style={{ fontSize: 56, marginBottom: 12 }}>{cfg.emoji}</div>
             <div className="h-display" style={{ fontSize: 20, marginBottom: 6, color: 'var(--ink)' }}>{cfg.emptyTitle}</div>
             <div style={{ fontSize: 15 }}>היה הראשון לשתף — לחץ על הכפתור למעלה</div>
+            {isAdmin && (
             <button onClick={handleSeed} disabled={seeding} style={{
               marginTop: 24, background: 'var(--surface)', color: 'var(--ink-3)',
               border: '1px dashed var(--line-strong)', borderRadius: 12, padding: '10px 18px',
               fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
             }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
+            )}
           </div>
         ) : (
           <>
@@ -350,11 +373,13 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10 }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>עיינו לפי נושא:</div>
+                  {isAdmin && (
                   <button onClick={handleSeed} disabled={seeding} style={{
                     background: 'var(--surface)', color: 'var(--ink-3)',
                     border: '1px dashed var(--line-strong)', borderRadius: 10, padding: '6px 12px',
                     fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
                   }}>{seeding ? 'ממלא...' : '✨ מלא עצות לדוגמה'}</button>
+                  )}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                   {TIP_CATEGORIES.filter(c => c.id !== 'other' || (countByCat['other'] || 0) > 0).map(cat => (
@@ -377,8 +402,14 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
               kind, title, body, category,
               authorUid: authUser?.uid,
               authorName: profile?.name || 'משתמש',
+              approved: isAdmin,   // אדמין — מאושר מיד; משתמש רגיל — ממתין לאישור
             })
             setComposing(false)
+            if (!isAdmin) {
+              setNotice(kind === 'recipe'
+                ? 'המתכון נשלח! הוא יופיע לכולם אחרי שמנהל יאשר אותו.'
+                : 'העצה נשלחה! היא תופיע לכולם אחרי שמנהל יאשר אותה.')
+            }
           }}
         />
       )}
@@ -479,6 +510,12 @@ function PostCard({ post, accent, myUid, onClick }) {
           display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: accent,
           background: 'rgba(184,144,72,.14)', padding: '3px 10px', borderRadius: 999, marginBottom: 8,
         }}>{tipCategoryOf(post.category).name}</span>
+      )}
+      {post.approved === false && (
+        <span style={{
+          display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: '#8A6A2E',
+          background: 'rgba(184,144,72,.18)', padding: '3px 10px', borderRadius: 999, marginBottom: 8, marginInlineStart: 6,
+        }}>⏳ ממתין לאישור</span>
       )}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <Avatar name={post.authorName} size={44} />

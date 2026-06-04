@@ -13,6 +13,9 @@ function TypeIcon({ type }) {
     invite: { bg: '#7E2C2E', emoji: '🎮' },
     chat:   { bg: '#2C5566', emoji: '💬' },
     like:   { bg: '#B89048', emoji: '❤️' },
+    approved: { bg: '#3E6B34', emoji: '✅' },
+    rejected: { bg: '#8A6A2E', emoji: '📝' },
+    admin:  { bg: '#2F3A56', emoji: '📢' },
   }
   const s = map[type] || { bg: '#6B3A4F', emoji: '🔔' }
   return (

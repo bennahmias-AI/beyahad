@@ -67,6 +67,13 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   const [seeding, setSeeding] = useState(false)
   const seedingRef = useRef(false)
   const openedInitialRef = useRef(false)
+  const [notice, setNotice] = useState('')   // הודעת "נשלח לאישור" אחרי פרסום
+
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(''), 6000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   useEffect(() => {
     setLoading(true)
@@ -95,15 +102,21 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   const myUid = authUser?.uid
   const myRecipes = myUid ? posts.filter(p => p.authorUid === myUid && !p.seed) : []
 
+  // אדמין רואה הכל; משתמש רגיל רואה מאושר + המתכונים שלו (גם ממתינים).
+  const isAdmin = profile?.role === 'admin'
+  const visiblePosts = posts.filter(p =>
+    p.approved !== false || (myUid && p.authorUid === myUid) || isAdmin
+  )
+
   // ספירת מתכונים לכל קטגוריה (מתכון ללא קטגוריה → 'other')
   const countByCat = {}
-  for (const p of posts) {
+  for (const p of visiblePosts) {
     const c = p.category || 'other'
     countByCat[c] = (countByCat[c] || 0) + 1
   }
   // מתכוני הקטגוריה הנבחרת — מתכונים עם תמונה מוצגים ראשונים
   const catRecipes = activeCat
-    ? posts
+    ? visiblePosts
         .filter(p => (p.category || 'other') === activeCat)
         .sort((a, b) => ((b.photos || []).length > 0 ? 1 : 0) - ((a.photos || []).length > 0 ? 1 : 0))
     : []
@@ -111,7 +124,7 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   // חיפוש חופשי — לפי שם מתכון, מחבר או מצרך
   const searchQ = search.trim().toLowerCase()
   const searchResults = searchQ
-    ? posts.filter(p => {
+    ? visiblePosts.filter(p => {
         const inTitle = (p.title || '').toLowerCase().includes(searchQ)
         const inAuthor = (p.authorName || '').toLowerCase().includes(searchQ)
         const inIng = (p.recipe?.ingredients || []).some(i => (i || '').toLowerCase().includes(searchQ))
@@ -155,6 +168,12 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
       </div>
 
       <div style={{ padding: '8px 20px 28px' }}>
+        {notice && (
+          <div onClick={() => setNotice('')} style={{
+            background: '#3E6B34', color: '#fff', borderRadius: 14, padding: '12px 16px',
+            fontSize: 15, fontWeight: 700, marginBottom: 14, cursor: 'pointer', lineHeight: 1.5,
+          }}>✓ {notice}</div>
+        )}
         <button
           onClick={() => { setEditingPost(null); setComposing(true) }}
           style={{
@@ -208,11 +227,13 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
               <div style={{ fontSize: 56, marginBottom: 12 }}>🍲</div>
               <div className="h-display" style={{ fontSize: 20, marginBottom: 6, color: 'var(--ink)' }}>עדיין אין מתכונים</div>
               <div style={{ fontSize: 15 }}>היה הראשון לשתף — לחץ על הכפתור למעלה</div>
-              <button onClick={handleSeed} disabled={seeding} style={{
+              {isAdmin && (
+                <button onClick={handleSeed} disabled={seeding} style={{
                 marginTop: 24, background: 'var(--surface)', color: 'var(--ink-3)',
                 border: '1px dashed var(--line-strong)', borderRadius: 12, padding: '10px 18px',
                 fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
               }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
+              )}
             </div>
           ) : (
             <>
@@ -270,11 +291,13 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)' }}>עיינו לפי קטגוריה:</div>
+                {isAdmin && (
                 <button onClick={handleSeed} disabled={seeding} style={{
                   background: 'var(--surface)', color: 'var(--ink-3)',
                   border: '1px dashed var(--line-strong)', borderRadius: 10, padding: '6px 12px',
                   fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
                 }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                 {RECIPE_CATEGORIES.filter(c => c.id !== 'other' || (countByCat['other'] || 0) > 0).map(cat => (
@@ -304,7 +327,9 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
               await createCommunityPost({
                 kind: 'recipe', title, recipe, photos, category,
                 authorUid: authUser?.uid, authorName: profile?.name || 'משתמש',
+                approved: isAdmin,   // אדמין — מאושר מיד; משתמש רגיל — ממתין לאישור
               })
+              if (!isAdmin) setNotice('המתכון נשלח! הוא יופיע לכולם אחרי שמנהל יאשר אותו.')
             }
             setComposing(false); setEditingPost(null)
           }}
@@ -441,6 +466,7 @@ function MyRecipeRow({ post, onOpen, onEdit, onDelete }) {
         <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconHeart size={13} color="#8389A4" /> {(post.likes || []).length}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconPan size={13} color="#8389A4" /> {(post.cooked || []).length}</span>
+          {post.approved === false && <span style={{ color: '#8A6A2E', fontWeight: 800 }}>⏳ ממתין לאישור</span>}
         </div>
       </button>
       <button onClick={onEdit} aria-label="ערוך" title="ערוך" style={{
@@ -483,6 +509,12 @@ function RecipeCard({ post, myUid, onClick }) {
             display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: ACCENT,
             background: 'var(--burgundy-soft)', padding: '3px 10px', borderRadius: 999, marginBottom: 8,
           }}>{categoryOf(post.category).name}</span>
+        )}
+        {post.approved === false && (
+          <span style={{
+            display: 'inline-block', fontSize: 11.5, fontWeight: 800, color: '#8A6A2E',
+            background: 'rgba(184,144,72,.18)', padding: '3px 10px', borderRadius: 999, marginBottom: 8, marginInlineStart: 6,
+          }}>⏳ ממתין לאישור</span>
         )}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Avatar name={post.authorName} size={44} />

@@ -36,6 +36,21 @@ export function useAuth() {
           profile = await getUser(firebaseUser.uid)
         }
 
+        // Sync email from Auth -> Firestore doc, so it appears in the admin board.
+        // Phone-auth users have no email (skipped); email-registered users get it stored.
+        if (firebaseUser.email && profile && profile.email !== firebaseUser.email) {
+          console.info('[beyahad] syncing email to user doc:', firebaseUser.email)
+          try {
+            await createOrUpdateUser(firebaseUser.uid, { email: firebaseUser.email })
+            console.info('[beyahad] email synced OK')
+          } catch (e) {
+            console.error('[beyahad] email sync failed:', e)
+          }
+          profile = { ...profile, email: firebaseUser.email }
+        } else {
+          console.info('[beyahad] email sync skipped. authEmail=', firebaseUser.email, ' docEmail=', profile && profile.email)
+        }
+
         setProfile(profile)
         setAuthLoading(false)
 

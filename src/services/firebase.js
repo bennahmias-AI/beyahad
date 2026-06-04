@@ -125,6 +125,72 @@ export async function getAllCommunityPosts() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
 
+// סטטיסטיקות פעילות לבורד הניהול — קפה בסלון + פרלמנט.
+// סופר "היום" לפי startedAt. כל אוסף נספר בנפרד כך שכשל באחד
+// (למשל הרשאות) לא מאפס את השני. דורש שהכללים יתירו לאדמין לקרוא.
+export async function getActivityStats() {
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+  const todayMs = startOfToday.getTime()
+  const tally = async (col) => {
+    try {
+      const snap = await getDocs(collection(db, col))
+      let today = 0
+      snap.docs.forEach(d => {
+        const ts = d.data().startedAt
+        const ms = ts && typeof ts.toMillis === 'function' ? ts.toMillis() : 0
+        if (ms >= todayMs) today++
+      })
+      return { total: snap.size, today }
+    } catch (e) {
+      console.error(`getActivityStats ${col}:`, e)
+      return { total: 0, today: 0 }
+    }
+  }
+  const [cafe, parl] = await Promise.all([tally('cafeSessions'), tally('parliamentSessions')])
+  return {
+    cafeToday: cafe.today, cafeTotal: cafe.total,
+    parliamentToday: parl.today, parliamentTotal: parl.total,
+  }
+}
+
+// ===== התראות ניהול / מערכת (notifications) =====
+// אוסף שאליו מנהל כותב התראה אישית למשתמש (אישור/דחיית
+// תוכן, או הודעה מההנהלה). המשתמש קורא רק את אלו שמיועדות לו (toUid).
+//   notifications/{id}: { toUid, type, title, body, createdAt }
+export async function sendUserNotification({ toUid, type, title, body }) {
+  if (!toUid) return
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      toUid,
+      type: type || 'admin',
+      title: title || '',
+      body: body || '',
+      createdAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('sendUserNotification error:', e)
+  }
+}
+
+// מאזין להתראות המערכת/ניהול של המשתמש (לפעמון). מיון בצד הלקוח.
+export function watchMyNotifications(myUid, cb) {
+  const qy = query(collection(db, 'notifications'), where('toUid', '==', myUid))
+  return onSnapshot(qy, snap => {
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  }, err => {
+    console.error('watchMyNotifications error:', err)
+    cb([])
+  })
+}
+
+// מחיקת משתמש ע"י מנהל — מוחק את מסמך המשתמש (פרופיל + נתונים).
+// הערה: מחיקת חשבון ה-Auth עצמו דורשת פונקציית שרת (Admin SDK); מהלקוח
+// אפשר רק להסיר את המסמך. לחסימה קבועה עדיף setUserBlocked.
+export async function adminDeleteUser(uid) {
+  if (!uid) return
+  await deleteDoc(doc(db, 'users', uid))
+}
+
 // מחיקת חשבון (הזכות להישכח) — עם תקופת צינון של 48 שעות.
 //
 // כדי להגן על משתמשים (במיוחד מבוגרים) מלחיצה בטעות, אנחנו לא מוחקים
@@ -461,7 +527,7 @@ export async function leaveParliamentSession(sessionId, uid) {
 //   { kind: 'tip' | 'recipe', title, body, authorUid, authorName,
 //     views, likes: [uid...], createdAt }
 
-export async function createCommunityPost({ kind, title, body, recipe, photos, category, authorUid, authorName }) {
+export async function createCommunityPost({ kind, title, body, recipe, photos, category, authorUid, authorName, approved = false }) {
   const data = {
     kind,
     title: (title || '').trim(),
@@ -469,6 +535,7 @@ export async function createCommunityPost({ kind, title, body, recipe, photos, c
     authorUid,
     authorName: authorName || 'משתמש',
     category: category || 'other',
+    approved: !!approved,   // משתמש רגיל → false (ממתין לאישור); אדמין → true
     views: 0,
     likes: [],
     createdAt: serverTimestamp(),
@@ -486,6 +553,38 @@ export async function createCommunityPost({ kind, title, body, recipe, photos, c
   }
   const ref = await addDoc(collection(db, 'communityPosts'), data)
   return ref.id
+}
+
+// ===== MODERATION — אישור תוכן קהילה =====
+// פוסט חדש של משתמש רגיל נשמר עם approved:false (ממתין). רק אדמין
+// מאשר (setPostApproval) — נאכף גם בכללי Firestore. תוכן ותיק/seed ללא
+// השדה נחשב מאושר (תאימות לאחור), ולכן מסונן בצד הלקוח לפי approved !== false.
+
+// מאשר / מבטל אישור של פוסט (רק אדמין — מאוכף בכללים).
+export async function setPostApproval(postId, approved) {
+  await updateDoc(doc(db, 'communityPosts', postId), {
+    approved: !!approved,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מאזין לכל הפוסטים הממתינים לאישור (approved == false).
+// משמש את תור הניהול ואת מונה הפעמון. שאילתה פשוטה (where יחיד) +
+// מיון בצד הלקוח — כדי לא לדרוש composite index.
+export function watchPendingPosts(cb) {
+  const qy = query(collection(db, 'communityPosts'), where('approved', '==', false))
+  return onSnapshot(qy, snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    list.sort((a, b) => {
+      const am = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0
+      const bm = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0
+      return bm - am
+    })
+    cb(list)
+  }, err => {
+    console.error('watchPendingPosts error:', err)
+    cb([])
+  })
 }
 
 // uploadRecipePhoto — מעלה תמונת מתכון ל-Storage ומחזיר URL
@@ -622,6 +721,7 @@ export async function seedCommunityContent(authorUid) {
       },
       photos: cover ? [cover] : [],
       cooked: [],
+      approved: true,
       authorUid: authorUid || 'seed',
       authorName: r.author,
       views: Math.floor(Math.random() * 80) + 12,
@@ -635,6 +735,7 @@ export async function seedCommunityContent(authorUid) {
     await setDoc(doc(db, 'communityPosts', `seed-tip-${i + 1}`), {
       kind: 'tip', seed: true, title: t.title, body: t.body,
       category: t.category || 'other',
+      approved: true,
       authorUid: authorUid || 'seed', authorName: t.author,
       views: Math.floor(Math.random() * 80) + 12,
       likes: [], createdAt: serverTimestamp(),

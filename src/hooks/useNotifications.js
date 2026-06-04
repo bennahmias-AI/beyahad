@@ -17,7 +17,7 @@
 import { useState, useEffect } from 'react'
 import {
   watchFriendships, watchIncomingInvites, watchMyDirectChats,
-  watchUser, watchCommunityPosts,
+  watchUser, watchCommunityPosts, watchMyNotifications,
 } from '../services/firebase.js'
 
 // שמות ידידותיים לסוגי המשחקים (לכותרת ההזמנה)
@@ -43,6 +43,7 @@ export function useNotifications(myUid) {
   const [invites, setInvites] = useState([])        // הזמנות למשחק
   const [chats, setChats] = useState([])            // שיחות פרטיות
   const [myPosts, setMyPosts] = useState([])        // מתכונים+עצות שלי (ללייקים)
+  const [sysNotifs, setSysNotifs] = useState([])    // התראות ניהול/מערכת
   const [seenAt, setSeenAt] = useState(0)           // חותמת "ראיתי"
 
   // בקשות חברות נכנסות
@@ -82,6 +83,13 @@ export function useNotifications(myUid) {
     const unsubT = watchCommunityPosts('tip', (list) => { tips.length = 0; tips.push(...list); merge() })
     const unsubR = watchCommunityPosts('recipe', (list) => { recipes.length = 0; recipes.push(...list); merge() })
     return () => { unsubT && unsubT(); unsubR && unsubR() }
+  }, [myUid])
+
+  // התראות ניהול/מערכת (אישור/דחיית תוכן, הודעה מההנהלה)
+  useEffect(() => {
+    if (!myUid) return
+    const unsub = watchMyNotifications(myUid, (list) => setSysNotifs(list || []))
+    return () => unsub && unsub()
   }, [myUid])
 
   // בונים את רשימת ההתראות המאוחדת
@@ -139,6 +147,17 @@ export function useNotifications(myUid) {
       likeCount: likes.length,
       postId: p.id,
       kind: p.kind,
+    })
+  }
+
+  // 5. התראות ניהול/מערכת — אישור/דחיית תוכן, הודעה מההנהלה
+  for (const n of sysNotifs) {
+    items.push({
+      id: `sys_${n.id}`,
+      type: n.type || 'admin',
+      title: n.title || 'הודעה',
+      body: n.body || '',
+      ts: toMillis(n.createdAt),
     })
   }
 

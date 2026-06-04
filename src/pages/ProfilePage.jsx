@@ -109,6 +109,7 @@ export default function ProfilePage({ onBack, onHome }) {
         phone: phone.trim(),
       }
       if (photoURL) data.photoURL = photoURL
+      if (email) data.email = email
 
       await createOrUpdateUser(authUser.uid, data)
 
