@@ -51,12 +51,12 @@ const GAMES = [
     status: 'available',
   },
   {
-    id: 'memory',
-    name: 'משחק הזיכרון של מילי',
-    description: 'מצאו זוגות תואמים',
-    emoji: '🃏',
-    players: 'לבד',
-    color: '#5A1D1E', // burgundy deep
+    id: 'chess',
+    name: 'שחמט',
+    description: 'משחק האסטרטגיה',
+    emoji: '♟️',
+    players: 'AI / 2 שחקנים',
+    color: '#5e3e22', // עץ אגוז
     status: 'available',
   },
   {
@@ -97,12 +97,12 @@ const GAMES = [
     status: 'available',
   },
   {
-    id: 'chess',
-    name: 'שחמט',
-    description: 'משחק האסטרטגיה',
-    emoji: '♟️',
-    players: 'AI / 2 שחקנים',
-    color: '#5e3e22', // עץ אגוז
+    id: 'memory',
+    name: 'משחק הזיכרון של מילי',
+    description: 'מצאו זוגות תואמים',
+    emoji: '🃏',
+    players: 'לבד',
+    color: '#5A1D1E', // burgundy deep
     status: 'available',
   },
 ]

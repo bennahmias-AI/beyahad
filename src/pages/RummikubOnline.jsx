@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
+import { GameIcon } from '../icons/gameIcons.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
@@ -123,7 +124,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
           <button onClick={onBack} style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', color: 'white', border: 'none', fontSize: 22, cursor: 'pointer' }}>←</button>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-          <div style={{ fontSize: 72 }}>🎴</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}><GameIcon id="rummikub" size={84} /></div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>מחפש לך יריבים...</div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
@@ -344,7 +345,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
       <RummiHeaderShared title="חדר המתנה" onBack={handleLeave} onHome={onHome} />
       <div style={{ padding: '20px 16px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🎴</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="rummikub" size={56} /></div>
           <div className="h-display" style={{ fontSize: 22, color: GOLD }}>
             {isRandom
               ? `ממתינים לשחקנים (${players.length}/${maxPlayers})`

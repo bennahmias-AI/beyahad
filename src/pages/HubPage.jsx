@@ -12,8 +12,12 @@ import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconFriends,
   IconKitchen, IconGreeting, IconBell, IconBackRTL, IconLightbulb,
-  IconGames, IconRadio,
+  IconGames, IconRadio, IconMusic,
 } from '../icons/index.jsx'
+import { useRadioStore } from '../stores/radioStore.js'
+import { searchStations } from '../services/radio.js'
+import { GameIcon } from '../icons/gameIcons.jsx'
+import { SEED_RECIPES } from '../data/seedRecipes.js'
 
 // ─── DEMO TOGGLE ─────────────────────────────────────────────
 const SHOW_DEMO_FRIENDS = false
@@ -25,7 +29,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTips, onGoRecipes, onGoRadio, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onOpenNotification }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
   const [comingSoon, setComingSoon] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -75,6 +79,124 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
              : hour < 17 ? 'צהריים טובים'
              : hour < 20 ? 'אחר צהריים טובים'
              : 'ערב טוב'
+
+  // נגן תחנת רדיו ספציפית ישירות מהבית (חיפוש מהיר ב-API ואז ניגון; נפילה רכה למסך הרדיו)
+  const playStationFromStore = useRadioStore(s => s.playStation)
+  const playRadio = async (query) => {
+    try {
+      const list = await searchStations(query)
+      if (list && list[0]) { playStationFromStore(list[0]); return }
+    } catch {}
+    onGoRadio()
+  }
+
+  // ─── מאגר ההצעות ל"קורה ממש עכשיו" ───
+  // נבנה מכל הקטגוריות: כל משחק × כל מצב, מתכונים בשם, תחנות רדיו ספציפיות, וקיצורי דרך קבועים.
+
+  // משחקים — כל משחק מקבל את האייקון והצבע שלו
+  const GAMES = [
+    { id: 'bingo',     name: 'בינגו',   color: '#4F6B4A' },
+    { id: 'sheshbesh', name: 'שש-בש',   color: '#7E2C2E' },
+    { id: 'checkers',  name: 'דמקה',    color: '#2C5566' },
+    { id: 'chess',     name: 'שחמט',    color: '#1B2540' },
+    { id: 'rummikub',  name: 'רמיקוב',  color: '#B89048' },
+    { id: 'connect4',  name: '4 בשורה', color: '#6B3A4F' },
+  ]
+  const MODE_DEFS = {
+    friend: { mode: 'online-friend', label: 'עם חבר קרוב',   sub: 'הזמינו חבר למשחק אישי' },
+    online: { mode: 'online-random', label: 'מול שחקן ברשת', sub: 'נמצא לכם יריב מחובר עכשיו' },
+    ai:     { mode: 'ai',            label: 'מול המחשב',      sub: 'אימון נעים בקצב שלכם' },
+    solo:   { mode: 'solo',          label: 'לבד',            sub: 'המספרים עולים אוטומטית' },
+  }
+  // בינגו תומך ב"לבד"; שאר המשחקים ב"מול המחשב"
+  const GAME_MODES_BY_ID = { bingo: ['friend', 'online', 'solo'] }
+  const DEFAULT_MODES = ['friend', 'online', 'ai']
+  const gameSuggestions = GAMES.flatMap(g =>
+    (GAME_MODES_BY_ID[g.id] || DEFAULT_MODES).map(mk => {
+      const md = MODE_DEFS[mk]
+      return {
+        key: `game-${g.id}-${mk}`,
+        title: `שחקו ${g.name} ${md.label}`,
+        sub: md.sub,
+        icon: <GameBadge id={g.id} color={g.color} />,
+        go: () => onPlayGame(g.id, md.mode),
+      }
+    })
+  )
+
+  // מתכונים — מתוך מאגר המתכונים האמיתי, עם פרגון לחבר/ה שכתב/ה אותם
+  const recipeSuggestions = SEED_RECIPES.map((r) => {
+    const firstName = (r.author || '').split(' ')[0]
+    const ownerInTitle = (r.title || '').includes(' של ')   // למשל "מרק עוף של סבתא" — לא להכפיל "של"
+    return {
+      key: `recipe-${r.id}`,
+      title: ownerInTitle ? `נסו את ${r.title}` : `נסו את ${r.title} של ${firstName}`,
+      sub: `מהמטבח של ${r.author}`,
+      icon: <IconKitchen size={52} />,
+      go: () => onGoRecipe(`seed-recipe-${r.id}`),
+    }
+  })
+
+  // תחנות רדיו — ישראליות וגם מהעולם, כל אחת מנגנת ישירות
+  const STATIONS = [
+    { name: 'גלגלצ',        q: 'Galgalatz',      sub: 'הלהיטים של הצבא' },
+    { name: 'גלי צה"ל',     q: 'Galei Tsahal',   sub: 'חדשות ומוזיקה כל היום' },
+    { name: 'כאן 88',        q: 'Kan 88',         sub: 'ג\'אז וישראלית איכותית' },
+    { name: 'כאן גימל',     q: 'Kan Gimel',      sub: 'הזהב של הזמר העברי' },
+    { name: 'כאן רשת ב',    q: 'Kan Reshet Bet', sub: 'דיבור, אקטואליה ותרבות' },
+    { name: 'רדיו תל אביב', q: 'Radio Tel Aviv', sub: 'הפסקול של העיר' },
+    { name: '100FM',         q: 'Radius 100FM',   sub: 'מצעד הלהיטים' },
+    { name: 'eco99',         q: 'eco99fm',        sub: 'מוזיקה ללא הפסקה' },
+    { name: 'רדיו קלאסי',    q: 'classical',      sub: 'יצירות קלאסיות נבחרות' },
+    { name: "ג\'אז מהעולם",   q: 'jazz',           sub: "ג\'אז רגוע לכל שעה" },
+    { name: 'שירי זהב',      q: 'oldies',         sub: 'הקלאסיקות שאוהבים' },
+    { name: "מוזיקת לואנג'", q: 'lounge',         sub: 'רקע נעים ומרגיע' },
+    { name: 'רדיו צרפתי',    q: 'France',         sub: 'שאנסונים מפריז' },
+    { name: 'רדיו יווני',     q: 'Greek',          sub: 'בוזוקי ושמש' },
+    { name: 'רדיו איטלקי',    q: 'Italy',          sub: 'מהפיאצה הישר אליכם' },
+  ]
+  const radioSuggestions = STATIONS.map((st, i) => ({
+    key: `radio-${i}`,
+    title: `הדליקו ${st.name}`,
+    sub: st.sub,
+    icon: <IconRadio size={52} />,
+    go: () => playRadio(st.q),
+  }))
+
+  // קיצורי דרך קבועים שתמיד שווה להציע
+  const STAPLES = [
+    { key: 'greeting',   title: 'צור ברכה אישית',      sub: 'ברכה יפה למשפחה ולחברים בלחיצה אחת', icon: <IconGreeting size={52} />,  go: onGoGreeting },
+    { key: 'coffee',     title: 'קפה בסלון',            sub: 'שיחת וידאו אחד-על-אחד, עכשיו',        icon: <IconCoffee size={52} />,    go: onGoMatch },
+    { key: 'parliament', title: 'הצטרפו לפרלמנט',       sub: 'דיון קבוצתי מתחיל עוד מעט',           icon: <IconPodium size={52} />,    go: onGoParliament },
+    { key: 'tips',       title: 'עצה חדשה מהחברים',     sub: 'טיפ שימושי שכדאי להכיר',              icon: <IconLightbulb size={52} />, go: onGoTips },
+    { key: 'friends',    title: 'מי מהחברים מחובר?',    sub: 'הציצו ברשימת החברים שלכם',           icon: <IconFriends size={52} />,   go: onGoFriends },
+  ]
+
+  const SUGGESTIONS = [
+    ...gameSuggestions.map(s => ({ ...s, cat: 'game' })),
+    ...recipeSuggestions.map(s => ({ ...s, cat: 'recipe' })),
+    ...radioSuggestions.map(s => ({ ...s, cat: 'radio' })),
+    ...STAPLES.map(s => ({ ...s, cat: 'staple' })),
+  ]
+
+  // בחירה אקראית מאוזנת — 3 הצעות מקטגוריות שונות בכל כניסה למסך
+  const [pickIdx] = useState(() => {
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+    const byCat = {}
+    SUGGESTIONS.forEach((s, i) => { (byCat[s.cat] = byCat[s.cat] || []).push(i) })
+    const chosen = []
+    for (const c of shuffle(Object.keys(byCat))) {
+      if (chosen.length >= 3) break
+      const arr = byCat[c]
+      chosen.push(arr[Math.floor(Math.random() * arr.length)])
+    }
+    if (chosen.length < 3) {
+      const rest = shuffle(SUGGESTIONS.map((_, i) => i).filter(i => !chosen.includes(i)))
+      while (chosen.length < 3 && rest.length) chosen.push(rest.pop())
+    }
+    return chosen
+  })
+  const hourlyPicks = pickIdx.map(i => SUGGESTIONS[i])
 
   useEffect(() => {
     if (!authUser?.uid) return
@@ -478,28 +600,21 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <h2 className="h-display" style={{ fontSize: 22, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="live-dot" />
-              קורה ממש עכשיו
+              מומלצים לשעה הקרובה
             </h2>
             <span style={{
               fontSize: 11, fontWeight: 800,
               color: 'var(--burgundy)',
               textTransform: 'uppercase', letterSpacing: '0.08em',
               fontFamily: 'var(--font-display)',
-            }}>LIVE</span>
+            }}>עכשיו</span>
           </div>
-          <LiveCard
-            color="#4F6B4A"
-            title="בינגו עם רחל"
-            sub="14 משתתפים · התחיל לפני 4 דקות"
-            onClick={() => showComingSoon('בינגו עם רחל')}
-          />
-          <div style={{ height: 10 }}/>
-          <LiveCard
-            color="#B89048"
-            title="שירה בציבור — הבה נגילה"
-            sub="שירה בקריוקי · כולם שרים ביחד"
-            onClick={onGoSinging}
-          />
+          {hourlyPicks.map((s, i) => (
+            <div key={s.key}>
+              {i > 0 && <div style={{ height: 10 }} />}
+              <LiveCard icon={s.icon} title={s.title} sub={s.sub} onClick={s.go} />
+            </div>
+          ))}
         </div>
 
         <div style={{ height: 24 }}/>
@@ -701,25 +816,45 @@ function HomeTileSmall({ onClick, icon, label, badge, live }) {
 }
 
 // ── Live event card ─────────────────────────────────────────
-function LiveCard({ color, title, sub, onClick }) {
+// ── תג-אייקון צבעוני למשחקים (האייקון לבן — צריך רקע צבעוני) ──
+function GameBadge({ id, color }) {
+  return (
+    <div style={{
+      width: 52, height: 52, borderRadius: 15,
+      background: color, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: '0 4px 10px -2px rgba(20,23,42,.22)',
+    }}>
+      <GameIcon id={id} size={36} />
+    </div>
+  )
+}
+
+function LiveCard({ icon, color, title, sub, onClick }) {
   return (
     <button onClick={onClick} style={{
       width: '100%', textAlign: 'right',
       background: 'var(--surface)',
       border: '1px solid var(--line)',
-      borderRadius: 18, padding: '14px 14px',
+      borderRadius: 18, padding: '12px 14px',
       boxShadow: 'var(--shadow-sm)',
       display: 'flex', alignItems: 'center', gap: 12,
       fontFamily: 'inherit',
     }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: 14,
-        background: color, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 10px -2px rgba(20,23,42,.18)',
-      }}>
-        <span className="live-dot" style={{ background: '#E8C879', width: 10, height: 10 }}/>
-      </div>
+      {icon ? (
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {icon}
+        </div>
+      ) : (
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: color, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 10px -2px rgba(20,23,42,.18)',
+        }}>
+          <span className="live-dot" style={{ background: '#E8C879', width: 10, height: 10 }}/>
+        </div>
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.2, marginBottom: 3 }}>
           {title}

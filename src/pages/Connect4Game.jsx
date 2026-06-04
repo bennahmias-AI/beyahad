@@ -241,8 +241,8 @@ function aiPickColumn(board, difficulty, me, opponent) {
 // ════════════════════════════════════════════════════════
 // mode: 'ai' | 'local' | 'online-random' | 'online-friend-host' | 'online-friend-join'
 // ════════════════════════════════════════════════════════
-export default function Connect4Game({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
+export default function Connect4Game({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)  // למצבי אונליין
 
@@ -755,8 +755,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
               background: '#7E2C2E',
               border: '4px solid #E8C879',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 56,
-            }}>🔴</div>
+            }}><GameIcon id="connect4" size={84} /></div>
           </div>
 
           {/* כותרת וסטטוס */}

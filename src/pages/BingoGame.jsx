@@ -46,8 +46,8 @@ const COL_COLORS = ['#7E2C2E', '#B89048', '#4F6B4A', '#2C5566', '#6B3A4F']
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — ניתוב בין מצבי המשחק
 // ════════════════════════════════════════════════════════
-export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
+export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
   useEffect(() => {

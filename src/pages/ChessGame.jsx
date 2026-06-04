@@ -450,8 +450,8 @@ const C = {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function ChessGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
+export default function ChessGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -1340,8 +1340,8 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
             <div style={{ position: 'absolute', inset: 20, borderRadius: '50%', border: '3px solid rgba(255,255,255,.10)', animation: 'chPulse 1.5s ease-out 0.5s infinite' }} />
             <div style={{
               position: 'absolute', inset: 40, borderRadius: '50%', background: C.onyx,
-              border: '4px solid #C9A85E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 60, color: '#f3e9d2',
-            }}>♛</div>
+              border: '4px solid #C9A85E', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}><GameIcon id="chess" size={84} /></div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>

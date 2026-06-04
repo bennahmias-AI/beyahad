@@ -59,6 +59,8 @@ export default function App() {
   const [rummikubRoom, setRummikubRoom] = useState(null)
   const [arenaRoom, setArenaRoom] = useState(null)
   const [bingoRoom, setBingoRoom] = useState(null)
+  // מצב משחק לכניסה ישירה ממסך הבית (חבר/רשת/מחשב/לבד) — null = מסך בחירת מצב רגיל
+  const [gameMode, setGameMode] = useState(null)
   // החבר שאיתו פתוחה שיחת צ'אט פרטית
   const [chatFriend, setChatFriend] = useState(null)
   // החבר שאיתו רוצים לשחק — נכנסים לזירה במצב "הזמנת חבר", והבחירה שולחת הזמנה
@@ -101,6 +103,7 @@ export default function App() {
   function goHome() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
+    setGameMode(null)
     setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
     setPage('hub')
   }
@@ -146,6 +149,17 @@ export default function App() {
       setBingoRoom(roomId)
       setPage('bingo-game')
     }
+  }
+
+  // כניסה ישירה למשחק במצב ספציפי (ממסך הבית — "קורה ממש עכשיו")
+  // gameType: bingo|sheshbesh|checkers|chess|rummikub|connect4
+  // mode: 'online-friend' | 'online-random' | 'ai' | 'solo'
+  function handlePlayGame(gameType, mode) {
+    setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
+    setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
+    setPlayFriend(null)
+    setGameMode(mode)
+    setPage(`${gameType}-game`)
   }
 
   // ── שיחות וידאו / קול ──
@@ -313,14 +327,14 @@ export default function App() {
           onHome={goHome}
           inviteFriend={playFriend}
           onGoMemory={() => setPage('memory-game')}
-          onGoConnect4={() => { setConnect4Room(null); setPage('connect4-game') }}
-          onGoCheckers={() => { setCheckersRoom(null); setPage('checkers-game') }}
-          onGoChess={() => { setChessRoom(null); setPage('chess-game') }}
-          onGoSheshbesh={() => { setSheshbeshRoom(null); setPage('sheshbesh-game') }}
+          onGoConnect4={() => { setConnect4Room(null); setGameMode(null); setPage('connect4-game') }}
+          onGoCheckers={() => { setCheckersRoom(null); setGameMode(null); setPage('checkers-game') }}
+          onGoChess={() => { setChessRoom(null); setGameMode(null); setPage('chess-game') }}
+          onGoSheshbesh={() => { setSheshbeshRoom(null); setGameMode(null); setPage('sheshbesh-game') }}
           onGoTrivia={() => setPage('millionaire-game')}
-          onGoRummikub={() => { setRummikubRoom(null); setPage('rummikub-game') }}
+          onGoRummikub={() => { setRummikubRoom(null); setGameMode(null); setPage('rummikub-game') }}
           onGoArena={() => { setArenaRoom(null); setPage('arena-game') }}
-          onGoBingo={() => { setBingoRoom(null); setPage('bingo-game') }}
+          onGoBingo={() => { setBingoRoom(null); setGameMode(null); setPage('bingo-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
@@ -336,6 +350,7 @@ export default function App() {
         <RummikubGame
           initialRoomId={rummikubRoom}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setRummikubRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -352,6 +367,7 @@ export default function App() {
         <BingoGame
           initialRoomId={bingoRoom}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setBingoRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -360,6 +376,7 @@ export default function App() {
         <Connect4Game
           initialRoomId={connect4Room}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setConnect4Room(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -368,6 +385,7 @@ export default function App() {
         <CheckersGame
           initialRoomId={checkersRoom}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setCheckersRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -376,6 +394,7 @@ export default function App() {
         <ChessGame
           initialRoomId={chessRoom}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setChessRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -384,6 +403,7 @@ export default function App() {
         <SheshBeshGame
           initialRoomId={sheshbeshRoom}
           autoInviteFriend={playFriend}
+          initialMode={gameMode}
           onBack={() => { setSheshbeshRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -401,12 +421,14 @@ export default function App() {
           onGoSinging={joinSinging}
           onGoTips={() => setPage('tips')}
           onGoRecipes={() => setPage('recipes')}
+          onGoRecipe={(postId) => { setInitialPostId(postId); setPage('recipes') }}
           onGoRadio={() => setPage('radio')}
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
           onGoSettings={() => setPage('settings')}
           onGoFriends={() => setPage('friends')}
           onGoGames={() => setPage('games')}
+          onPlayGame={handlePlayGame}
           onOpenNotification={handleOpenNotification}
         />
       )}

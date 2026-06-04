@@ -432,13 +432,13 @@ export async function createCommunityPost({ kind, title, body, recipe, photos, c
     body: (body || '').trim(),
     authorUid,
     authorName: authorName || 'משתמש',
+    category: category || 'other',
     views: 0,
     likes: [],
     createdAt: serverTimestamp(),
   }
   if (kind === 'recipe') {
     data.cooked = []
-    data.category = category || 'other'
     data.photos = Array.isArray(photos) ? photos.slice(0, 3) : []
     if (recipe) {
       data.recipe = {
@@ -598,6 +598,7 @@ export async function seedCommunityContent(authorUid) {
     const t = TIPS[i]
     await setDoc(doc(db, 'communityPosts', `seed-tip-${i + 1}`), {
       kind: 'tip', seed: true, title: t.title, body: t.body,
+      category: t.category || 'other',
       authorUid: authorUid || 'seed', authorName: t.author,
       views: Math.floor(Math.random() * 80) + 12,
       likes: [], createdAt: serverTimestamp(),

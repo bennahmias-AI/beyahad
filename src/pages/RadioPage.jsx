@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useRadioStore } from '../stores/radioStore.js'
+import { getAccessibilitySettings } from '../utils/accessibility.js'
 import { fetchIsraeliStations, searchStations, fetchStationsByCountry, fetchStationsByTag, RADIO_COUNTRIES, RADIO_CATEGORIES } from '../services/radio.js'
 import { IconBackRTL, IconSearch, IconPlay, IconPause, IconHeart } from '../icons/index.jsx'
 import { RadioCatIcon } from '../icons/radioIcons.jsx'
@@ -40,6 +41,14 @@ export default function RadioPage({ onBack, onHome }) {
   const [activeCat, setActiveCat] = useState(null)     // { id, emoji, name, tag } או null
   const [catStations, setCatStations] = useState([])
   const [loadingCat, setLoadingCat] = useState(false)
+
+  // בגודל טקסט "גדול"/"גדול מאוד" — הופכים רשתות של 2 עמודות לעמודה אחת,
+  // אחרת הכרטיסים נמרחים ויוצאים מהמסך. ברגיל — נשאר 2 עמודות כרגיל.
+  const [bigText] = useState(() => {
+    const fs = getAccessibilitySettings().fontScale
+    return fs === 'large' || fs === 'xlarge'
+  })
+  const catGridCols = bigText ? '1fr' : 'repeat(2, 1fr)'
 
   useEffect(() => {
     let cancelled = false
@@ -159,7 +168,7 @@ export default function RadioPage({ onBack, onHome }) {
 
                 {/* רשת קטגוריות */}
                 <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>עיינו לפי קטגוריה:</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: catGridCols, gap: 10 }}>
                   {RADIO_CATEGORIES.map(cat => (
                     <button key={cat.id} onClick={() => pickCategory(cat)} style={{
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -186,7 +195,7 @@ export default function RadioPage({ onBack, onHome }) {
             {view === 'countries' && (
               <>
                 <SubHeader title="🌍 לפי מדינה" onBack={backToHome} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: catGridCols, gap: 8 }}>
                   {RADIO_COUNTRIES.map(c => (
                     <button key={c.code} onClick={() => pickCountry(c)} style={{
                       display: 'flex', alignItems: 'center', gap: 8,

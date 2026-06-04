@@ -253,14 +253,9 @@ function Card({ card, isFlipped, isMatched, onClick }) {
           boxShadow: '0 4px 12px -2px rgba(126,44,46,.3)',
           border: '2px solid #5A1D1E',
         }}>
-          <div style={{
-            color: '#E8C879',
-            fontSize: 28, fontWeight: 800,
-            fontFamily: 'var(--font-display)',
-            letterSpacing: '0.05em',
-          }}>
-            🤝
-          </div>
+          <svg width="44" height="44" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M32 11 L39.5 26 L56 28.3 L44 39.8 L46.8 56 L32 48.3 L17.2 56 L20 39.8 L8 28.3 L24.5 26 Z" fill="#E8C879" />
+          </svg>
         </div>
 
         {/* פנים הקלף — האייקון, מוצג כשהקלף הפוך */}

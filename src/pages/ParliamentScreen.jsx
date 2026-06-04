@@ -104,6 +104,72 @@ function ConnectingScreen({ onCancel }) {
 }
 
 // ─── Parliament UI ───────────────────────────────────────────
+// אייקוני בקרת שיחה (SVG מצויר ידנית — לא אמוג'י)
+function CtrlIcon({ id, size = 26, color = '#FBF7EE' }) {
+  const common = { width: size, height: size, viewBox: '0 0 24 24', style: { display: 'block' } }
+  switch (id) {
+    case 'mic':
+      return (
+        <svg {...common}>
+          <rect x="9" y="2.5" width="6" height="11" rx="3" fill={color} />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <line x1="12" y1="17.5" x2="12" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <line x1="8.5" y1="21" x2="15.5" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      )
+    case 'mic-off':
+      return (
+        <svg {...common}>
+          <rect x="9" y="2.5" width="6" height="11" rx="3" fill="none" stroke={color} strokeWidth="2" />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <line x1="12" y1="17.5" x2="12" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <line x1="8.5" y1="21" x2="15.5" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <line x1="4" y1="3.2" x2="20" y2="21" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      )
+    case 'camera':
+      return (
+        <svg {...common}>
+          <rect x="2.5" y="6.5" width="12" height="11" rx="3.5" fill={color} />
+          <path d="M14.8 11.1l5.2-3.3v8.6l-5.2-3.3z" fill={color} />
+        </svg>
+      )
+    case 'camera-off':
+      return (
+        <svg {...common}>
+          <rect x="2.5" y="6.5" width="12" height="11" rx="3.5" fill="none" stroke={color} strokeWidth="2" />
+          <path d="M14.8 11.1l5.2-3.3v8.6l-5.2-3.3z" fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+          <line x1="4" y1="3.2" x2="20" y2="21" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      )
+    case 'handoff':
+      return (
+        <svg {...common}>
+          <rect x="3" y="5.5" width="2.3" height="13" rx="1.1" fill={color} />
+          <path d="M13 5.5 L5.7 12 L13 18.5 Z" fill={color} />
+          <path d="M20.3 5.5 L13 12 L20.3 18.5 Z" fill={color} />
+        </svg>
+      )
+    case 'next-topic':
+      return (
+        <svg {...common}>
+          <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <path d="M19.8 3.5V8H15.3" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'hangup':
+      return (
+        <svg {...common}>
+          <g transform="rotate(133 12 12)">
+            <path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.5.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.5 21 3 13.5 3 4c0-.6.4-1 1-1h3.2c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.5.1.4 0 .8-.3 1z" fill={color} />
+          </g>
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
 function ParliamentUI({ onEnd, sessionId, me }) {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
@@ -407,42 +473,55 @@ function ParliamentUI({ onEnd, sessionId, me }) {
       display: 'flex', flexDirection: 'column',
       zIndex: 1000, overflow: 'hidden', direction: 'rtl',
     }}>
-      {/* Top bar */}
+      {/* רצועת השאלה למעלה — מקום קבוע, לא מסתירה אף משתתף */}
       <div style={{
-        flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 14px',
-        background: 'rgba(0,0,0,.30)',
+        flexShrink: 0, background: 'rgba(0,0,0,.34)',
+        padding: '10px 14px 9px', borderBottom: '1px solid rgba(255,255,255,.08)',
       }}>
-        <div style={{ fontSize: 20 }}>🏛</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600 }}>
-            {phase === PHASES.SPEAKER
-              ? `דובר ${speakerPos + 1}/${speakerOrder.length}`
-              : 'שיחה חופשית'}
-          </div>
-          <div style={{
-            fontSize: 14, fontWeight: 700,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap',
+            background: phase === PHASES.SPEAKER ? 'rgba(79,107,74,.9)' : 'rgba(184,144,72,.92)',
+            color: phase === PHASES.SPEAKER ? '#fff' : '#1B2540',
           }}>
-            {currentTopic}
-          </div>
+            {phase === PHASES.SPEAKER ? `דובר ${speakerPos + 1}/${speakerOrder.length}` : '🎙️ שיחה חופשית'}
+          </span>
+          <span style={{
+            marginInlineStart: 'auto', fontSize: 14, fontWeight: 800, padding: '3px 11px',
+            borderRadius: 999, whiteSpace: 'nowrap',
+            background: secondsLeft <= 10 ? '#A33B30' : 'rgba(255,255,255,.14)',
+          }}>
+            {formatTime(secondsLeft)}
+          </span>
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.05em', color: 'rgba(255,255,255,.55)', marginBottom: 3 }}>
+          ❓ השאלה לדיון
         </div>
         <div style={{
-          background: secondsLeft <= 10 ? '#A33B30' : 'rgba(0,0,0,.30)',
-          borderRadius: 999, padding: '5px 12px', fontSize: 14, fontWeight: 800,
+          fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: '#FBF7EE', marginBottom: 9,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
-          {formatTime(secondsLeft)}
+          {currentTopic}
         </div>
-      </div>
-
-      {/* Progress bar */}
-      <div style={{ flexShrink: 0, height: 4, background: 'rgba(255,255,255,0.1)' }}>
-        <div style={{
-          height: '100%', width: `${progress}%`,
-          background: phase === PHASES.SPEAKER ? '#4F6B4A' : '#6E8C6A',
-          transition: 'width 0.3s linear',
-        }}/>
+        <div style={{ height: 4, background: 'rgba(255,255,255,.12)', borderRadius: 999, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${progress}%`, borderRadius: 999,
+            background: phase === PHASES.SPEAKER ? '#4F6B4A' : '#B89048',
+            transition: 'width 0.3s linear',
+          }}/>
+        </div>
+        {phase === PHASES.SPEAKER && speakerOrder.length > 0 && (
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginTop: 7 }}>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', fontWeight: 600, marginInlineEnd: 4 }}>תור הדוברים:</span>
+            {speakerOrder.map((identity, idx) => (
+              <span key={identity} style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: idx === speakerPos ? '#B89048' : idx < speakerPos ? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.3)',
+                boxShadow: idx === speakerPos ? '0 0 0 2px rgba(184,144,72,.4)' : 'none',
+              }} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main stage */}
@@ -450,71 +529,60 @@ function ParliamentUI({ onEnd, sessionId, me }) {
         flex: 1, minHeight: 0, position: 'relative',
         background: '#0E1730', overflow: 'hidden',
       }}>
-        {phase === PHASES.SPEAKER && currentSpeaker ? (
+        {false /* always grid - speaker highlighted inside grid */ ? (
           // ── Single speaker spotlight ──
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column', gap: 16, padding: 16,
-          }}>
-            {getTrackFor(currentSpeaker) ? (
-              <div style={{
-                width: '90%', maxWidth: 480, aspectRatio: '4/3',
-                borderRadius: 20, overflow: 'hidden',
-                border: '4px solid #B89048',
-                boxShadow: '0 0 0 6px rgba(184,144,72,.25)',
-              }}>
-                <ParticipantTile
-                  trackRef={getTrackFor(currentSpeaker)}
-                  style={{ width: '100%', height: '100%' }}
-                />
-              </div>
-            ) : (
-              <Avatar name={currentSpeaker.name || currentSpeaker.identity} size={140} />
-            )}
-            <div className="h-display" style={{ fontSize: 24 }}>
-              {currentSpeaker.name || 'משתתף'}
-            </div>
-            <div style={{
-              padding: '8px 18px', borderRadius: 999,
-              background: isMyTurn ? '#4F6B4A' : 'rgba(255,255,255,0.1)',
-              fontSize: 15, fontWeight: 700,
-            }}>
-              {isMyTurn ? '🎙️ תורך לדבר!' : '🎤 מדבר/ת עכשיו'}
-            </div>
-          </div>
+          null
         ) : (
           // ── Open floor: grid of everyone ──
           <div style={{
-            position: 'absolute', inset: 0, padding: 16,
-            display: 'grid',
-            gridTemplateColumns: `repeat(${Math.min(Math.max(participants.length,1), 3)}, 1fr)`,
-            gap: 10, alignContent: 'center',
+            position: 'absolute', inset: 0, padding: 8,
+            display: 'grid', gap: 8, gridAutoRows: '1fr',
+            gridTemplateColumns: `repeat(${participants.length <= 2 ? 1 : 2}, 1fr)`,
           }}>
-            {participants.map(p => {
+            {participants.map((p, i) => {
               const track = getTrackFor(p)
+              const isSpeaking = phase === PHASES.SPEAKER && p.identity === currentSpeakerIdentity
+              const isMe = p.identity === myIdentity
+              const showMicOff = phase === PHASES.SPEAKER && !isSpeaking
+              const cols = participants.length <= 2 ? 1 : 2
+              const span2 = cols === 2 && participants.length % 2 === 1 && i === participants.length - 1
               return (
                 <div key={p.identity} style={{
-                  aspectRatio: '1', borderRadius: 16, overflow: 'hidden',
-                  background: '#1B2540', position: 'relative',
-                  border: '2px solid rgba(255,255,255,0.15)',
+                  position: 'relative', borderRadius: 16, overflow: 'hidden', minHeight: 0,
+                  background: '#1B2540',
+                  border: isSpeaking ? '2px solid #B89048' : '2px solid rgba(255,255,255,.10)',
+                  boxShadow: isSpeaking ? '0 0 0 3px rgba(184,144,72,.45)' : 'none',
+                  gridColumn: span2 ? 'span 2' : 'auto',
                 }}>
                   {track ? (
                     <ParticipantTile trackRef={track} style={{ width: '100%', height: '100%' }} />
                   ) : (
-                    <div style={{
-                      width: '100%', height: '100%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Avatar name={p.name || p.identity} size={64} />
                     </div>
                   )}
+                  {isSpeaking && (
+                    <div style={{
+                      position: 'absolute', top: 7, insetInlineEnd: 7,
+                      background: '#B89048', color: '#1B2540', fontSize: 11, fontWeight: 800,
+                      padding: '3px 9px', borderRadius: 999,
+                    }}>🎙️ מדבר/ת</div>
+                  )}
+                  {showMicOff && (
+                    <div style={{
+                      position: 'absolute', top: 7, insetInlineStart: 7,
+                      background: 'rgba(163,59,48,.9)', width: 24, height: 24, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <CtrlIcon id="mic-off" size={14} color="#fff" />
+                    </div>
+                  )}
                   <div style={{
-                    position: 'absolute', bottom: 6, insetInlineEnd: 6,
-                    background: 'rgba(0,0,0,0.6)', padding: '2px 8px',
-                    borderRadius: 999, fontSize: 11, fontWeight: 600,
+                    position: 'absolute', bottom: 7, insetInlineEnd: 7,
+                    background: isMe ? 'rgba(126,44,46,.8)' : 'rgba(0,0,0,.55)',
+                    padding: '3px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700,
                   }}>
-                    {p.name || 'משתתף'}
+                    {p.name || 'משתתף'}{isMe ? ' (אתה)' : ''}
                   </div>
                 </div>
               )
@@ -522,40 +590,10 @@ function ParliamentUI({ onEnd, sessionId, me }) {
           </div>
         )}
 
-        {phase === PHASES.OPEN_FLOOR && (
-          <div style={{
-            position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(79,107,74,0.95)', color: 'white',
-            padding: '7px 18px', borderRadius: 999, fontSize: 13, fontWeight: 700,
-          }}>
-            🎙️ כולם יכולים לדבר
-          </div>
-        )}
+        {/* מצב הדיון מוצג ברצועת השאלה למעלה */}
       </div>
 
-      {/* Speaker queue dots */}
-      {phase === PHASES.SPEAKER && speakerOrder.length > 0 && (
-        <div style={{
-          flexShrink: 0, display: 'flex', justifyContent: 'center', gap: 8,
-          padding: '12px', background: 'rgba(0,0,0,0.3)',
-        }}>
-          {speakerOrder.map((identity, idx) => {
-            const p = participants.find(pp => pp.identity === identity)
-            const isDone = idx < speakerPos
-            const isActive = idx === speakerPos
-            return (
-              <div key={identity} style={{
-                width: 40, height: 40, borderRadius: '50%',
-                opacity: isActive ? 1 : isDone ? 0.3 : 0.55,
-                boxShadow: isActive ? '0 0 0 3px #B89048' : 'none',
-                transition: 'all 0.3s',
-              }}>
-                <Avatar name={p?.name || identity} size={40} />
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* תור הדוברים מוצג ברצועת השאלה למעלה */}
 
       {/* Bottom controls */}
       <div style={{
@@ -573,7 +611,7 @@ function ParliamentUI({ onEnd, sessionId, me }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 24, border: 'none', cursor: 'pointer',
         }} aria-label={muted ? 'בטל השתקה' : 'השתק'}>
-          {muted ? '🔇' : '🎙️'}
+          <CtrlIcon id={muted ? 'mic-off' : 'mic'} size={26} color={muted ? '#1B2540' : '#FBF7EE'} />
         </button>
 
         {/* Video */}
@@ -584,7 +622,7 @@ function ParliamentUI({ onEnd, sessionId, me }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 24, border: 'none', cursor: 'pointer',
         }} aria-label={videoOff ? 'הפעל וידאו' : 'כבה וידאו'}>
-          {videoOff ? '📵' : '📹'}
+          <CtrlIcon id={videoOff ? 'camera-off' : 'camera'} size={26} color={videoOff ? '#1B2540' : '#FBF7EE'} />
         </button>
 
         {/* Host-only: skip / next topic */}
@@ -594,7 +632,7 @@ function ParliamentUI({ onEnd, sessionId, me }) {
             background: '#B89048', color: '#1B2540',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 22, border: 'none', cursor: 'pointer', fontWeight: 800,
-          }} aria-label="דלג לדובר הבא">⏭</button>
+          }} aria-label="דלג לדובר הבא"><CtrlIcon id="handoff" size={26} color="#1B2540" /></button>
         )}
         {isHost && phase === PHASES.OPEN_FLOOR && (
           <button onClick={nextTopic} style={{
@@ -602,7 +640,7 @@ function ParliamentUI({ onEnd, sessionId, me }) {
             background: '#B89048', color: '#1B2540',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 18, border: 'none', cursor: 'pointer', fontWeight: 800,
-          }} aria-label="נושא הבא">🔄</button>
+          }} aria-label="נושא הבא"><CtrlIcon id="next-topic" size={26} color="#1B2540" /></button>
         )}
 
         {/* Leave */}
@@ -611,7 +649,7 @@ function ParliamentUI({ onEnd, sessionId, me }) {
           background: '#A33B30', color: 'white',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 26, border: 'none', cursor: 'pointer',
-        }} aria-label="יציאה">📞</button>
+        }} aria-label="יציאה"><CtrlIcon id="hangup" size={28} color="#fff" /></button>
       </div>
 
       <RoomAudioRenderer />

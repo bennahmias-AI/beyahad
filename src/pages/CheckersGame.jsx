@@ -330,8 +330,8 @@ function chooseAIMove(board, aiPlayer, difficulty) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function CheckersGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
-  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
+export default function CheckersGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+  const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -695,7 +695,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
               background: 'radial-gradient(circle at 35% 30%, #3A2A1E, #1C120A)',
               border: '4px solid #C9A85E',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56,
-            }}>⚫</div>
+            }}><GameIcon id="checkers" size={84} /></div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>
