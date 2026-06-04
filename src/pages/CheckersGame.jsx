@@ -19,7 +19,8 @@
 // matchmaking רנדומלי, חלונית ההזמנה ו"שחק שוב" ההדדי עובדים מיד.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL, IconSpeaker, IconSpeakerOff } from '../icons/index.jsx'
+import { IconBackRTL, IconSpeaker, IconSpeakerOff, IconHomeLine } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import {
@@ -329,7 +330,7 @@ function chooseAIMove(board, aiPlayer, difficulty) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function CheckersGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
@@ -346,6 +347,7 @@ export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend =
     return (
       <ModeSelectScreen
         onBack={onBack}
+        onHome={onHome}
         onSelectAI={(diff) => { setDifficulty(diff); setMode('ai') }}
         onSelectLocal={() => setMode('local')}
         onSelectOnlineRandom={() => setMode('online-random')}
@@ -361,6 +363,7 @@ export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend =
           mode={mode}
           autoInviteFriend={autoInviteFriend}
           onBack={onBack}
+          onHome={onHome}
           onReady={(id) => setRoomId(id)}
         />
       )
@@ -369,6 +372,7 @@ export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend =
       <OnlineGameScreen
         roomId={roomId}
         onBack={() => { setRoomId(null); setMode(null) }}
+        onHome={onHome}
         onExit={onBack}
         onFindOther={() => { setRoomId(null); setMode('online-random') }}
       />
@@ -380,6 +384,7 @@ export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend =
       mode={mode}
       difficulty={difficulty}
       onBack={() => setMode(null)}
+      onHome={onHome}
       onExit={onBack}
     />
   )
@@ -388,7 +393,7 @@ export default function CheckersGame({ onBack, initialRoomId, autoInviteFriend =
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [showDifficulty, setShowDifficulty] = useState(false)
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
@@ -396,6 +401,7 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">דמקה</div>
       </div>
 
@@ -524,7 +530,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיבור לחדר (רנדומלי / חבר)
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
+function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
@@ -716,6 +722,7 @@ function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">{mode === 'online-random' ? 'שחקן רנדומלי' : 'שחק עם חבר'}</div>
       </div>
       <div style={{ padding: '20px 20px 32px' }}>
@@ -860,7 +867,7 @@ function WaitingForFriendScreen({ friendName, onCancel }) {
 // ════════════════════════════════════════════════════════
 // מסך משחק מקומי (מול המחשב / שני שחקנים)
 // ════════════════════════════════════════════════════════
-function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
+function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [board, setBoard] = useState(initialBoard)
   const [turn, setTurn] = useState(P1)
   const [winner, setWinner] = useState(null)
@@ -952,6 +959,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
   return (
     <GameLayout
       onBack={onBack}
+      onHome={onHome}
       statusText={statusText}
       topName={mode === 'ai' ? 'מחשב' : 'שחקן 2'}
       topActive={turn === P2 && !winner}
@@ -977,7 +985,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // מסך משחק אונליין (סנכרון דרך Firestore)
 // ════════════════════════════════════════════════════════
-function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
+function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const { authUser, profile } = useUserStore()
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
@@ -1072,6 +1080,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       <div className="scroll-area" style={{ direction: 'rtl' }}>
         <div className="screen-header">
           <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+          <HomeButton onClick={onHome} />
           <div className="screen-header__title">דמקה</div>
         </div>
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>טוען...</div>
@@ -1085,6 +1094,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #3A2818 0%, #2A1C10 100%)' }}>
         <div className="screen-header" style={{ background: 'transparent' }}>
           <button className="screen-header__back" onClick={onBack} aria-label="חזרה" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}><IconBackRTL size={24} color="#E8C879" /></button>
+          <button className="screen-header__back" onClick={onHome} aria-label="חזרה למסך הבית" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}><IconHomeLine size={24} color="#E8C879" /></button>
           <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה אונליין</div>
         </div>
         <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A85E" />
@@ -1147,6 +1157,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <GameLayout
       onBack={handleLeave}
+      onHome={onHome}
       statusText={statusText}
       topName={opponent?.name || 'היריב'}
       topActive={turnColor === oppColor && !winner}
@@ -1191,7 +1202,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
 // Layout משותף — כותרת, כרטיסי שחקנים, לוח, מגשים, כפתורים
 // ════════════════════════════════════════════════════════
 function GameLayout({
-  onBack, statusText, topName, topActive, bottomName, bottomActive,
+  onBack, onHome, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
   onReset, onChangeMode, isOnline, children, chat = [], meUid, meName, roomId, flip,
   withVideo, topUid, bottomUid, myPhoto, addFriendNode,
@@ -1212,6 +1223,11 @@ function GameLayout({
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
         </button>
+        {onHome && (
+          <button className="screen-header__back" onClick={onHome} aria-label="חזרה למסך הבית" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
+            <IconHomeLine size={24} color="#E8C879" />
+          </button>
+        )}
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>דמקה {isOnline ? 'אונליין' : ''}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'} style={{
@@ -1459,19 +1475,25 @@ function Piece({ piece, selected, dest, flip }) {
 // מודלים
 // ════════════════════════════════════════════════════════
 function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
-  let emoji, title, subtitle, color
+  let title, subtitle, color, icon = null, emoji = null
   if (winner === 'draw') { emoji = '🤝'; title = 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4' }
   else if (winner === 'P1') {
-    emoji = '🎉'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A'
+    icon = 'trophy'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A'
   } else {
-    emoji = mode === 'ai' ? '🤖' : '🎉'
-    title = mode === 'ai' ? 'המחשב ניצח' : 'שחקן 2 ניצח!'
-    subtitle = mode === 'ai' ? 'נסה שוב, אתה תצליח!' : 'כל הכבוד'
-    color = '#B89048'
+    if (mode === 'ai') { icon = 'ai-win'; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
+    else { icon = 'trophy'; title = 'שחקן 2 ניצח!'; subtitle = 'כל הכבוד'; color = '#B89048' }
   }
   return (
     <ModalShell>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      {icon ? (
+        <div style={{
+          width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
+          background: icon === 'ai-win' ? 'linear-gradient(135deg, #2C5566, #173846)' : 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}><GameIcon id={icon} size={58} /></div>
+      ) : (
+        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      )}
       <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
       <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}>🔄 שחק שוב</button>
@@ -1481,13 +1503,21 @@ function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
 }
 
 function OnlineEndModal({ result, opponentName, iRequested, oppRequested, onRematch, onFindOther, onEnd }) {
-  let emoji, title, subtitle, color
+  let emoji = null, title, subtitle, color, icon = null
   if (result === 'draw') { emoji = '🤝'; title = 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4' }
-  else if (result === 'win') { emoji = '🎉'; title = 'ניצחת!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
+  else if (result === 'win') { icon = 'trophy'; title = 'ניצחת!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
   else { emoji = '😕'; title = 'הפסדת'; subtitle = 'משחק יפה — אפשר לנסות שוב'; color = '#7E2C2E' }
   return (
     <ModalShell>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      {icon ? (
+        <div style={{
+          width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
+          background: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}><GameIcon id={icon} size={58} /></div>
+      ) : (
+        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      )}
       <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 22, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
       {iRequested ? (

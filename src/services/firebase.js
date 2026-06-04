@@ -22,7 +22,7 @@ import {
 } from 'firebase/messaging'
 
 // מאגר המתכונים לדוגמה (מקור אמת אחד, משמש גם את סקריפט התמונות)
-import { SEED_RECIPES } from '../data/seedRecipes.js'
+import { SEED_RECIPES, SEED_AUTHORS } from '../data/seedRecipes.js'
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -569,12 +569,13 @@ export async function seedCommunityContent(authorUid) {
   ]
 
   let count = 0
-  // מתכונים מובנים (מצרכים + שלבים) מתוך המאגר המרכזי.
-  // תמונה נוספת רק למתכונים עם hasImage (הקובץ /recipe-seed/{id}.jpg).
+  // מתכונים מובנים — מזהה מסמך קבוע לכל מתכון (seed-recipe-{id}) כדי
+  // שהרצה חוזרת / לחיצה כפולה רק תדרוס את אותו מסמך, בלי לשכפל.
   for (const r of SEED_RECIPES) {
     const cover = r.hasImage ? `/recipe-seed/${r.id}.jpg` : null
-    await addDoc(collection(db, 'communityPosts'), {
+    await setDoc(doc(db, 'communityPosts', `seed-recipe-${r.id}`), {
       kind: 'recipe',
+      seed: true,
       title: r.title,
       body: '',
       category: r.category || 'other',
@@ -593,9 +594,10 @@ export async function seedCommunityContent(authorUid) {
     })
     count++
   }
-  for (const t of TIPS) {
-    await addDoc(collection(db, 'communityPosts'), {
-      kind: 'tip', title: t.title, body: t.body,
+  for (let i = 0; i < TIPS.length; i++) {
+    const t = TIPS[i]
+    await setDoc(doc(db, 'communityPosts', `seed-tip-${i + 1}`), {
+      kind: 'tip', seed: true, title: t.title, body: t.body,
       authorUid: authorUid || 'seed', authorName: t.author,
       views: Math.floor(Math.random() * 80) + 12,
       likes: [], createdAt: serverTimestamp(),
@@ -603,6 +605,35 @@ export async function seedCommunityContent(authorUid) {
     count++
   }
   return count
+}
+
+// מנקה את כל תוכן הדוגמה (מתכונים + טיפים) שנזרע בעבר — כולל הכפילויות
+// שנוצרו לפני שה-seed הפך לאידמפוטני. מזוהה לפי הדגל seed===true או לפי
+// שם מחבר מרשימת המחברים הבדויים (SEED_AUTHORS). כלל ה-Firestore מתיר
+// מחיקה רק למחבר (authorUid==uid), כך שמתכונים אמיתיים של משתמשים אחרים
+// לעולם לא ייגעו. מחזיר את מספר הפריטים שנמחקו.
+export async function clearSeededContent() {
+  let removed = 0
+  const snap = await getDocs(collection(db, 'communityPosts'))
+  for (const d of snap.docs) {
+    const data = d.data()
+    const isSeed = data.seed === true || SEED_AUTHORS.includes(data.authorName)
+    if (!isSeed) continue
+    try {
+      await deleteDoc(d.ref)
+      removed++
+    } catch (e) {
+      // best-effort — מסמך של מחבר אחר ייחסם ע"י הכללים, וזה בסדר
+    }
+  }
+  return removed
+}
+
+// ניקוי + זריעה מחדש בפעולה אחת — לחיצה אחת מחזירה את תוכן הדוגמה
+// למצב נקי: עותק יחיד של כל מתכון (כולל הקטגוריות החדשות).
+export async function resetSeedContent(authorUid) {
+  await clearSeededContent()
+  return await seedCommunityContent(authorUid)
 }
 
 // ─── Friendships (חברים קרובים) ──────────────────────────────

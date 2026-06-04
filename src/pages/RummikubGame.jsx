@@ -9,7 +9,8 @@
 // בשלב זה ממומש המשחק המקומי המלא; האונליין מתחבר על אותה תשתית.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
@@ -33,7 +34,7 @@ const JOKER_COLOR = '#b8332f'
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית — ניתוב בין מצבים
 // ════════════════════════════════════════════════════════
-export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function RummikubGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [numPlayers, setNumPlayers] = useState(2)
@@ -45,6 +46,7 @@ export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend =
     return (
       <ModeSelectScreen
         onBack={onBack}
+        onHome={onHome}
         onSelectAI={(diff, n) => { setDifficulty(diff); setNumPlayers(n); setMode('ai') }}
         onSelectLocal={(n) => { setNumPlayers(n); setMode('local') }}
         onSelectOnlineRandom={(n) => { setNumPlayers(n); setMode('online-random') }}
@@ -57,7 +59,7 @@ export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend =
     return (
       <LocalGameScreen
         mode={mode} difficulty={difficulty} numPlayers={numPlayers}
-        onBack={() => setMode(null)} onExit={onBack}
+        onBack={() => setMode(null)} onHome={onHome} onExit={onBack}
       />
     )
   }
@@ -70,6 +72,7 @@ export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend =
       initialRoomId={roomId}
       autoInviteFriend={autoInviteFriend}
       onBack={autoInviteFriend ? onBack : () => { setMode(null); setRoomId(null) }}
+      onHome={onHome}
       onExit={onBack}
     />
   )
@@ -78,7 +81,7 @@ export default function RummikubGame({ onBack, initialRoomId, autoInviteFriend =
 // ════════════════════════════════════════════════════════
 // ראש מסך — מסגרת עץ זהב (תואם שש-בש)
 // ════════════════════════════════════════════════════════
-function RummiHeader({ title, onBack, onMenu, menuOpen, menuItems }) {
+function RummiHeader({ title, onBack, onHome, onMenu, menuOpen, menuItems }) {
   return (
     <div style={{
       background: 'repeating-linear-gradient(91deg, rgba(0,0,0,.05) 0 1px, transparent 1px 5px), linear-gradient(155deg,#71492a 0%,#4d3017 55%,#3a2410 100%)',
@@ -89,6 +92,11 @@ function RummiHeader({ title, onBack, onMenu, menuOpen, menuItems }) {
       <button onClick={onBack} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
         <IconBackRTL size={24} color={GOLD} />
       </button>
+      {onHome && (
+        <button onClick={onHome} aria-label="חזרה למסך הבית" style={{ position: 'absolute', insetInlineStart: 50, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <IconHomeLine size={24} color={GOLD} />
+        </button>
+      )}
       <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD, textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{title}</div>
       {onMenu && (
         <button onClick={onMenu} aria-label="תפריט" style={{ position: 'absolute', insetInlineEnd: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4, fontSize: 24 }}>☰</button>
@@ -105,7 +113,7 @@ function RummiHeader({ title, onBack, onMenu, menuOpen, menuItems }) {
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [step, setStep] = useState('mode')   // 'mode' | 'ai-setup' | 'local-setup'
   const [diff, setDiff] = useState('medium')
 
@@ -113,6 +121,7 @@ function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRan
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">רמיקוב</div>
       </div>
 
@@ -290,7 +299,7 @@ function TileBack({ size = 'normal' }) {
 // ════════════════════════════════════════════════════════
 // מסך משחק מקומי (נגד מחשב / כמה שחקנים על מכשיר)
 // ════════════════════════════════════════════════════════
-function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
+function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onHome, onExit }) {
   const { profile } = useUserStore()
 
   const playerDefs = (() => {
@@ -449,7 +458,7 @@ function LocalGameScreen({ mode, difficulty, numPlayers, onBack, onExit }) {
 
   return (
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <RummiHeader title="רמיקוב" onBack={onBack} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
+      <RummiHeader title="רמיקוב" onBack={onBack} onHome={onHome} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
       {/* פס שחקנים — תמיד שורה אחת, מתחלקת שווה לפי מספר השחקנים */}
@@ -704,7 +713,8 @@ function NewTileBanner({ tile }) {
 }
 
 function EndModal({ mode, state, winnerName, youWon, onPlayAgain, onExit }) {
-  const emoji = youWon ? '🎉' : (mode === 'ai' ? '🤖' : '🎉')
+  const aiRobot = !youWon && mode === 'ai'
+  const emoji = youWon ? '🎉' : '🎉'
   const title = youWon ? 'ניצחת!' : `${winnerName} ניצח!`
   // אם המשחק הוכרע כי הקופה נגמרה — מציגים טבלת נקודות
   const standings = state ? finalStandings(state) : null
@@ -715,7 +725,15 @@ function EndModal({ mode, state, winnerName, youWon, onPlayAgain, onExit }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '30px 26px 22px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+        {aiRobot ? (
+          <div style={{
+            width: 88, height: 88, borderRadius: '50%', margin: '0 auto 12px',
+            background: 'linear-gradient(135deg, #2C5566, #173846)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}><GameIcon id="vs-ai" size={60} /></div>
+        ) : (
+          <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+        )}
         <div className="h-display" style={{ fontSize: 28, color: youWon ? '#4F6B4A' : '#B89048', marginBottom: 6 }}>{title}</div>
         <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 18, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
 

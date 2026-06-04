@@ -320,12 +320,11 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             badge="התאמה אוטומטית"
           />
           <RoomTile
-            onClick={onGoParliament}
-            icon={<IconPodium size={60} />}
-            label="הפרלמנט"
-            sub="חמישה בתור"
-            badge="כל אחד דקה לדבר"
-            live
+            onClick={onGoFriends}
+            icon={<IconFriends size={60} />}
+            label="חברים"
+            sub="הרשימה שלי"
+            badge="החברים שלי"
           />
         </div>
 
@@ -466,10 +465,11 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoSinging, onGoTi
             badge="מטבח של חברים"
           />
           <HomeTileSmall
-            onClick={onGoFriends}
-            icon={<IconFriends size={48} />}
-            label="חברים"
-            badge="החברים שלי"
+            onClick={onGoParliament}
+            icon={<IconPodium size={48} />}
+            label="הפרלמנט"
+            badge="חמישה בתור"
+            live
           />
         </div>
 

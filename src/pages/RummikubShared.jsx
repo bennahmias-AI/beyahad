@@ -7,7 +7,7 @@
 // האריחים, הכפתור, ראש המסך, וה-banner של "האריח החדש".
 // כך שני המסכים נראים זהים לחלוטין ואין כפילות קוד.
 // ─────────────────────────────────────────────────────────────
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
 import { isValidSet, sortSetForDisplay, sortRack } from '../utils/rummikubEngine.js'
 
 // ── פלטת צבעים (תואמת לדמו שאושר) ──────────────────────
@@ -89,7 +89,7 @@ export function TileBack({ size = 'normal' }) {
 // ════════════════════════════════════════════════════════
 // ראש מסך — מסגרת עץ זהב (תואם שש-בש)
 // ════════════════════════════════════════════════════════
-export function RummiHeaderShared({ title, onBack, onMenu, menuOpen, menuItems }) {
+export function RummiHeaderShared({ title, onBack, onHome, onMenu, menuOpen, menuItems }) {
   return (
     <div style={{
       background: 'repeating-linear-gradient(91deg, rgba(0,0,0,.05) 0 1px, transparent 1px 5px), linear-gradient(155deg,#71492a 0%,#4d3017 55%,#3a2410 100%)',
@@ -100,6 +100,11 @@ export function RummiHeaderShared({ title, onBack, onMenu, menuOpen, menuItems }
       <button onClick={onBack} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
         <IconBackRTL size={24} color={GOLD} />
       </button>
+      {onHome && (
+        <button onClick={onHome} aria-label="חזרה למסך הבית" style={{ position: 'absolute', insetInlineStart: 50, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+        <IconHomeLine size={24} color={GOLD} />
+      </button>
+      )}
       <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD, textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{title}</div>
       {onMenu && (
         <button onClick={onMenu} aria-label="תפריט" style={{ position: 'absolute', insetInlineEnd: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4, fontSize: 24 }}>☰</button>

@@ -10,7 +10,8 @@
 // ייצוג: points[0..23] חתום (+P1/-P2). bar/off={P1,P2}.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import {
@@ -195,7 +196,7 @@ function afterMove(ns, player) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function SheshBeshGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function SheshBeshGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
@@ -206,6 +207,7 @@ export default function SheshBeshGame({ onBack, initialRoomId, autoInviteFriend 
     return (
       <ModeSelectScreen
         onBack={onBack}
+        onHome={onHome}
         onSelectAI={(diff) => { setDifficulty(diff); setMode('ai') }}
         onSelectLocal={() => setMode('local')}
         onSelectOnlineRandom={() => setMode('online-random')}
@@ -214,28 +216,30 @@ export default function SheshBeshGame({ onBack, initialRoomId, autoInviteFriend 
     )
   }
   if (mode === 'online-random' || mode === 'online-friend') {
-    if (!roomId) return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={onBack} onReady={(id) => setRoomId(id)} />
+    if (!roomId) return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={onBack} onHome={onHome} onReady={(id) => setRoomId(id)} />
     return (
       <OnlineGameScreen
         roomId={roomId}
         onBack={() => { setRoomId(null); setMode(null) }}
+        onHome={onHome}
         onExit={onBack}
         onFindOther={() => { setRoomId(null); setMode('online-random') }}
       />
     )
   }
-  return <LocalGameScreen mode={mode} difficulty={difficulty} onBack={() => setMode(null)} onExit={onBack} />
+  return <LocalGameScreen mode={mode} difficulty={difficulty} onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
 }
 
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [showDifficulty, setShowDifficulty] = useState(false)
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">שש-בש</div>
       </div>
       <div style={{ padding: '8px 20px 32px' }}>
@@ -298,7 +302,7 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
+function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
@@ -428,6 +432,7 @@ function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">{mode === 'online-random' ? 'שחקן רנדומלי' : 'שחק עם חבר'}</div>
       </div>
       <div style={{ padding: '20px 20px 32px' }}>
@@ -546,7 +551,7 @@ function WaitingForFriendScreen({ friendName, onCancel }) {
 // ════════════════════════════════════════════════════════
 // מסך מקומי (מול המחשב / שני שחקנים)
 // ════════════════════════════════════════════════════════
-function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
+function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const { profile } = useUserStore()
   const [state, setState] = useState(initialState)
   const [selected, setSelected] = useState(null)
@@ -632,7 +637,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
       onPointClick={handlePointClick} onOffClick={handleOffClick} onBarClick={() => {}}
       canRoll={myTurnForRoll && state.phase === 'roll'} onRoll={doRoll} showPass={stuck} onPass={doPass}
       canUndo={humanControllable && history.length > 0} onUndo={undo}
-      onReset={reset} onLeave={onBack}
+      onReset={reset} onLeave={onBack} onHome={onHome}
     >
       {winner && <LocalEndModal mode={mode} winner={winner} onPlayAgain={reset} onExit={onExit} />}
     </SheshLayout>
@@ -642,7 +647,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // מסך אונליין
 // ════════════════════════════════════════════════════════
-function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
+function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const { authUser, profile } = useUserStore()
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
@@ -708,7 +713,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
   if (!room) {
     return (
       <div className="scroll-area" style={{ direction: 'rtl' }}>
-        <div className="screen-header"><button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button><div className="screen-header__title">שש-בש</div></div>
+        <div className="screen-header"><button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button><HomeButton onClick={onHome} /><div className="screen-header__title">שש-בש</div></div>
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>טוען...</div>
       </div>
     )
@@ -720,6 +725,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg, #2c1d10 0%, #1c1108 100%)' }}>
         <div style={{ background: WOOD_FRAME, borderBottom: `2px solid ${GOLD_DEEP}`, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           <button onClick={onBack} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer' }}><IconBackRTL size={24} color={GOLD} /></button>
+          <button onClick={onHome} aria-label="חזרה למסך הבית" style={{ position: 'absolute', insetInlineStart: 52, background: 'none', border: 'none', cursor: 'pointer' }}><IconHomeLine size={24} color={GOLD} /></button>
           <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD }}>שש-בש אונליין</div>
         </div>
         <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A24A" />
@@ -774,7 +780,7 @@ function OnlineGameScreen({ roomId, onBack, onExit, onFindOther }) {
       onPointClick={handlePointClick} onOffClick={handleOffClick} onBarClick={() => {}}
       canRoll={isMyTurn && state.phase === 'roll'} onRoll={doRoll} showPass={stuck} onPass={doPass}
       canUndo={controllable && histRef.current.length > 0} onUndo={undo}
-      onReset={requestRematch} onLeave={handleLeave}
+      onReset={requestRematch} onLeave={handleLeave} onHome={onHome}
       chat={room.chat || []} addFriendNode={opponent?.uid ? <AddFriendButton me={me} opponent={opponent} compact /> : null}
       withVideo={true} myUid={myUid} oppUid={opponent?.uid}
     >
@@ -803,7 +809,7 @@ function SheshLayout({
   isOnline, roomId, me, opponent, myColor = 'P1',
   topActive, topOff, bottomActive, bottomOff,
   state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel,
-  canRoll, onRoll, showPass, onPass, canUndo, onUndo, onReset, onLeave,
+  canRoll, onRoll, showPass, onPass, canUndo, onUndo, onReset, onLeave, onHome,
   chat = [], addFriendNode = null, children,
   withVideo, myUid, oppUid,
 }) {
@@ -821,6 +827,7 @@ function SheshLayout({
       {/* כותרת עץ */}
       <div style={{ background: WOOD_FRAME, borderBottom: `2px solid ${GOLD_DEEP}`, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,.4)' }}>
         <button onClick={onLeave} aria-label="חזרה" style={{ position: 'absolute', insetInlineStart: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4 }}><IconBackRTL size={24} color={GOLD} /></button>
+        {onHome && <button onClick={onHome} aria-label="חזרה למסך הבית" style={{ position: 'absolute', insetInlineStart: 50, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4 }}><IconHomeLine size={24} color={GOLD} /></button>}
         <div style={{ fontFamily: "'Suez One', serif", fontSize: 22, fontWeight: 700, color: GOLD, textShadow: '0 1px 2px rgba(0,0,0,.6)', letterSpacing: '.5px' }}>שש-בש {isOnline ? 'אונליין' : ''}</div>
         <button onClick={() => setMenuOpen(o => !o)} aria-label="תפריט" style={{ position: 'absolute', insetInlineEnd: 14, background: 'none', border: 'none', cursor: 'pointer', color: GOLD, padding: 4 }}><IcMenu s={26} /></button>
         {isOnline && me?.uid && (
@@ -1145,12 +1152,20 @@ function Die({ value, glow }) {
 // מודלים
 // ════════════════════════════════════════════════════════
 function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
-  let emoji, title, subtitle, color
+  let emoji, title, subtitle, color, aiRobot = false
   if (winner === 'P1') { emoji = '🎉'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
-  else { emoji = mode === 'ai' ? '🤖' : '🎉'; title = mode === 'ai' ? 'המחשב ניצח' : 'שחקן 2 ניצח!'; subtitle = mode === 'ai' ? 'נסה שוב, אתה תצליח!' : 'כל הכבוד'; color = '#B89048' }
+  else { if (mode === 'ai') { aiRobot = true; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' } else { emoji = '🎉'; title = 'שחקן 2 ניצח!'; subtitle = 'כל הכבוד'; color = '#B89048' } }
   return (
     <ModalShell>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      {aiRobot ? (
+        <div style={{
+          width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
+          background: 'linear-gradient(135deg, #2C5566, #173846)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}><GameIcon id="vs-ai" size={60} /></div>
+      ) : (
+        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      )}
       <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
       <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}>🔄 שחק שוב</button>

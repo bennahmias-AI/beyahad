@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
@@ -35,7 +36,7 @@ import {
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, onBack, onExit, autoInviteFriend = null }) {
+export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, onBack, onHome, onExit, autoInviteFriend = null }) {
   const { authUser, profile } = useUserStore()
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -44,15 +45,15 @@ export default function RummikubOnline({ mode, numPlayers = 4, initialRoomId, on
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
 
   if (!roomId) {
-    return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={onBack} onReady={(id) => setRoomId(id)} />
+    return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={onBack} onHome={onHome} onReady={(id) => setRoomId(id)} />
   }
-  return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); onBack() }} onExit={onExit} />
+  return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); onBack() }} onHome={onHome} onExit={onExit} />
 }
 
 // ════════════════════════════════════════════════════════
 // Lobby — חיפוש רנדומלי / רשימת חברים
 // ════════════════════════════════════════════════════════
-function Lobby({ mode, me, numPlayers = 4, onBack, onReady, autoInviteFriend = null }) {
+function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFriend = null }) {
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
@@ -138,6 +139,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onReady, autoInviteFriend = n
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">{mode === 'online-random' ? 'שחקן רנדומלי' : 'שחק עם חברים'}</div>
       </div>
       <div style={{ padding: '20px 20px 32px' }}>
@@ -247,7 +249,7 @@ function FriendRow({ friend, profile, online, onInvite }) {
 // ════════════════════════════════════════════════════════
 // מסך החדר — המתנה או משחק
 // ════════════════════════════════════════════════════════
-function RoomScreen({ roomId, me, onBack, onExit }) {
+function RoomScreen({ roomId, me, onBack, onHome, onExit }) {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
   const joinedRef = useRef(false)
@@ -289,15 +291,15 @@ function RoomScreen({ roomId, me, onBack, onExit }) {
   }
 
   if (room.status === 'waiting') {
-    return <WaitingRoom room={room} roomId={roomId} me={me} onBack={onBack} />
+    return <WaitingRoom room={room} roomId={roomId} me={me} onBack={onBack} onHome={onHome} />
   }
-  return <OnlineGame room={room} roomId={roomId} me={me} onBack={onBack} />
+  return <OnlineGame room={room} roomId={roomId} me={me} onBack={onBack} onHome={onHome} />
 }
 
 // ════════════════════════════════════════════════════════
 // חדר המתנה — רשימת שחקנים + כפתור התחלה למארח
 // ════════════════════════════════════════════════════════
-function WaitingRoom({ room, roomId, me, onBack }) {
+function WaitingRoom({ room, roomId, me, onBack, onHome }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
   const maxPlayers = room.maxPlayers || 4
@@ -339,7 +341,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', minHeight: '100%' }}>
-      <RummiHeaderShared title="חדר המתנה" onBack={handleLeave} />
+      <RummiHeaderShared title="חדר המתנה" onBack={handleLeave} onHome={onHome} />
       <div style={{ padding: '20px 16px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>🎴</div>
@@ -526,7 +528,7 @@ function RummiPlayerCard({ p, i, turnIdx, winner, me, players }) {
   )
 }
 
-function OnlineGame({ room, roomId, me, onBack }) {
+function OnlineGame({ room, roomId, me, onBack, onHome }) {
   const { profile } = useUserStore()
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
   const [draftBoard, setDraftBoard] = useState([])
@@ -564,7 +566,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
   if (videoChoice === null) {
     return (
       <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', minHeight: '100%' }}>
-        <RummiHeaderShared title="רמיקוב אונליין" onBack={onBack} />
+        <RummiHeaderShared title="רמיקוב אונליין" onBack={onBack} onHome={onHome} />
         <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#6B4427" accentDeep="#C9A24A" />
       </div>
     )
@@ -678,7 +680,7 @@ function OnlineGame({ room, roomId, me, onBack }) {
     <ProfilesProvider uids={state.players.map(p => p.id)} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
+      <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onHome={onHome} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
       {/* פס שחקנים — כל כרטיס: אווטאר+שם למעלה, כפתורי וידאו בשורה נפרדת למטה (לא על השם) */}

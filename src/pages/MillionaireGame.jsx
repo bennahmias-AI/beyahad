@@ -15,7 +15,7 @@
 //   הצלילים בקובץ: ../utils/triviaSounds.js (כיבוי משותף עם gameSounds)
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconTrophy } from '../icons/index.jsx'
 import { saveMillionaireScore, getMillionaireLeaderboard } from '../services/firebase.js'
 import { isMuted, setMuted } from '../utils/gameSounds.js'
 import { playTriviaSound, warmTriviaAudio } from '../utils/triviaSounds.js'
@@ -515,8 +515,8 @@ function LadderModal({ level, onClose }) {
           boxShadow: 'var(--shadow-lg)',
         }}
       >
-        <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', textAlign: 'center', marginBottom: 14 }}>
-          🏆 סולם הנקודות
+        <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', textAlign: 'center', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <IconTrophy size={22} color="#C9A24A" /> סולם הנקודות
         </div>
         <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 5 }}>
           {LADDER.map((rung, i) => {
@@ -626,8 +626,8 @@ function Leaderboard({ board, myUid }) {
       background: 'var(--bg-app)', border: '1px solid var(--line)',
       borderRadius: 16, padding: '14px 14px 10px', textAlign: 'right',
     }}>
-      <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', textAlign: 'center', marginBottom: 10 }}>
-        🏆 המובילים היום
+      <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', textAlign: 'center', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+        <IconTrophy size={18} color="#C9A24A" /> המובילים היום
       </div>
 
       {board === null ? (

@@ -316,6 +316,120 @@ function RummikubIcon({ size }) {
   )
 }
 
+// ── 🏆 גביע ניצחון — גביע עם המספר "1" (מקום ראשון) ──
+// משמש במסכי סיום משחק כשהשחקן מנצח. צבוע בזהב מלא כך שייראה
+// טוב גם על רקע צבעוני (כרטיסים) וגם על רקע בהיר (מודל סיום).
+// color — צבע הגביע (ברירת מחדל זהב). numColor — צבע הספרה.
+function TrophyIcon({ size, color = '#E8C879', numColor = '#7E2C2E' }) {
+  return (
+    <IconWrap size={size}>
+      {/* גביע הגביע — הגוף העליון */}
+      <path d="M20 12 H44 V24 C44 33 38 39 32 39 C26 39 20 33 20 24 Z" fill={color} />
+      {/* ידית שמאלית */}
+      <path d="M20 15 H13 C13 24 17 28 22 29" fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" />
+      {/* ידית ימנית */}
+      <path d="M44 15 H51 C51 24 47 28 42 29" fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" />
+      {/* רגל הגביע */}
+      <rect x="29" y="39" width="6" height="9" fill={color} />
+      {/* בסיס הגביע */}
+      <rect x="21" y="48" width="22" height="5" rx="2" fill={color} />
+      {/* המספר "1" במרכז הגביע */}
+      <text x="32" y="30" textAnchor="middle" fontFamily="Georgia, serif"
+            fontSize="17" fontWeight="700" fill={numColor}>1</text>
+    </IconWrap>
+  )
+}
+
+// ── 🤖 המחשב ניצח — רובוט מחייך ──
+// ראש רובוט עם חיוך ידידותי — מוצג כשהמחשב מנצח. החיוך הופך את
+// ההפסד לנעים ולא מתסכל (חשוב לקהל מבוגר). אנטנה + עיניים + פה מחייך.
+function AIWinIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* אנטנה */}
+      <line x1="32" y1="11" x2="32" y2="17" stroke={W} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="10" r="2" fill={W} />
+      {/* ראש מרובע מעוגל */}
+      <rect x="15" y="19" width="34" height="28" rx="7" fill={W} />
+      {/* גבות מחייכות מעל העיניים */}
+      <path d="M24 31 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M32 31 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.4" strokeLinecap="round" />
+      {/* עיניים */}
+      <circle cx="27" cy="30" r="2.4" fill={DARK} />
+      <circle cx="37" cy="30" r="2.4" fill={DARK} />
+      {/* פה מחייך */}
+      <path d="M26 39 q6 5 12 0" fill="none" stroke={DARK} strokeWidth="2.6" strokeLinecap="round" />
+    </IconWrap>
+  )
+}
+
+// ── 🤖 המחשב ניצח — רובוט מחייך ──
+// ראש רובוט עם חיוך ידידותי + אנטנה. משמש במסכי סיום משחק
+// כשהמחשב מנצח (חם ונעים יותר מאימוג'י). על רקע צבעוני (כרטיס)
+// או על רקע בהיר (מודל סיום) — לכן הראש לבן והפרטים כהים.
+function AIWinIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* אנטנה */}
+      <line x1="32" y1="11" x2="32" y2="17" stroke={W} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="10" r="2" fill={W} />
+      {/* ראש מרובע מעוגל */}
+      <rect x="15" y="19" width="34" height="28" rx="7" fill={W} />
+      {/* עיניים — נקודות כהות */}
+      <circle cx="27" cy="30" r="2.4" fill={DARK} />
+      <circle cx="37" cy="30" r="2.4" fill={DARK} />
+      {/* חיוך ידידותי */}
+      <path d="M26 39 q6 5 12 0" fill="none" stroke={DARK} strokeWidth="2.6" strokeLinecap="round" />
+    </IconWrap>
+  )
+}
+
+// ── 🤖 המחשב ניצח — רובוט מחייך ──
+// ראש רובוט עם אנטנה, עיניים עגולות, גבות וחיוך ידידותי.
+// משמש במסכי סיום משחק כשהמחשב מנצח — חמים יותר מרובוט "קר".
+function AIWinIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* אנטנה */}
+      <line x1="32" y1="11" x2="32" y2="17" stroke={W} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="10" r="2" fill={W} />
+      {/* ראש מרובע מעוגל */}
+      <rect x="15" y="19" width="34" height="28" rx="7" fill={W} />
+      {/* גבות (מעל העיניים) */}
+      <path d="M24 31 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M32 31 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.4" strokeLinecap="round" />
+      {/* עיניים */}
+      <circle cx="27" cy="30" r="2.4" fill={DARK} />
+      <circle cx="37" cy="30" r="2.4" fill={DARK} />
+      {/* חיוך */}
+      <path d="M26 39 q6 5 12 0" fill="none" stroke={DARK} strokeWidth="2.6" strokeLinecap="round" />
+    </IconWrap>
+  )
+}
+
+// ── 🤖 המחשב ניצח — רובוט מחייך ──
+// ראש רובוט עם חיוך ידידותי ועיניים מאירות. מוצג במסכי סיום
+// משחק כשהמחשב מנצח (במקום האימוג'י 🤖). צבע לבן קרמי כמו שאר
+// האייקונים — נראה טוב על רקע צבעוני וגם על רקע בהיר.
+function AIWinIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* אנטנה */}
+      <line x1="32" y1="11" x2="32" y2="17" stroke={W} strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="32" cy="10" r="2" fill={W} />
+      {/* ראש מרובע מעוגל */}
+      <rect x="15" y="19" width="34" height="28" rx="7" fill={W} />
+      {/* עיניים — נקודות עם גבה מחייכת */}
+      <circle cx="27" cy="30" r="2.4" fill={DARK} />
+      <circle cx="37" cy="30" r="2.4" fill={DARK} />
+      <path d="M23 28 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M33 28 q4 -4 8 0" fill="none" stroke={DARK} strokeWidth="2.2" strokeLinecap="round" />
+      {/* חיוך */}
+      <path d="M26 39 q6 5 12 0" fill="none" stroke={DARK} strokeWidth="2.6" strokeLinecap="round" />
+    </IconWrap>
+  )
+}
+
 // ── 👑 מלך הזירה — כתר מלכותי ──
 // כתר עם 3 קודקודים ואבנים — מסמל את מלך הטריוויה.
 function ArenaIcon({ size }) {
@@ -347,6 +461,8 @@ export function GameIcon({ id, size = 64 }) {
     case 'rummikub':  return <RummikubIcon size={size} />
     case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
+    case 'trophy':    return <TrophyIcon size={size} />
+    case 'ai-win':    return <AIWinIcon size={size} />
     // ── מצבי משחק של 4 בשורה ──
     case 'online-random':  return <OnlineRandomIcon size={size} />
     case 'online-friend':  return <FriendsIcon size={size} />

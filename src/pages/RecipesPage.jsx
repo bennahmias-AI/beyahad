@@ -14,13 +14,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchCommunityPosts, createCommunityPost, incrementPostViews,
-  togglePostLike, toggleRecipeCooked, uploadRecipePhoto, seedCommunityContent,
+  togglePostLike, toggleRecipeCooked, uploadRecipePhoto, resetSeedContent,
   updateCommunityPost, deleteCommunityPost,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
-import { IconBackRTL, IconHeart } from '../icons/index.jsx'
+import { IconBackRTL, IconHeart, IconCamera, IconEye, IconBasket, IconChef, IconPan, IconEdit, IconTrash, IconClock, IconSearch } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { RECIPE_CATEGORIES, categoryOf } from '../data/recipeCategories.js'
+import { CategoryIcon } from '../icons/recipeCategoryIcons.jsx'
 
 const ACCENT = '#7E2C2E'
 const ACCENT_DEEP = '#5A1D1E'
@@ -62,7 +63,9 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   const [editingPost, setEditingPost] = useState(null)   // מתכון שעורכים כרגע (null = יצירה חדשה)
   const [tab, setTab] = useState('all')                  // 'all' = כל המתכונים / 'mine' = המתכונים שלי
   const [activeCat, setActiveCat] = useState(null)       // קטגוריה נבחרת בלשונית "כל המתכונים" (null = גריד הקטגוריות)
+  const [search, setSearch] = useState('')               // חיפוש חופשי במתכונים
   const [seeding, setSeeding] = useState(false)
+  const seedingRef = useRef(false)
   const openedInitialRef = useRef(false)
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
 
   // המתכונים שאני כתבתי (לפי authorUid)
   const myUid = authUser?.uid
-  const myRecipes = myUid ? posts.filter(p => p.authorUid === myUid) : []
+  const myRecipes = myUid ? posts.filter(p => p.authorUid === myUid && !p.seed) : []
 
   // ספירת מתכונים לכל קטגוריה (מתכון ללא קטגוריה → 'other')
   const countByCat = {}
@@ -103,6 +106,17 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
     ? posts
         .filter(p => (p.category || 'other') === activeCat)
         .sort((a, b) => ((b.photos || []).length > 0 ? 1 : 0) - ((a.photos || []).length > 0 ? 1 : 0))
+    : []
+
+  // חיפוש חופשי — לפי שם מתכון, מחבר או מצרך
+  const searchQ = search.trim().toLowerCase()
+  const searchResults = searchQ
+    ? posts.filter(p => {
+        const inTitle = (p.title || '').toLowerCase().includes(searchQ)
+        const inAuthor = (p.authorName || '').toLowerCase().includes(searchQ)
+        const inIng = (p.recipe?.ingredients || []).some(i => (i || '').toLowerCase().includes(searchQ))
+        return inTitle || inAuthor || inIng
+      })
     : []
 
   const openItem = async (post) => {
@@ -122,11 +136,12 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   }
 
   const handleSeed = async () => {
-    if (seeding) return
+    if (seedingRef.current) return
+    seedingRef.current = true
     setSeeding(true)
-    try { await seedCommunityContent(authUser?.uid) }
+    try { await resetSeedContent(authUser?.uid) }
     catch (e) { console.error('seed error:', e) }
-    setSeeding(false)
+    finally { seedingRef.current = false; setSeeding(false) }
   }
 
   return (
@@ -199,13 +214,46 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
                 fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
               }}>{seeding ? 'ממלא...' : '✨ מלא תוכן לדוגמה'}</button>
             </div>
-          ) : activeCat ? (
+          ) : (
+            <>
+            {/* שורת חיפוש */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 14, padding: '10px 14px', marginBottom: 16 }}>
+              <IconSearch size={20} color="#8389A4" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="חיפוש מתכון, מרכיב או מחבר..."
+                style={{ flex: 1, border: 'none', outline: 'none', background: 'none', fontSize: 16, fontFamily: 'inherit', color: 'var(--ink)', direction: 'rtl' }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} aria-label="נקה חיפוש" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 20, padding: 0, lineHeight: 1 }}>✕</button>
+              )}
+            </div>
+
+            {searchQ ? (
+              searchResults.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--ink-2)' }}>
+                  <div style={{ fontSize: 48, marginBottom: 10 }}>🔍</div>
+                  <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>לא נמצאו מתכונים</div>
+                  <div style={{ fontSize: 14, marginTop: 4 }}>נסו מילה אחרת</div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, color: 'var(--ink-3)', fontWeight: 700, marginBottom: 12 }}>{searchResults.length} {searchResults.length === 1 ? 'תוצאה' : 'תוצאות'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {searchResults.map(post => (
+                      <RecipeCard key={post.id} post={post} myUid={authUser?.uid} onClick={() => openItem(post)} />
+                    ))}
+                  </div>
+                </>
+              )
+            ) : activeCat ? (
             /* קטגוריה נבחרה — רשימת המתכונים שלה */
             <>
               <CategoryHeader cat={categoryOf(activeCat)} count={catRecipes.length} onBack={() => setActiveCat(null)} />
               {catRecipes.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--ink-2)' }}>
-                  <div style={{ fontSize: 48, marginBottom: 10 }}>{categoryOf(activeCat).emoji}</div>
+                  <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}><CategoryIcon id={activeCat} size={48} color="var(--ink-3)" /></div>
                   <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>עדיין אין מתכונים בקטגוריה זו</div>
                   <div style={{ fontSize: 14, marginTop: 4 }}>היה הראשון להוסיף!</div>
                 </div>
@@ -238,6 +286,8 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
                   />
                 ))}
               </div>
+            </>
+          )}
             </>
           )
         )}
@@ -317,9 +367,9 @@ function CategoryCard({ cat, count, onClick }) {
       {/* אימוג'י גדול שקוף — רק כשאין תמונה (על הגרדיאנט) */}
       {!showImg && (
         <span style={{
-          position: 'absolute', insetInlineStart: -6, bottom: -14, fontSize: 88,
-          opacity: 0.28, lineHeight: 1, transform: 'rotate(-8deg)',
-        }}>{cat.emoji}</span>
+          position: 'absolute', insetInlineStart: 8, bottom: 8,
+          opacity: 0.32, lineHeight: 1, transform: 'rotate(-8deg)',
+        }}><CategoryIcon id={cat.id} size={60} color="#fff" /></span>
       )}
       {/* טקסט — עם הכהה תחתונה לקריאות על התמונה */}
       <div style={{
@@ -353,10 +403,10 @@ function CategoryHeader({ cat, count, onBack }) {
         <IconBackRTL size={20} color="#1B2540" />
       </button>
       <span style={{
-        width: 40, height: 40, borderRadius: 12, flexShrink: 0, fontSize: 22,
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
         background: `linear-gradient(145deg, ${cat.grad[0]}, ${cat.grad[1]})`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>{cat.emoji}</span>
+      }}><CategoryIcon id={cat.id} size={24} color="#fff" /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="h-display" style={{ fontSize: 21, color: 'var(--ink)', lineHeight: 1.1 }}>{cat.name}</div>
         <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>{count} {count === 1 ? 'מתכון' : 'מתכונים'}</div>
@@ -388,18 +438,21 @@ function MyRecipeRow({ post, onOpen, onEdit, onDelete }) {
         <div className="h-display" style={{
           fontSize: 16, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{post.title}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>
-          ❤ {(post.likes || []).length} · 🍳 {(post.cooked || []).length}
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconHeart size={13} color="#8389A4" /> {(post.likes || []).length}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><IconPan size={13} color="#8389A4" /> {(post.cooked || []).length}</span>
         </div>
       </button>
       <button onClick={onEdit} aria-label="ערוך" title="ערוך" style={{
         width: 40, height: 40, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
-        border: '1px solid var(--line)', background: 'var(--surface-2)', fontSize: 18,
-      }}>✏️</button>
+        border: '1px solid var(--line)', background: 'var(--surface-2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}><IconEdit size={18} color="#1B2540" /></button>
       <button onClick={onDelete} aria-label="מחק" title="מחק" style={{
         width: 40, height: 40, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
-        border: '1px solid var(--line)', background: 'var(--surface-2)', fontSize: 18,
-      }}>🗑️</button>
+        border: '1px solid var(--line)', background: 'var(--surface-2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}><IconTrash size={18} color="#C0392B" /></button>
     </div>
   )
 }
@@ -420,7 +473,7 @@ function RecipeCard({ post, myUid, onClick }) {
       {/* תמונת שער אם יש */}
       {cover && (
         <div style={{ width: '100%', height: 160, overflow: 'hidden', background: 'var(--surface-2)' }}>
-          <img src={cover} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={cover} alt={post.title} onError={e => { e.currentTarget.parentElement.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
       <div style={{ padding: '14px 16px' }}>
@@ -443,8 +496,8 @@ function RecipeCard({ post, myUid, onClick }) {
 
         {/* תקציר — מצרכים אם מובנה, אחרת body */}
         {ingredientCount > 0 ? (
-          <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, fontWeight: 600 }}>
-            🧺 {ingredientCount} מצרכים{post.recipe?.cookTime ? ` · ⏱ ${post.recipe.cookTime}` : ''}
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            <IconBasket size={15} color="#7E2C2E" /> {ingredientCount} מצרכים{post.recipe?.cookTime ? <><span>·</span><IconClock size={14} color="#8389A4" /> {post.recipe.cookTime}</> : ''}
           </div>
         ) : (
           <div style={{
@@ -457,11 +510,11 @@ function RecipeCard({ post, myUid, onClick }) {
           display: 'flex', alignItems: 'center', gap: 14, marginTop: 10,
           fontSize: 13, color: 'var(--ink-3)', fontWeight: 600,
         }}>
-          <span>👁 {post.views || 0}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconEye size={15} color="#8389A4" /> {post.views || 0}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: iLiked ? ACCENT : 'var(--ink-3)' }}>
             <IconHeart size={15} color={iLiked ? ACCENT : '#8389A4'} /> {likeCount}
           </span>
-          {cookedCount > 0 && <span>🍳 {cookedCount} הכינו</span>}
+          {cookedCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconPan size={15} color="#8389A4" /> {cookedCount} הכינו</span>}
           <span style={{ marginInlineStart: 'auto', color: ACCENT, fontWeight: 700 }}>למתכון ←</span>
         </div>
       </div>
@@ -581,7 +634,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
                 background: sel ? ACCENT : 'var(--surface)',
                 color: sel ? '#fff' : 'var(--ink)',
               }}>
-                <span style={{ fontSize: 17 }}>{c.emoji}</span>
+                <span style={{ display: 'inline-flex' }}><CategoryIcon id={c.id} size={18} color={sel ? '#fff' : 'var(--ink)'} /></span>
                 <span>{c.name}</span>
               </button>
             )
@@ -589,7 +642,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
         </div>
 
         {/* מצרכים — שדה טקסט חופשי, שורה לכל מצרך */}
-        <label style={labelStyle}>🧺 מצרכים</label>
+        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}><IconBasket size={18} color="#1B2540" /> מצרכים</label>
         <div style={hintStyle}>כתבו כל מצרך בשורה נפרדת</div>
         <textarea
           value={ingredientsText}
@@ -600,7 +653,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
         />
 
         {/* אופן ההכנה — שדה טקסט חופשי */}
-        <label style={labelStyle}>👩‍🍳 אופן ההכנה</label>
+        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}><IconChef size={18} color="#1B2540" /> אופן ההכנה</label>
         <div style={hintStyle}>כתבו כל שלב בשורה נפרדת</div>
         <textarea
           value={stepsText}
@@ -611,7 +664,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
         />
 
         {/* תמונות */}
-        <label style={labelStyle}>📷 תמונות (עד 3)</label>
+        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}><IconCamera size={18} color="#1B2540" /> תמונות (עד 3)</label>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {photos.map(p => (
             <div key={p.key} style={{
@@ -639,7 +692,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
               background: 'var(--surface)', color: 'var(--ink-3)', cursor: 'pointer',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}>
-              <span style={{ fontSize: 24 }}>📷</span>
+              <span style={{ display: 'flex' }}><IconCamera size={24} color="#8389A4" /></span>
               <span style={{ fontSize: 12, fontWeight: 700 }}>הוסף</span>
             </button>
           )}
@@ -697,7 +750,7 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
         {/* תמונה גדולה למעלה (אם יש) */}
         {photos.length > 0 && (
           <div style={{ position: 'relative', width: '100%', height: 240, background: 'var(--surface-2)', overflow: 'hidden' }}>
-            <img src={photos[photoIdx]} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={photos[photoIdx]} alt={post.title} onError={e => { e.currentTarget.parentElement.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             {photos.length > 1 && (
               <div style={{
                 position: 'absolute', bottom: 10, insetInline: 0, display: 'flex',
@@ -725,7 +778,7 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
             <Avatar name={post.authorName} size={48} />
             <div>
               <div className="h-display" style={{ fontSize: 16, color: 'var(--ink)' }}>{post.authorName}</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>👁 {post.views || 0} צפיות</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><IconEye size={15} color="#8389A4" /> {post.views || 0} צפיות</div>
             </div>
           </div>
 
@@ -745,7 +798,7 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)',
               borderRadius: 999, padding: '6px 14px', fontSize: 14, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 18,
-            }}>⏱ {recipe.cookTime}</div>
+            }}><IconClock size={15} color="#8389A4" /> {recipe.cookTime}</div>
           )}
 
           {recipe ? (
@@ -753,7 +806,7 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
               {/* מצרכים */}
               {recipe.ingredients?.length > 0 && (
                 <div style={{ marginBottom: 22 }}>
-                  <div className="h-display" style={{ fontSize: 19, color: ACCENT, marginBottom: 10 }}>🧺 מצרכים</div>
+                  <div className="h-display" style={{ fontSize: 19, color: ACCENT, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}><IconBasket size={20} color={ACCENT} /> מצרכים</div>
                   <div style={{
                     background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px',
                   }}>
@@ -774,7 +827,7 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
               {/* אופן ההכנה */}
               {recipe.steps?.length > 0 && (
                 <div style={{ marginBottom: 24 }}>
-                  <div className="h-display" style={{ fontSize: 19, color: ACCENT, marginBottom: 10 }}>👩‍🍳 אופן ההכנה</div>
+                  <div className="h-display" style={{ fontSize: 19, color: ACCENT, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}><IconChef size={20} color={ACCENT} /> אופן ההכנה</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {recipe.steps.map((step, i) => (
                       <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -810,7 +863,8 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
               flex: 1, background: iCooked ? 'var(--forest)' : 'var(--surface)', color: iCooked ? 'white' : 'var(--ink)',
               border: iCooked ? 'none' : '1px solid var(--line-strong)',
             }}>
-              🍳 {iCooked ? 'הכנתי!' : 'הכנתי את המתכון'}{cooked.length > 0 ? ` · ${cooked.length}` : ''}
+              <IconPan size={20} color={iCooked ? 'white' : 'var(--ink)'} />
+              {iCooked ? 'הכנתי!' : 'הכנתי את המתכון'}{cooked.length > 0 ? ` · ${cooked.length}` : ''}
             </button>
           </div>
           <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
@@ -820,10 +874,10 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
               <button onClick={onEdit} className="big-btn" style={{
                 flex: 1, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line-strong)',
-              }}>✏️ ערוך</button>
+              }}><IconEdit size={18} color="#1B2540" /> ערוך</button>
               <button onClick={onDelete} className="big-btn" style={{
                 flex: 1, background: 'var(--surface)', color: 'var(--danger)', border: '1px solid var(--danger)',
-              }}>🗑️ מחק</button>
+              }}><IconTrash size={18} color="#C0392B" /> מחק</button>
             </div>
           )}
         </div>

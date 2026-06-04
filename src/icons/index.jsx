@@ -82,7 +82,7 @@ export const IconMusic = ({ size }) => (
 )
 
 export const IconFriends = ({ size }) => (
-  <CircleIcon size={size} fill="#2C5566" ring="#173846">
+  <CircleIcon size={size} fill="#B89048" ring="#8A6A2E">
     <circle cx="31" cy="31" r="8" fill={W} />
     <circle cx="50" cy="34" r="6.5" fill={W} opacity="0.6" />
     <path d="M18 58c0-8 5.8-14 13-14s13 6 13 14H18Z" fill={W} />
@@ -206,6 +206,77 @@ export const IconHomeLine = (p) => (
     <path d="M3 10.5 12 4l9 6.5" />
     <path d="M5 9.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
     <rect x="10" y="14" width="4" height="6" />
+  </LineIcon>
+)
+
+// מצלמה — להעלאת תמונה (קו פשוט)
+export const IconCamera = (p) => (
+  <LineIcon {...p}>
+    <path d="M3 8a2 2 0 0 1 2-2h2.5l1.2-1.8A1 1 0 0 1 9.5 4h5a1 1 0 0 1 .8.4L16.5 6H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
+    <circle cx="12" cy="13" r="3.5" />
+  </LineIcon>
+)
+
+// עין — מונה צפיות (קו פשוט)
+export const IconEye = (p) => (
+  <LineIcon {...p}>
+    <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </LineIcon>
+)
+
+// סל קניות — מצרכים (קו פשוט)
+export const IconBasket = (p) => (
+  <LineIcon {...p}>
+    <path d="M3.5 8.5h17l-1.6 9.4a2 2 0 0 1-2 1.6H7.1a2 2 0 0 1-2-1.6Z" />
+    <path d="M7.5 8.5a4.5 4.5 0 0 1 9 0" />
+    <path d="M9 11.5l.6 5M15 11.5l-.6 5M12 11.5v5" />
+  </LineIcon>
+)
+
+// כובע שף — אופן ההכנה (קו פשוט)
+export const IconChef = (p) => (
+  <LineIcon {...p}>
+    <path d="M6.5 13a3.5 3.5 0 0 1-.6-6.95A4 4 0 0 1 12 3.5a4 4 0 0 1 6.1 2.55A3.5 3.5 0 0 1 17.5 13Z" />
+    <path d="M6.8 13h10.4v4.4a1.3 1.3 0 0 1-1.3 1.3H8.1a1.3 1.3 0 0 1-1.3-1.3Z" />
+    <path d="M10 13.2v3.4M14 13.2v3.4" />
+  </LineIcon>
+)
+
+// מחבת — "הכנתי את המתכון" (קו פשוט)
+export const IconPan = (p) => (
+  <LineIcon {...p}>
+    <circle cx="10.5" cy="13" r="6.5" />
+    <path d="M16.6 11.2 21.8 9.1" />
+    <circle cx="10.5" cy="13" r="2.1" />
+  </LineIcon>
+)
+
+// עיפרון — עריכה (קו פשוט)
+export const IconEdit = (p) => (
+  <LineIcon {...p}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+  </LineIcon>
+)
+
+// פח אשפה — מחיקה (קו פשוט)
+export const IconTrash = (p) => (
+  <LineIcon {...p}>
+    <path d="M3 6h18" />
+    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+    <path d="M6 6v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+    <path d="M10 11v6M14 11v6" />
+  </LineIcon>
+)
+
+// גביע — טבלת מובילים / ניצחון (קו פשוט)
+export const IconTrophy = (p) => (
+  <LineIcon {...p}>
+    <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" />
+    <path d="M8 5H5.5a2 2 0 0 0 0 4H8M16 5h2.5a2 2 0 0 1 0 4H16" />
+    <path d="M10 13.5V17h4v-3.5" />
+    <path d="M8.5 20h7M10 17h4" />
   </LineIcon>
 )
 

@@ -14,7 +14,8 @@
 // בנוי על תשתית bingoRooms ב-firebase.js (מודל רמיקוב/מלך-הזירה).
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
@@ -45,7 +46,7 @@ const COL_COLORS = ['#7E2C2E', '#B89048', '#4F6B4A', '#2C5566', '#6B3A4F']
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — ניתוב בין מצבי המשחק
 // ════════════════════════════════════════════════════════
-export default function BingoGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : null))
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -57,6 +58,7 @@ export default function BingoGame({ onBack, initialRoomId, autoInviteFriend = nu
     return (
       <ModeSelectScreen
         onBack={onBack}
+        onHome={onHome}
         onSelectSolo={() => setMode('solo')}
         onSelectOnlineRandom={() => setMode('online-random')}
         onSelectOnlineFriend={() => setMode('online-friend')}
@@ -66,30 +68,32 @@ export default function BingoGame({ onBack, initialRoomId, autoInviteFriend = nu
 
   if (mode === 'online-random' || mode === 'online-friend') {
     if (!roomId) {
-      return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onReady={(id) => setRoomId(id)} />
+      return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onHome={onHome} onReady={(id) => setRoomId(id)} />
     }
     return (
       <OnlineGameScreen
         roomId={roomId}
         onBack={() => { setRoomId(null); setMode(null) }}
+        onHome={onHome}
         onExit={onBack}
       />
     )
   }
 
-  return <SoloGameScreen onBack={() => setMode(null)} onExit={onBack} />
+  return <SoloGameScreen onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
 }
 
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onSelectSolo, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, onSelectSolo, onSelectOnlineRandom, onSelectOnlineFriend }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">הבינגו של אמי</div>
       </div>
 
@@ -286,7 +290,7 @@ function CalledStrip({ called }) {
 // ════════════════════════════════════════════════════════
 // מעטפת מסך משחק — כותרת כהה + רקע בורגונדי
 // ════════════════════════════════════════════════════════
-function BingoShell({ onBack, isOnline, chatNode, children }) {
+function BingoShell({ onBack, onHome, isOnline, chatNode, children }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
       <div className="screen-header" style={{ background: 'transparent' }}>
@@ -294,6 +298,12 @@ function BingoShell({ onBack, isOnline, chatNode, children }) {
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
         </button>
+        {onHome && (
+          <button className="screen-header__back" onClick={onHome} aria-label="חזרה למסך הבית"
+            style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
+            <IconHomeLine size={24} color="#E8C879" />
+          </button>
+        )}
         <div className="screen-header__title" style={{ color: '#FBF7EE' }}>הבינגו של אמי {isOnline ? 'אונליין' : ''}</div>
         {chatNode}
       </div>
@@ -324,7 +334,7 @@ function BingoButton({ label, onClick, variant = 'gold', disabled, style }) {
 // ════════════════════════════════════════════════════════
 // מצב לבד — מקריא אוטומטי
 // ════════════════════════════════════════════════════════
-function SoloGameScreen({ onBack, onExit }) {
+function SoloGameScreen({ onBack, onHome, onExit }) {
   const [card] = useState(() => createCard())
   const [drawOrder] = useState(() => createDrawOrder())
   const [drawIdx, setDrawIdx] = useState(-1)        // אינדקס אחרון שנקרא בסדר ההגרלה
@@ -380,7 +390,7 @@ function SoloGameScreen({ onBack, onExit }) {
   }
 
   return (
-    <BingoShell onBack={onBack} isOnline={false}>
+    <BingoShell onBack={onBack} onHome={onHome} isOnline={false}>
       {/* שורת המספר הנוכחי + לוח שנקרא + השתקה */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14,
@@ -430,7 +440,7 @@ function SoloGameScreen({ onBack, onExit }) {
 // ════════════════════════════════════════════════════════
 // Lobby אונליין — חיפוש רנדומלי / הזמנת חברים
 // ════════════════════════════════════════════════════════
-function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
+function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null }) {
   const { profile, authUser } = useUserStore()
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
   const [phase, setPhase] = useState(mode === 'online-random' ? 'searching' : 'friend-list')
@@ -527,6 +537,7 @@ function OnlineLobby({ mode, onBack, onReady, autoInviteFriend = null }) {
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
         <div className="screen-header__title">שחק עם חברים</div>
       </div>
       <div style={{ padding: '20px 20px 32px' }}>
@@ -631,7 +642,7 @@ function FriendRow({ friend, profile, online, onInvite }) {
 // ════════════════════════════════════════════════════════
 // מסך אונליין — חדר המתנה + משחק
 // ════════════════════════════════════════════════════════
-function OnlineGameScreen({ roomId, onBack, onExit }) {
+function OnlineGameScreen({ roomId, onBack, onHome, onExit }) {
   const { authUser, profile } = useUserStore()
   const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
   const [room, setRoom] = useState(null)
@@ -652,7 +663,7 @@ function OnlineGameScreen({ roomId, onBack, onExit }) {
 
   if (error) {
     return (
-      <BingoShell onBack={onExit} isOnline>
+      <BingoShell onBack={onExit} onHome={onHome} isOnline>
         <div style={{ background: 'var(--surface)', borderRadius: 20, padding: '32px 24px', textAlign: 'center', marginTop: 20 }}>
           <div style={{ fontSize: 56, marginBottom: 14 }}>👋</div>
           <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 6 }}>{error}</div>
@@ -664,20 +675,20 @@ function OnlineGameScreen({ roomId, onBack, onExit }) {
 
   if (!room) {
     return (
-      <BingoShell onBack={onBack} isOnline>
+      <BingoShell onBack={onBack} onHome={onHome} isOnline>
         <div style={{ padding: 24, textAlign: 'center', color: CREAM }}>טוען...</div>
       </BingoShell>
     )
   }
 
   if (room.status === 'waiting') {
-    return <WaitingRoom room={room} roomId={roomId} me={me} onBack={onBack} />
+    return <WaitingRoom room={room} roomId={roomId} me={me} onBack={onBack} onHome={onHome} />
   }
-  return <OnlinePlay room={room} roomId={roomId} me={me} profile={profile} onBack={onBack} onExit={onExit} />
+  return <OnlinePlay room={room} roomId={roomId} me={me} profile={profile} onBack={onBack} onHome={onHome} onExit={onExit} />
 }
 
 // חדר המתנה — רשימת שחקנים + הזמנת עוד חברים + כפתור התחלה למארח
-function WaitingRoom({ room, roomId, me, onBack }) {
+function WaitingRoom({ room, roomId, me, onBack, onHome }) {
   const isHost = room.hostUid === me.uid
   const players = room.players || []
   const maxPlayers = room.maxPlayers || 10
@@ -718,7 +729,7 @@ function WaitingRoom({ room, roomId, me, onBack }) {
   }
 
   return (
-    <BingoShell onBack={handleLeave} isOnline>
+    <BingoShell onBack={handleLeave} onHome={onHome} isOnline>
       <div style={{ textAlign: 'center', marginBottom: 20, marginTop: 6 }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="bingo" size={56} /></div>
         <div className="h-display" style={{ fontSize: 22, color: GOLD }}>
@@ -867,7 +878,7 @@ function PlayerChip({ p, meUid, hostUid }) {
 }
 
 // ── מסך המשחק האונליין עצמו ──
-function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
+function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
   const [marked, setMarked] = useState(() => new Set())
   const [missed, setMissed] = useState(false)
@@ -919,7 +930,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
 
   if (!state || !myCard) {
     return (
-      <BingoShell onBack={onBack} isOnline>
+      <BingoShell onBack={onBack} onHome={onHome} isOnline>
         <div style={{ padding: 24, textAlign: 'center', color: CREAM }}>טוען את המשחק...</div>
       </BingoShell>
     )
@@ -928,7 +939,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
   // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו
   if (videoChoice === null) {
     return (
-      <BingoShell onBack={onBack} isOnline>
+      <BingoShell onBack={onBack} onHome={onHome} isOnline>
         <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#5A1D1E" accentDeep="#C9A24A" />
       </BingoShell>
     )
@@ -984,7 +995,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onExit }) {
   return (
     <ProfilesProvider uids={playerUids} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
-    <BingoShell onBack={handleLeave} isOnline chatNode={chatNode}>
+    <BingoShell onBack={handleLeave} onHome={onHome} isOnline chatNode={chatNode}>
       {/* רצועת וידאו בראש המסך — גלריה של כל השחקנים (כפתורי המצלמה/מיק שלי בתוך הריבוע שלי) */}
       <VideoStage players={videoPlayers} height={96} showSelfControls style={{ marginBottom: 12 }} />
 

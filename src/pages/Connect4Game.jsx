@@ -1869,17 +1869,15 @@ function Board({ board, winningCells, lastDropped, onColumnClick, disabled }) {
 }
 
 function WinModal({ mode, winner, youArePlayer, onPlayAgain, onExit }) {
-  let emoji, title, subtitle, color
+  let emoji, title, subtitle, color, aiRobot = false
   if (winner === 'draw') {
     emoji = '🤝'; title = 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4'
   } else if (winner === youArePlayer) {
     emoji = '🎉'; title = mode === 'online' ? 'ניצחת!' : (mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!')
     subtitle = 'כל הכבוד'; color = '#7E2C2E'
   } else {
-    emoji = mode === 'ai' ? '🤖' : (mode === 'online' ? '😕' : '🎉')
-    title = mode === 'ai' ? 'המחשב ניצח' : (mode === 'online' ? 'הפסדת' : 'שחקן 2 ניצח!')
-    subtitle = mode === 'ai' ? 'נסה שוב, אתה תצליח!' : (mode === 'online' ? 'משחק יפה — נסה שוב' : 'כל הכבוד')
-    color = '#B89048'
+    if (mode === 'ai') { aiRobot = true; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
+    else { emoji = mode === 'online' ? '😕' : '🎉'; title = mode === 'online' ? 'הפסדת' : 'שחקן 2 ניצח!'; subtitle = mode === 'online' ? 'משחק יפה — נסה שוב' : 'כל הכבוד'; color = '#B89048' }
   }
 
   return (
@@ -1894,7 +1892,15 @@ function WinModal({ mode, winner, youArePlayer, onPlayAgain, onExit }) {
         maxWidth: 360, width: '100%', textAlign: 'center',
         boxShadow: 'var(--shadow-lg)',
       }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+        {aiRobot ? (
+          <div style={{
+            width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
+            background: 'linear-gradient(135deg, #2C5566, #173846)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}><GameIcon id="vs-ai" size={60} /></div>
+        ) : (
+          <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+        )}
         <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>
           {title}
         </div>
