@@ -45,9 +45,10 @@ messaging.onBackgroundMessage((payload) => {
   const type = data.type || 'general'
 
   // שיחה תמיד דחופה (גם בלילה). צ'אט/הזמנה דחופים רק מחוץ לשעות שקט
-  const quiet = isQuietHours()
   const isCall = type === 'call'
-  const urgent = isCall || ((type === 'chat' || type === 'invite') && !quiet)
+  // השרת קובע אם ההתראה שקטה (לפי הגדרות הצליל של המשתמש); שיחה תמיד מצלצלת
+  const silent = data.silent === '1' && !isCall
+  const urgent = !silent
 
   const options = {
     body,
@@ -58,7 +59,7 @@ messaging.onBackgroundMessage((payload) => {
     tag: data.tag || type,
     renotify: urgent,
     requireInteraction: isCall,
-    silent: quiet && !isCall,
+    silent,
     vibrate: urgent ? [200, 100, 200] : undefined,
     data: {
       ...data,

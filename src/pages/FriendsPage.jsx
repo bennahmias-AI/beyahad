@@ -26,6 +26,21 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend }) {
   const [outgoing, setOutgoing] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // הזמנת חברים ומשפחה — שיתוף קישור להתקנת/כניסה לאפליקציה
+  const [copied, setCopied] = useState(false)
+  const inviteUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const inviteText = `בואו להצטרף אליי באפליקציית ביחד! ${inviteUrl}`
+  const shareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank')
+  }
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
   // watch all my friendships
   useEffect(() => {
     if (!authUser?.uid) return
@@ -45,10 +60,38 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend }) {
           <IconBackRTL size={24} color="#1B2540" />
         </button>
         <HomeButton onClick={onHome} />
-        <div className="screen-header__title">חברים קרובים</div>
+        <div className="screen-header__title">חברים ומשפחה</div>
       </div>
 
       <div style={{ padding: '8px 20px 32px' }}>
+        {/* הזמנת חברים ובני משפחה — שיתוף קישור לאפליקציה */}
+        <div style={{
+          background: 'linear-gradient(135deg, #4F6B4A 0%, #354D31 100%)',
+          borderRadius: 20, padding: '18px 18px', marginBottom: 20,
+          color: '#FBF7EE', boxShadow: '0 10px 24px -8px rgba(79,107,74,.5)',
+        }}>
+          <div className="h-display" style={{ fontSize: 20, lineHeight: 1.15, marginBottom: 5 }}>
+            הזמינו חברים ובני משפחה
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.92)', lineHeight: 1.5, marginBottom: 14 }}>
+            שלחו קישור לאפליקציה — שיתקינו ותהיו בקשר כאן
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={shareWhatsApp} style={{
+              flex: 1, padding: '13px', borderRadius: 12,
+              background: '#FBF7EE', border: 'none',
+              color: '#1B2540', fontSize: 16, fontWeight: 800,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}>שיתוף בוואטסאפ</button>
+            <button onClick={copyInvite} style={{
+              flex: 1, padding: '13px', borderRadius: 12,
+              background: 'transparent', border: '1.5px solid rgba(255,255,255,.55)',
+              color: '#FBF7EE', fontSize: 16, fontWeight: 700,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}>{copied ? 'הקישור הועתק ✓' : 'העתקת קישור'}</button>
+          </div>
+        </div>
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-3)', fontSize: 16 }}>
             טוען...

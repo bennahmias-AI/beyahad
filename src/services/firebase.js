@@ -1774,6 +1774,8 @@ export async function sendDirectMessage({ fromUid, toUid, text, senderName, audi
       updatedAt: serverTimestamp(),
     })
   }
+  // התראת push לנמען (best-effort)
+  notifyPush({ toUid, type: 'chat', title: senderName || 'הודעה חדשה', body: preview, url: '/' })
   return message.id
 }
 
@@ -1884,6 +1886,8 @@ export async function startVideoCall({ from, to, audioOnly = false }) {
     audioOnly: Boolean(audioOnly),
     createdAt: serverTimestamp(),
   })
+  // התראת push לנמען — שיחה נכנסת (מגיעה גם כשהאפליקציה סגורה)
+  notifyPush({ toUid: to.uid, type: 'call', title: from.name ? `${from.name} מתקשר/ת אליך` : 'שיחה נכנסת', body: audioOnly ? 'שיחת קול' : 'שיחת וידאו', url: '/' })
   return { callId: ref.id, room }
 }
 
@@ -2072,5 +2076,20 @@ export async function onForegroundMessage(cb) {
   const messaging = await getMessagingIfSupported()
   if (!messaging) return () => {}
   return onMessage(messaging, cb)
+}
+
+// שולח בקשת push דרך ה-endpoint בצד השרת (api/notify).
+// best-effort — לא חוסם את הזרימה; בלוקאל (אין endpoint) פשוט נכשל בשקט.
+export async function notifyPush({ toUid, type, title, body, url }) {
+  if (!toUid || !type) return
+  try {
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toUid, type, title: title || '', body: body || '', url: url || '/' }),
+    })
+  } catch (e) {
+    // best-effort — מתעלמים מכשל (למשל כשאין שרת מקומי)
+  }
 }
 

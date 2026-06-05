@@ -17,7 +17,6 @@ import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
-import FamilyPage from './pages/FamilyPage.jsx'
 import DirectChatPage from './pages/DirectChatPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
@@ -39,7 +38,6 @@ import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser, logActivity,
-  acceptFamilyInvite,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
@@ -109,19 +107,6 @@ export default function App() {
   // ── הצטרפות למשפחה דרך קישור הזמנה (?join=CODE) ──
   // כשמשתמש מחובר פותח קישור הזמנה, יוצרים את חברות המשפחה ומנווטים אליו.
   const joinHandledRef = useRef(false)
-  useEffect(() => {
-    if (!authUser?.uid || joinHandledRef.current) return
-    const code = new URLSearchParams(window.location.search).get('join')
-    if (!code) return
-    joinHandledRef.current = true
-    ;(async () => {
-      try {
-        const res = await acceptFamilyInvite({ code, me: { uid: authUser.uid, name: profile?.name || '' } })
-        try { window.history.replaceState(null, '', window.location.pathname) } catch {}
-        if (res?.ok) setPage('family')
-      } catch (e) { console.error('join family error:', e) }
-    })()
-  }, [authUser?.uid])
 
   // חזרה למסך הבית — מנקה כל מצב חדר/חבר וחוזר ל-hub.
   // משמש את כפתור הבית שליד כפתור החזרה בכל המסכים.
@@ -142,7 +127,7 @@ export default function App() {
     switch (cur) {
       case 'chat':
         setChatFriend(null)
-        return origin === 'family' ? 'family' : 'friends'
+        return 'friends'
       case 'memory-game':
       case 'millionaire-game':
         return 'games'
@@ -406,20 +391,10 @@ export default function App() {
           onMessageFriend={(f) => { setChatOrigin('friends'); setChatFriend(f); setPage('chat') }}
         />
       )}
-      {page === 'family' && (
-        <FamilyPage
-          onBack={() => setPage('hub')}
-          onHome={goHome}
-          onMessageFamily={(f) => { setChatOrigin('family'); setChatFriend(f); setPage('chat') }}
-          onVideoCall={(f) => handleVideoCall(f, false)}
-          onAudioCall={(f) => handleVideoCall(f, true)}
-          onGoFriends={() => setPage('friends')}
-        />
-      )}
       {page === 'chat' && (
         <DirectChatPage
           friend={chatFriend}
-          onBack={() => { setChatFriend(null); setPage(chatOrigin === 'family' ? 'family' : 'friends') }}
+          onBack={() => { setChatFriend(null); setPage('friends') }}
           onHome={goHome}
           onVideoCall={(f) => handleVideoCall(f, false)}
           onCallFriend={(f) => handleVideoCall(f, true)}
@@ -533,7 +508,6 @@ export default function App() {
           onGoProfile={() => setPage('profile')}
           onGoSettings={() => setPage('settings')}
           onGoFriends={() => setPage('friends')}
-          onGoFamily={() => setPage('family')}
           onGoGames={() => setPage('games')}
           onPlayGame={handlePlayGame}
           onOpenNotification={handleOpenNotification}

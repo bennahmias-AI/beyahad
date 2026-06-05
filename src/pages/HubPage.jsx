@@ -29,7 +29,7 @@ const DEMO_FRIENDS = [
 ]
 // ─────────────────────────────────────────────────────────────
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoFamily, onGoGames, onPlayGame, onOpenNotification }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
   const isAdmin = profile?.role === 'admin'
   const [comingSoon, setComingSoon] = useState(null)
@@ -447,37 +447,11 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
           <RoomTile
             onClick={onGoFriends}
             icon={<IconGroup size={60} />}
-            label="חברים"
+            label="חברים ומשפחה"
             sub="הרשימה שלי"
             badge="החברים שלי"
           />
         </div>
-
-        {/* כרטיס המשפחה שלי — רוחב מלא */}
-        <button onClick={onGoFamily} style={{
-          width: '100%', textAlign: 'right',
-          marginTop: 12,
-          background: 'var(--surface)',
-          border: '1px solid var(--line)',
-          borderRadius: 20,
-          padding: '16px 16px',
-          color: 'var(--ink)',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex', flexDirection: 'row-reverse',
-          alignItems: 'center', gap: 14,
-          fontFamily: 'inherit',
-        }}>
-          <IconBackRTL size={22} color="#8389A4" />
-          <div style={{ flex: 1 }}>
-            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.15 }}>
-              המשפחה שלי
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 3 }}>
-              שיחות וידאו והודעות עם בני המשפחה
-            </div>
-          </div>
-          <IconFriends size={56} />
-        </button>
 
         {/* ── כרטיס ברכה אישית — רוחב מלא ── */}
         <button onClick={onGoGreeting} style={{
