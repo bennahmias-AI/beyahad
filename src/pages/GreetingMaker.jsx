@@ -523,6 +523,8 @@ function DesignStep({
   const [activeTab, setActiveTab] = useState(null)
   // צבע מותאם אישית (מבורר הצבעים המלא) + ref לפתיחתו
   const [customColor, setCustomColor] = useState('#D4A437')
+  // האם בורר הצבע המלא פתוח (מודאל מותאם — אחיד בכל מכשיר, במקום הדיאלוג הטבעי של אנדרואיד)
+  const [showColorPicker, setShowColorPicker] = useState(false)
   const colorInputRef = useRef(null)
 
   // רישום לבקרת הניהול — יצירת ברכה (פעם אחת לכניסה) + שמירה/שיתוף.
@@ -1236,7 +1238,7 @@ function DesignStep({
             <HScroll>
               {/* בורר צבע מלא — כל צבע אפשרי (ראשון) */}
               <button
-                onClick={() => colorInputRef.current?.click()}
+                onClick={() => setShowColorPicker(true)}
                 aria-label="בחר צבע כלשהו"
                 style={{
                   padding: 0, position: 'relative', flexShrink: 0,
@@ -1253,13 +1255,6 @@ function DesignStep({
                   fontSize: 28, fontWeight: 800, lineHeight: 1,
                   color: 'white', textShadow: '0 1px 3px rgba(0,0,0,.6)',
                 }}>{textColorId === 'custom' ? '' : '+'}</span>
-                <input
-                  ref={colorInputRef}
-                  type="color"
-                  value={customColor}
-                  onChange={e => { setCustomColor(e.target.value); setTextColorId('custom') }}
-                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', bottom: 0, insetInlineEnd: 0 }}
-                />
               </button>
               {/* צבעים מוכנים (ללא אוטו) */}
               {TEXT_COLORS.filter(c => c.id !== 'auto').map(c => (
@@ -1311,6 +1306,15 @@ function DesignStep({
           )}
         </EditStrip>
       )}
+
+      {/* בורר הצבע המלא — מודאל מותאם שמוצג זהה בכל מכשיר (במקום <input type=color> הטבעי) */}
+      {showColorPicker && (
+        <ColorPickerModal
+          initial={customColor}
+          onCancel={() => setShowColorPicker(false)}
+          onConfirm={(hexVal) => { setCustomColor(hexVal); setTextColorId('custom'); setShowColorPicker(false) }}
+        />
+      )}
     </div>
   )
 }
@@ -1318,6 +1322,134 @@ function DesignStep({
 // ═══════════════════════════════════════════════════════════════
 // EditStrip — רצועה קטנה מעל הסרגל, לא מכסה את התצוגה
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// ColorPickerModal — בורר צבע מלא ואחיד בכל המכשירים
+// ═══════════════════════════════════════════════════════════════════
+// מחליף את <input type="color"> הטבעי, שמוצג שונה בכל מערכת הפעלה
+// (במחשב — בורר עשיר; באנדרואיד — רשת צבעים מצומצמת). כאן בונים
+// בורר משלנו עם מחווני גוון/עוצמה/בהירות גדולים וברורים — זהה בכל מכשיר.
+function ColorPickerModal({ initial = '#D4A437', onConfirm, onCancel }) {
+  // המרת hex → HSL כדי לאתחל את המחוונים מהצבע הנוכחי
+  const hexToHsl = (hexStr) => {
+    let c = String(hexStr || '').replace('#', '')
+    if (c.length === 3) c = c.split('').map(x => x + x).join('')
+    const r = parseInt(c.slice(0, 2), 16) / 255
+    const g = parseInt(c.slice(2, 4), 16) / 255
+    const b = parseInt(c.slice(4, 6), 16) / 255
+    if ([r, g, b].some(Number.isNaN)) return { h: 45, s: 65, l: 52 }
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+    const li = (max + min) / 2
+    let hue = 0, sat = 0
+    if (d !== 0) {
+      sat = d / (1 - Math.abs(2 * li - 1))
+      if (max === r) hue = ((g - b) / d) % 6
+      else if (max === g) hue = (b - r) / d + 2
+      else hue = (r - g) / d + 4
+      hue = Math.round(hue * 60); if (hue < 0) hue += 360
+    }
+    return { h: hue, s: Math.round(sat * 100), l: Math.round(li * 100) }
+  }
+
+  const init = hexToHsl(initial)
+  const [h, setH] = useState(init.h)
+  const [s, setS] = useState(init.s)
+  const [l, setL] = useState(init.l)
+  const hex = hslToHex(h, s, l)
+
+  // מחוונים בכיוון LTR קבוע (מינימום משמאל) — כדי שהתנהגות תהיה צפויה גם במסך RTL
+  const sliderBase = {
+    width: '100%', height: 26, borderRadius: 13, margin: 0,
+    cursor: 'pointer', direction: 'ltr', accentColor: 'var(--burgundy)',
+  }
+  const labelStyle = { fontSize: 15, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 7 }
+
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9000,
+        background: 'rgba(0,0,0,.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, direction: 'rtl',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 360,
+          background: 'var(--surface)', borderRadius: 20,
+          padding: '20px 20px 16px',
+          boxShadow: '0 16px 50px rgba(0,0,0,.35)',
+          fontFamily: 'inherit',
+        }}
+      >
+        <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--ink)', marginBottom: 14, textAlign: 'center' }}>
+          בחירת צבע
+        </div>
+
+        {/* תצוגה מקדימה של הצבע הנבחר */}
+        <div style={{
+          height: 72, borderRadius: 14, marginBottom: 18,
+          background: hex, border: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontSize: 16, fontWeight: 800, letterSpacing: 1,
+            color: l > 60 ? '#1B1B1B' : '#FFFFFF',
+            textShadow: l > 60 ? 'none' : '0 1px 2px rgba(0,0,0,.4)',
+          }}>{hex.toUpperCase()}</span>
+        </div>
+
+        {/* גוון */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>גוון</div>
+          <input type="range" min="0" max="360" value={h}
+            onChange={e => setH(Number(e.target.value))}
+            style={{
+              ...sliderBase,
+              background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)',
+            }} />
+        </div>
+
+        {/* עוצמת הצבע (רוויה) */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>עוצמת הצבע</div>
+          <input type="range" min="0" max="100" value={s}
+            onChange={e => setS(Number(e.target.value))}
+            style={{
+              ...sliderBase,
+              background: `linear-gradient(to right, ${hslToHex(h, 0, l)}, ${hslToHex(h, 100, l)})`,
+            }} />
+        </div>
+
+        {/* בהירות */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={labelStyle}>בהירות</div>
+          <input type="range" min="0" max="100" value={l}
+            onChange={e => setL(Number(e.target.value))}
+            style={{
+              ...sliderBase,
+              background: `linear-gradient(to right, #000, ${hslToHex(h, s, 50)}, #fff)`,
+            }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, padding: '13px', borderRadius: 12,
+            background: 'var(--surface)', border: '1.5px solid var(--line-strong)',
+            color: 'var(--ink-2)', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+          }}>ביטול</button>
+          <button onClick={() => onConfirm(hex)} style={{
+            flex: 1, padding: '13px', borderRadius: 12,
+            background: 'var(--burgundy)', border: 'none',
+            color: 'white', fontSize: 16, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+          }}>אישור</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function EditStrip({ title, onClose, children }) {
   return (
     <div style={{

@@ -125,6 +125,68 @@ export default function App() {
 
   // חזרה למסך הבית — מנקה כל מצב חדר/חבר וחוזר ל-hub.
   // משמש את כפתור הבית שליד כפתור החזרה בכל המסכים.
+  // ── כפתור החזרה של אנדרואיד — חזרה אחורה בתוך האפליקציה במקום יציאה ──
+  // האפליקציה מנווטת דרך state (setPage) ולא דרך ה-URL, ולכן לכפתור החזרה
+  // (החומרה/מחווה ליד מסך הבית) אין רשומת היסטוריה לחזור אליה — והוא סוגר
+  // את ה-PWA. הפתרון: שומרים רשומת היסטוריה אחת ("מלכודת"); כל לחיצת חזרה
+  // יורדת מסך אחד פנימה — בדיוק כמו כפתורי החזרה שבמסכים — ודוחפת מלכודת
+  // חדשה. בעמוד הבית לא דוחפים, כך שלחיצת חזרה נוספת יוצאת מהאפליקציה כרגיל.
+  const backNavRef = useRef({ page: 'hub', chatOrigin: 'friends', inCall: false })
+  useEffect(() => {
+    backNavRef.current = { page, chatOrigin, inCall: Boolean(activeCall || outgoingCall) }
+  })
+
+  // מחשב לאן "חזרה" מובילה מהעמוד הנוכחי — תואם לכפתורי onBack שבמסכים.
+  // מחזיר null אם כבר בעמוד הבית (ואז נותנים ל-back לצאת מהאפליקציה).
+  function resolveBackTarget(cur, origin) {
+    switch (cur) {
+      case 'chat':
+        setChatFriend(null)
+        return origin === 'family' ? 'family' : 'friends'
+      case 'memory-game':
+      case 'millionaire-game':
+        return 'games'
+      case 'rummikub-game': setRummikubRoom(null); setPlayFriend(null); return 'games'
+      case 'arena-game':    setArenaRoom(null);    setPlayFriend(null); return 'games'
+      case 'bingo-game':    setBingoRoom(null);    setPlayFriend(null); return 'games'
+      case 'connect4-game': setConnect4Room(null); setPlayFriend(null); return 'games'
+      case 'checkers-game': setCheckersRoom(null); setPlayFriend(null); return 'games'
+      case 'chess-game':    setChessRoom(null);    setPlayFriend(null); return 'games'
+      case 'sheshbesh-game':setSheshbeshRoom(null);setPlayFriend(null); return 'games'
+      case 'games':         setPlayFriend(null);   return 'hub'
+      case 'tips':
+      case 'recipes':       setInitialPostId(null); return 'hub'
+      case 'admin':
+        try { window.history.replaceState(null, '', window.location.pathname) } catch {}
+        return 'hub'
+      case 'hub':
+        return null
+      default:
+        return 'hub'
+    }
+  }
+
+  useEffect(() => {
+    // מלכודת התחלתית — כדי שלכפתור החזרה תהיה רשומה לצרוך כבר מהמסך הראשון
+    try { window.history.pushState({ beyahad: true }, '') } catch {}
+    function onPopState() {
+      const { page: cur, chatOrigin: origin, inCall } = backNavRef.current
+      // באמצע שיחת וידאו/קול — לא קוטעים; דוחפים מלכודת חדשה ונשארים במסך
+      if (inCall) {
+        try { window.history.pushState({ beyahad: true }, '') } catch {}
+        return
+      }
+      const target = resolveBackTarget(cur, origin)
+      if (target != null) {
+        setPage(target)
+        try { window.history.pushState({ beyahad: true }, '') } catch {}
+      }
+      // target === null → עמוד הבית: לא דוחפים, לחיצת back נוספת תצא מהאפליקציה
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
   function goHome() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
