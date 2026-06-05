@@ -6,7 +6,8 @@ import {
   watchAllUsers, getAllCommunityPosts,
   setUserRole, setUserBlocked,
   watchPendingPosts, setPostApproval, deleteCommunityPost,
-  getActivityStats, sendUserNotification, adminDeleteUser,
+  getActivityInRange, getActivityLog,
+  sendUserNotification, adminDeleteUser, sendDirectMessage,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
@@ -48,28 +49,86 @@ function lastSeenLabel(u) {
   return `לפני ${Math.round(hrs / 24)} ימים`
 }
 
+// ── טווחי תאריכים ליומן הפעילות ──
+const RANGES = [
+  { key: 'today', label: 'היום' },
+  { key: 'yesterday', label: 'אתמול' },
+  { key: 'week', label: 'השבוע' },
+  { key: 'month', label: 'החודש' },
+  { key: 'year', label: 'השנה' },
+  { key: 'custom', label: 'מותאם' },
+]
+const RANGE_LABEL = { today: 'היום', yesterday: 'אתמול', week: 'השבוע', month: 'החודש', year: 'השנה', custom: 'בטווח' }
+const ACTIVITY_LABEL = { login: 'כניסה', cafe: 'קפה בסלון', parliament: 'פרלמנט', singing: 'שירה בציבור', game: 'משחק' }
+const ACTIVITY_COLOR = { login: '#5E7CA6', cafe: '#2C5566', parliament: '#7E2C2E', singing: '#6B3A4F', game: '#4F6B4A' }
+const GAME_LABEL = { connect4: '4 בשורה', checkers: 'דמקה', chess: 'שחמט', sheshbesh: 'שש-בש', rummikub: 'רמיקוב', arena: 'מלך הזירה', bingo: 'בינגו', millionaire: 'מי רוצה להיות מיליונר', memory: 'משחק הזיכרון' }
+
+// מחשב [fromMs, toMs] לפי מפתח הטווח (custom משתמש בתאריכי המשתמש)
+function rangeBounds(key, customFrom, customTo) {
+  const now = new Date()
+  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0)
+  let from = startOfToday, to = now
+  if (key === 'yesterday') {
+    const y = new Date(startOfToday); y.setDate(y.getDate() - 1)
+    from = y; to = new Date(startOfToday.getTime() - 1)
+  } else if (key === 'week') {
+    const w = new Date(startOfToday); w.setDate(w.getDate() - w.getDay()); from = w; to = now
+  } else if (key === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1); to = now
+  } else if (key === 'year') {
+    from = new Date(now.getFullYear(), 0, 1); to = now
+  } else if (key === 'custom') {
+    from = customFrom ? new Date(customFrom + 'T00:00:00') : startOfToday
+    to = customTo ? new Date(customTo + 'T23:59:59') : now
+  }
+  return [from.getTime(), to.getTime()]
+}
+
+const dateInputStyle = {
+  fontFamily: 'inherit', fontSize: 14, padding: '8px 10px', borderRadius: 10,
+  border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink)',
+}
+
 export default function AdminDashboard({ onExit }) {
-  const { profile } = useUserStore()
+  const { profile, authUser } = useUserStore()
   const isAdmin = profile?.role === 'admin'
 
   const [users, setUsers] = useState([])
   const [posts, setPosts] = useState([])
   const [pending, setPending] = useState([])
-  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busyUid, setBusyUid] = useState(null)     // uid שעליו מתבצעת פעולה
   const [busyPost, setBusyPost] = useState(null)   // פוסט שמתבצעת עליו פעולת אישור/דחייה
   const [search, setSearch] = useState('')
   const [selectedUid, setSelectedUid] = useState(null)   // משתמש פתוח בחלון הפרטים
 
+  // יומן פעילות + בורר טווח
+  const [range, setRange] = useState('today')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [rangeData, setRangeData] = useState(null)   // { cafe, parliament } לטווח
+  const [log, setLog] = useState([])                 // אירועי יומן הפעילות לטווח
+  const [logLoading, setLogLoading] = useState(true)
+
   useEffect(() => {
     if (!isAdmin) return
     const unsub = watchAllUsers(list => { setUsers(list); setLoading(false) })
     const unsubP = watchPendingPosts(setPending)
     getAllCommunityPosts().then(setPosts).catch(() => {})
-    getActivityStats().then(setStats).catch(() => {})
     return () => { unsub && unsub(); unsubP && unsubP() }
   }, [isAdmin])
+
+  // טעינת נתוני הטווח (ספירות + יומן) בכל שינוי טווח/תאריך
+  useEffect(() => {
+    if (!isAdmin) return
+    let alive = true
+    setLogLoading(true)
+    const [fromMs, toMs] = rangeBounds(range, customFrom, customTo)
+    Promise.all([getActivityInRange(fromMs, toMs), getActivityLog(fromMs, toMs)])
+      .then(([rd, lg]) => { if (!alive) return; setRangeData(rd); setLog(lg); setLogLoading(false) })
+      .catch(() => { if (alive) setLogLoading(false) })
+    return () => { alive = false }
+  }, [isAdmin, range, customFrom, customTo])
 
   // שינוי תפקיד
   async function changeRole(uid, role) {
@@ -96,9 +155,15 @@ export default function AdminDashboard({ onExit }) {
     setBusyUid(null)
   }
 
-  // שליחת הודעה למשתמש כמנהל → נכנסת לפעמון ההתראות שלו
+  // שליחת הודעה למשתמש כמנהל → נפתחת כצ'אט פרטי שהמשתמש יכול להגיב בו.
+  // המשתמש מקבל התראת צ'אט בפעמון; התשובה שלו חוזרת לפעמון של המנהל.
   async function messageUser(uid, text) {
-    await sendUserNotification({ toUid: uid, type: 'admin', title: 'הודעה מההנהלה', body: text })
+    await sendDirectMessage({
+      fromUid: authUser?.uid,
+      toUid: uid,
+      text,
+      senderName: profile?.name || 'מנהל',
+    })
   }
 
   // אישור פוסט ממתין → פרסום + התראה לכותב
@@ -152,6 +217,16 @@ export default function AdminDashboard({ onExit }) {
     }))
     downloadCSV(`beyahad-content-${new Date().toISOString().slice(0, 10)}.csv`, rows)
   }
+  // ייצוא יומן הפעילות (הטווח הנוכחי) ל-CSV
+  function exportLog() {
+    const rows = log.map(e => ({
+      time: toMs(e.ts) ? new Date(toMs(e.ts)).toLocaleString('he-IL') : '',
+      name: e.name || '', type: ACTIVITY_LABEL[e.type] || e.type,
+      detail: e.type === 'game' ? (GAME_LABEL[e.detail] || e.detail || '') : (e.detail || ''),
+      uid: e.uid || '',
+    }))
+    downloadCSV(`beyahad-activity-${range}-${new Date().toISOString().slice(0, 10)}.csv`, rows)
+  }
 
   // ===== שער הרשאה =====
   if (!isAdmin) {
@@ -181,6 +256,9 @@ export default function AdminDashboard({ onExit }) {
   const totalLikes = posts.reduce((s, p) => s + ((p.likes || []).length), 0)
   const pendingRecipes = pending.filter(p => p.kind === 'recipe').length
   const pendingTips = pending.filter(p => p.kind === 'tip').length
+
+  // ספירות מתוך יומן הפעילות (לטווח הנבחר)
+  const logCounts = log.reduce((a, e) => { a[e.type] = (a[e.type] || 0) + 1; return a }, {})
 
   // הגרסה החיה של המשתמש שפתוח בחלון הפרטים (מתעדכן בזמן אמת)
   const liveSelected = selectedUid ? (users.find(u => u.id === selectedUid) || null) : null
@@ -233,13 +311,62 @@ export default function AdminDashboard({ onExit }) {
               </>
             )}
 
-            {/* ===== פעילות היום ===== */}
-            <div style={sectionTitle}>פעילות היום</div>
+            {/* ===== פעילות (לפי טווח תאריכים) ===== */}
+            <div style={sectionTitle}>פעילות</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {RANGES.map(r => (
+                <button key={r.key} onClick={() => setRange(r.key)} style={{
+                  fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  border: `1.5px solid ${range === r.key ? ACCENT : 'var(--line-strong)'}`,
+                  background: range === r.key ? ACCENT : 'var(--surface)',
+                  color: range === r.key ? '#fff' : 'var(--ink)',
+                  borderRadius: 999, padding: '7px 14px',
+                }}>{r.label}</button>
+              ))}
+            </div>
+            {range === 'custom' && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  מתאריך
+                  <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={dateInputStyle} />
+                </label>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  עד תאריך
+                  <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={dateInputStyle} />
+                </label>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               <StatCard label="מחוברים עכשיו" value={online} accent="#3E6B34" />
-              <StatCard label="קפה בסלון היום" value={stats ? stats.cafeToday : '…'} accent={ACCENT} sub={stats ? `סה״כ ${stats.cafeTotal}` : ''} />
-              <StatCard label="פרלמנט היום" value={stats ? stats.parliamentToday : '…'} accent={ACCENT} sub={stats ? `סה״כ ${stats.parliamentTotal}` : ''} />
+              <StatCard label="קפה בסלון" value={rangeData ? rangeData.cafe : '…'} accent={ACCENT} sub={RANGE_LABEL[range]} />
+              <StatCard label="פרלמנט" value={rangeData ? rangeData.parliament : '…'} accent={ACCENT} sub={RANGE_LABEL[range]} />
+              <StatCard label="שירה בציבור" value={logCounts.singing || 0} accent={ACCENT} sub={RANGE_LABEL[range]} />
+              <StatCard label="משחקים" value={logCounts.game || 0} accent={ACCENT} sub={RANGE_LABEL[range]} />
+              <StatCard label="כניסות" value={logCounts.login || 0} accent={ACCENT} sub={RANGE_LABEL[range]} />
             </div>
+            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.5 }}>
+              קפה ופרלמנט כוללים היסטוריה מלאה. שירה, משחקים וכניסות נאספים מרגע הפעלת היומן ואילך.
+            </div>
+
+            {/* ===== יומן פעילות ===== */}
+            <div style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+              יומן פעילות
+              {log.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>({log.length})</span>}
+              {log.length > 0 && (
+                <button onClick={exportLog} style={{ marginInlineStart: 'auto', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${ACCENT}`, color: ACCENT, background: 'var(--surface)', borderRadius: 9, padding: '5px 10px' }}>⬇️ ייצוא</button>
+              )}
+            </div>
+            {logLoading ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-3)', fontSize: 14 }}>טוען...</div>
+            ) : log.length === 0 ? (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14, fontWeight: 600 }}>
+                אין פעילות מתועדת בטווח הזה
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {log.map(e => <ActivityLogRow key={e.id} e={e} />)}
+              </div>
+            )}
 
             {/* ===== תמונת מצב ===== */}
             <div style={sectionTitle}>תמונת מצב</div>
@@ -309,6 +436,28 @@ function StatCard({ label, value, accent, sub }) {
       <div style={{ fontSize: 24, fontWeight: 900, color: accent || 'var(--ink)', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginTop: 6 }}>{label}</div>
       {sub ? <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 3 }}>{sub}</div> : null}
+    </div>
+  )
+}
+
+// שורה ביומן הפעילות — תג סוג + שם + פירוט + זמן
+function ActivityLogRow({ e }) {
+  const label = ACTIVITY_LABEL[e.type] || e.type
+  const color = ACTIVITY_COLOR[e.type] || '#5E7CA6'
+  const detail = e.type === 'game' ? (GAME_LABEL[e.detail] || e.detail || '') : (e.detail || '')
+  const ms = toMs(e.ts)
+  const when = ms ? new Date(ms).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '8px 12px',
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: color, borderRadius: 7, padding: '3px 9px', flexShrink: 0, minWidth: 62, textAlign: 'center' }}>{label}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name || '—'}</div>
+        {detail ? <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{detail}</div> : null}
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 600, flexShrink: 0, direction: 'ltr' }}>{when}</div>
     </div>
   )
 }
@@ -484,11 +633,12 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
 
         {/* שליחת הודעה כמנהל */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>שליחת הודעה מההנהלה</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>שליחת הודעה למשתמש</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 8 }}>נפתח כצ׳אט — המשתמש יקבל התראה ויוכל להגיב לך</div>
           <textarea
             value={msgText}
             onChange={e => setMsgText(e.target.value)}
-            placeholder="ההודעה תופיע למשתמש בפעמון ההתראות..."
+            placeholder="כתוב הודעה למשתמש..."
             rows={3}
             style={{
               width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', fontSize: 14,
@@ -502,7 +652,7 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
               border: 'none', borderRadius: 12, padding: '11px 18px', background: ACCENT, color: '#fff',
               opacity: (msgSending || !msgText.trim()) ? 0.5 : 1,
             }}>{msgSending ? 'שולח...' : '📤 שלח הודעה'}</button>
-            {msgSent && <span style={{ fontSize: 13, fontWeight: 700, color: '#3E6B34' }}>✓ נשלח</span>}
+            {msgSent && <span style={{ fontSize: 12.5, fontWeight: 700, color: '#3E6B34' }}>✓ נשלח — התשובה תגיע לפעמון שלך</span>}
           </div>
         </div>
 
@@ -529,11 +679,6 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
           border: '1px solid #C0392B', borderRadius: 12, padding: '12px 10px',
           background: 'var(--surface)', color: '#C0392B', opacity: busy ? 0.5 : 1, marginBottom: 14,
         }}>🗑️ מחק משתמש</button>
-
-        {/* רמז על פעילות עתידית */}
-        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.5, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
-          📊 היסטוריית פעילות (משחקים, עם מי שיחק, שיחות קפה) תתווסף כאן בקרוב — היא תתחיל להיאסף מרגע שנוסיף את יומן הפעילות.
-        </div>
 
         <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
       </div>

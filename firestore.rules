@@ -154,5 +154,13 @@ service cloud.firestore {
       allow update, delete: if request.auth != null
         && (isAdmin() || resource.data.toUid == request.auth.uid);
     }
+    // ── יומן פעילות ──
+    // כל משתמש רושם אירועים של עצמו; רק מנהל קורא את היומן.
+    match /activityLog/{id} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
   }
 }

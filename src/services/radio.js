@@ -30,13 +30,23 @@ function normalize(s) {
   }
 }
 
-// מסנן תחנות לא-תקינות (בלי כתובת סטרים) ומסיר כפילויות לפי שם
+// תחנות חסומות — לא יוצגו ולא יקושרו בשום מקום. הסינון לפי חלק מהשם
+// (לא תלוי-רישיות). מחרוזות ספציפיות כדי לא לחסום תחנות אחרות בטעות.
+const BLOCKED_NAME_SUBSTRINGS = ['راديو مكان', 'kan israel makan', 'kan makan']
+
+function isBlockedStation(name) {
+  const n = (name || '').toLowerCase()
+  return BLOCKED_NAME_SUBSTRINGS.some(b => n.includes(b))
+}
+
+// מסנן תחנות לא-תקינות (בלי כתובת סטרים), תחנות חסומות, ומסיר כפילויות לפי שם
 function clean(list) {
   const seen = new Set()
   return list
     .map(normalize)
     .filter(s => {
       if (!s.url) return false
+      if (isBlockedStation(s.name)) return false   // תחנה חסומה — לא מוצגת בשום מקום
       const key = s.name.toLowerCase()
       if (seen.has(key)) return false
       seen.add(key)

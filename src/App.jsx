@@ -36,7 +36,7 @@ import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
-  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser,
+  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser, logActivity,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
@@ -130,6 +130,7 @@ export default function App() {
 
   // משתמש אישר הזמנה למשחק — מנווטים אותו ישר לחדר
   function handleInviteAccept({ roomId, gameType }) {
+    logActivity({ uid: authUser?.uid, name: profile?.name || '', type: 'game', detail: gameType })
     if (gameType === 'connect4') {
       setConnect4Room(roomId)
       setPage('connect4-game')
@@ -163,6 +164,7 @@ export default function App() {
     setPlayFriend(null)
     setGameMode(mode)
     setPage(`${gameType}-game`)
+    logActivity({ uid: authUser?.uid, name: profile?.name || '', type: 'game', detail: gameType })
   }
 
   // ── שיחות וידאו / קול ──
@@ -224,7 +226,10 @@ export default function App() {
 
   // Auto-navigate when LiveKit tokens are set
   useEffect(() => {
-    if (livekitToken) setPage('kafe')
+    if (livekitToken) {
+      setPage('kafe')
+      logActivity({ uid: authUser?.uid, name: profile?.name || '', type: 'cafe' })
+    }
   }, [livekitToken])
 
   useEffect(() => {
@@ -249,6 +254,7 @@ export default function App() {
 
       setParliamentSession({ id: sessionId })
       setParliamentLivekit({ token, room })
+      logActivity({ uid, name: myName, type: 'parliament' })
     } catch (e) {
       console.error('joinParliament error:', e)
       alert('לא הצלחנו להתחבר לפרלמנט.')
@@ -267,6 +273,7 @@ export default function App() {
 
       const token = await fetchLiveKitToken(room, myName)
       setSingingLivekit({ token, room })
+      logActivity({ uid: authUser?.uid, name: myName, type: 'singing' })
     } catch (e) {
       console.error('joinSinging error:', e)
       alert('לא הצלחנו להתחבר לחדר השירה.')

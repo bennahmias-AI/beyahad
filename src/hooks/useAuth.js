@@ -1,8 +1,11 @@
 // src/hooks/useAuth.js
 import { useEffect } from 'react'
 import { onAuthStateChanged } from '../services/firebase.js'
-import { auth, getUser, setPresence, createOrUpdateUser } from '../services/firebase.js'
+import { auth, getUser, setPresence, createOrUpdateUser, logActivity } from '../services/firebase.js'
 import { useUserStore } from '../stores/userStore.js'
+
+// uids שכבר נרשמה להם "כניסה" בטעינת העמוד הזו (מונע רישום כפול)
+const loggedLogins = new Set()
 
 export function useAuth() {
   const { setAuthUser, setProfile, setAuthLoading } = useUserStore()
@@ -39,16 +42,8 @@ export function useAuth() {
         // Sync email from Auth -> Firestore doc, so it appears in the admin board.
         // Phone-auth users have no email (skipped); email-registered users get it stored.
         if (firebaseUser.email && profile && profile.email !== firebaseUser.email) {
-          console.info('[beyahad] syncing email to user doc:', firebaseUser.email)
-          try {
-            await createOrUpdateUser(firebaseUser.uid, { email: firebaseUser.email })
-            console.info('[beyahad] email synced OK')
-          } catch (e) {
-            console.error('[beyahad] email sync failed:', e)
-          }
+          try { await createOrUpdateUser(firebaseUser.uid, { email: firebaseUser.email }) } catch (e) {}
           profile = { ...profile, email: firebaseUser.email }
-        } else {
-          console.info('[beyahad] email sync skipped. authEmail=', firebaseUser.email, ' docEmail=', profile && profile.email)
         }
 
         setProfile(profile)
@@ -56,6 +51,12 @@ export function useAuth() {
 
         // Mark online
         await setPresence(firebaseUser.uid, 'available')
+
+        // רישום "כניסה" ביומן הפעילות — פעם אחת לכל משתמש בטעינת העמוד הזו
+        if (!loggedLogins.has(firebaseUser.uid)) {
+          loggedLogins.add(firebaseUser.uid)
+          logActivity({ uid: firebaseUser.uid, name: profile?.name || '', type: 'login' })
+        }
       } else {
         setAuthUser(null)
         setProfile(null)

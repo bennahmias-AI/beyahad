@@ -153,6 +153,67 @@ export async function getActivityStats() {
   }
 }
 
+// ===== יומן פעילות (activityLog) =====
+// כל אירוע משמעותי נרשם עם חותמת זמן, כדי שהמנהל יוכל לבדוק
+// פעילות לפי טווח תאריכים. נאסף מרגע ההוספה ואילך (אין מידע רטרואקטיבי).
+//   activityLog/{id}: { uid, name, type, detail, ts }
+//   type: 'login' | 'cafe' | 'parliament' | 'singing' | 'game'
+export async function logActivity({ uid, name, type, detail }) {
+  if (!uid || !type) return
+  try {
+    await addDoc(collection(db, 'activityLog'), {
+      uid,
+      name: name || '',
+      type,
+      detail: detail || '',
+      ts: serverTimestamp(),
+    })
+  } catch (e) {
+    // best-effort — רישום פעילות לעולם לא חוסם את הזרימה
+  }
+}
+
+// ספירת שיחות קפה + פרלמנט בטווח תאריכים [fromMs, toMs].
+// משתמש באוספים שנשמרים (יש להם היסטוריה אמיתית גם אחורה).
+export async function getActivityInRange(fromMs, toMs) {
+  const from = new Date(fromMs), to = new Date(toMs)
+  const tally = async (col) => {
+    try {
+      const qy = query(
+        collection(db, col),
+        where('startedAt', '>=', from),
+        where('startedAt', '<=', to),
+      )
+      const snap = await getDocs(qy)
+      return snap.size
+    } catch (e) {
+      console.error(`getActivityInRange ${col}:`, e)
+      return 0
+    }
+  }
+  const [cafe, parliament] = await Promise.all([tally('cafeSessions'), tally('parliamentSessions')])
+  return { cafe, parliament }
+}
+
+// שליפת יומן הפעילות בטווח תאריכים — החדש ביותר קודם.
+// שאילתת טווח על שדה יחיד (ts) + מיון על אותו שדה — ללא composite index.
+export async function getActivityLog(fromMs, toMs, max = 400) {
+  try {
+    const qy = query(
+      collection(db, 'activityLog'),
+      where('ts', '>=', new Date(fromMs)),
+      where('ts', '<=', new Date(toMs)),
+      orderBy('ts', 'desc'),
+      limit(max),
+    )
+    const snap = await getDocs(qy)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  } catch (e) {
+    console.error('getActivityLog error:', e)
+    return []
+  }
+}
+
 // ===== התראות ניהול / מערכת (notifications) =====
 // אוסף שאליו מנהל כותב התראה אישית למשתמש (אישור/דחיית
 // תוכן, או הודעה מההנהלה). המשתמש קורא רק את אלו שמיועדות לו (toUid).
