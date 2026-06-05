@@ -214,6 +214,29 @@ export async function getActivityLog(fromMs, toMs, max = 400) {
   }
 }
 
+// שליפת יומן הפעילות של משתמש ספציפי בטווח תאריכים.
+// כדי לא לדרוש composite index (uid + ts), מסננים לפי uid בצד הלקוח
+// על תוצאת שאילתת הטווח. max גבוה יותר כי מסננים אחרי השליפה.
+export async function getActivityLogForUser(uid, fromMs, toMs, max = 800) {
+  if (!uid) return []
+  try {
+    const qy = query(
+      collection(db, 'activityLog'),
+      where('ts', '>=', new Date(fromMs)),
+      where('ts', '<=', new Date(toMs)),
+      orderBy('ts', 'desc'),
+      limit(max),
+    )
+    const snap = await getDocs(qy)
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => e.uid === uid)
+  } catch (e) {
+    console.error('getActivityLogForUser error:', e)
+    return []
+  }
+}
+
 // ===== התראות ניהול / מערכת (notifications) =====
 // אוסף שאליו מנהל כותב התראה אישית למשתמש (אישור/דחיית
 // תוכן, או הודעה מההנהלה). המשתמש קורא רק את אלו שמיועדות לו (toUid).

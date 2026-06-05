@@ -6,7 +6,7 @@ import {
   watchAllUsers, getAllCommunityPosts,
   setUserRole, setUserBlocked,
   watchPendingPosts, setPostApproval, deleteCommunityPost,
-  getActivityInRange, getActivityLog,
+  getActivityInRange, getActivityLog, getActivityLogForUser,
   sendUserNotification, adminDeleteUser, sendDirectMessage,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
@@ -109,6 +109,7 @@ export default function AdminDashboard({ onExit }) {
   const [rangeData, setRangeData] = useState(null)   // { cafe, parliament } לטווח
   const [log, setLog] = useState([])                 // אירועי יומן הפעילות לטווח
   const [logLoading, setLogLoading] = useState(true)
+  const [logModalOpen, setLogModalOpen] = useState(false)   // חלון יומן הפעילות המלא
 
   useEffect(() => {
     if (!isAdmin) return
@@ -313,29 +314,7 @@ export default function AdminDashboard({ onExit }) {
 
             {/* ===== פעילות (לפי טווח תאריכים) ===== */}
             <div style={sectionTitle}>פעילות</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-              {RANGES.map(r => (
-                <button key={r.key} onClick={() => setRange(r.key)} style={{
-                  fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  border: `1.5px solid ${range === r.key ? ACCENT : 'var(--line-strong)'}`,
-                  background: range === r.key ? ACCENT : 'var(--surface)',
-                  color: range === r.key ? '#fff' : 'var(--ink)',
-                  borderRadius: 999, padding: '7px 14px',
-                }}>{r.label}</button>
-              ))}
-            </div>
-            {range === 'custom' && (
-              <div style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  מתאריך
-                  <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={dateInputStyle} />
-                </label>
-                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  עד תאריך
-                  <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={dateInputStyle} />
-                </label>
-              </div>
-            )}
+            <RangePicker range={range} setRange={setRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               <StatCard label="מחוברים עכשיו" value={online} accent="#3E6B34" />
               <StatCard label="קפה בסלון" value={rangeData ? rangeData.cafe : '…'} accent={ACCENT} sub={RANGE_LABEL[range]} />
@@ -348,25 +327,16 @@ export default function AdminDashboard({ onExit }) {
               קפה ופרלמנט כוללים היסטוריה מלאה. שירה, משחקים וכניסות נאספים מרגע הפעלת היומן ואילך.
             </div>
 
-            {/* ===== יומן פעילות ===== */}
-            <div style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
-              יומן פעילות
-              {log.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)' }}>({log.length})</span>}
-              {log.length > 0 && (
-                <button onClick={exportLog} style={{ marginInlineStart: 'auto', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${ACCENT}`, color: ACCENT, background: 'var(--surface)', borderRadius: 9, padding: '5px 10px' }}>⬇️ ייצוא</button>
-              )}
-            </div>
-            {logLoading ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-3)', fontSize: 14 }}>טוען...</div>
-            ) : log.length === 0 ? (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14, fontWeight: 600 }}>
-                אין פעילות מתועדת בטווח הזה
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {log.map(e => <ActivityLogRow key={e.id} e={e} />)}
-              </div>
-            )}
+            {/* ===== יומן פעילות — כפתור שפותח חלון ===== */}
+            <div style={sectionTitle}>יומן פעילות</div>
+            <button onClick={() => setLogModalOpen(true)} style={{
+              width: '100%', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              border: `1px solid ${ACCENT}`, color: ACCENT, background: 'var(--surface)',
+              borderRadius: 12, padding: '14px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              📋 פתח יומן פעילות{!logLoading && log.length > 0 ? ` (${log.length})` : ''}
+            </button>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.5 }}>רשימה כרונולוגית של כל הפעילות בטווח שנבחר. אפשר לסנן גם בתוך החלון.</div>
 
             {/* ===== תמונת מצב ===== */}
             <div style={sectionTitle}>תמונת מצב</div>
@@ -409,6 +379,18 @@ export default function AdminDashboard({ onExit }) {
           </>
         )}
       </div>
+
+      {/* ===== חלון יומן פעילות מלא ===== */}
+      {logModalOpen && (
+        <ActivityLogModal
+          range={range} setRange={setRange}
+          customFrom={customFrom} setCustomFrom={setCustomFrom}
+          customTo={customTo} setCustomTo={setCustomTo}
+          log={log} logLoading={logLoading}
+          onExport={exportLog}
+          onClose={() => setLogModalOpen(false)}
+        />
+      )}
 
       {/* ===== חלון פרטי משתמש ===== */}
       {liveSelected && (
@@ -458,6 +440,113 @@ function ActivityLogRow({ e }) {
         {detail ? <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{detail}</div> : null}
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 600, flexShrink: 0, direction: 'ltr' }}>{when}</div>
+    </div>
+  )
+}
+
+// בורר טווח תאריכים — כפתורי טווח + בחירת תאריכים מותאמת (משמש בכמה מקומות)
+function RangePicker({ range, setRange, customFrom, setCustomFrom, customTo, setCustomTo }) {
+  return (
+    <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {RANGES.map(r => (
+          <button key={r.key} onClick={() => setRange(r.key)} style={{
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            border: `1.5px solid ${range === r.key ? ACCENT : 'var(--line-strong)'}`,
+            background: range === r.key ? ACCENT : 'var(--surface)',
+            color: range === r.key ? '#fff' : 'var(--ink)',
+            borderRadius: 999, padding: '7px 14px',
+          }}>{r.label}</button>
+        ))}
+      </div>
+      {range === 'custom' && (
+        <div style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            מתאריך
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={dateInputStyle} />
+          </label>
+          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            עד תאריך
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={dateInputStyle} />
+          </label>
+        </div>
+      )}
+    </>
+  )
+}
+
+// חלון יומן פעילות מלא (בבורד הראשי) — בורר טווח + רשימה + ייצוא.
+// חולק את ה-state של הטווח עם קטע "פעילות" — שינוי טווח כאן מעדכן גם את הכרטיסים.
+function ActivityLogModal({ range, setRange, customFrom, setCustomFrom, customTo, setCustomTo, log, logLoading, onExport, onClose }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1002, background: 'rgba(20,23,42,0.55)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--bg-app)', borderRadius: '24px 24px 0 0',
+        padding: '22px 20px calc(22px + env(safe-area-inset-bottom))',
+        width: '100%', maxWidth: 430, maxHeight: '90vh', overflowY: 'auto', direction: 'rtl',
+      }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--line-strong)', margin: '0 auto 18px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>יומן פעילות</div>
+          {!logLoading && log.length > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)' }}>({log.length})</span>}
+          {!logLoading && log.length > 0 && (
+            <button onClick={onExport} style={{ marginInlineStart: 'auto', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: `1px solid ${ACCENT}`, color: ACCENT, background: 'var(--surface)', borderRadius: 9, padding: '6px 12px' }}>⬇️ ייצוא</button>
+          )}
+        </div>
+        <RangePicker range={range} setRange={setRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />
+        {logLoading ? (
+          <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-3)', fontSize: 14 }}>טוען...</div>
+        ) : log.length === 0 ? (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14, fontWeight: 600 }}>
+            אין פעילות מתועדת בטווח הזה
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {log.map(e => <ActivityLogRow key={e.id} e={e} />)}
+          </div>
+        )}
+        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%', marginTop: 16 }}>סגור</button>
+      </div>
+    </div>
+  )
+}
+
+// יומן פעילות אישי בתוך חלון המשתמש — טווח עצמאי, מסונן ל-uid.
+function UserActivityLog({ uid, name }) {
+  const [range, setRange] = useState('week')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [log, setLog] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    const [fromMs, toMs] = rangeBounds(range, customFrom, customTo)
+    getActivityLogForUser(uid, fromMs, toMs)
+      .then(lg => { if (alive) { setLog(lg); setLoading(false) } })
+      .catch(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [uid, range, customFrom, customTo])
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>יומן פעילות של {name}</div>
+      <RangePicker range={range} setRange={setRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 16, color: 'var(--ink-3)', fontSize: 13 }}>טוען...</div>
+      ) : log.length === 0 ? (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 13, fontWeight: 600 }}>
+          אין פעילות מתועדת בטווח הזה
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
+          {log.map(e => <ActivityLogRow key={e.id} e={e} />)}
+        </div>
+      )}
     </div>
   )
 }
@@ -679,6 +768,9 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
           border: '1px solid #C0392B', borderRadius: 12, padding: '12px 10px',
           background: 'var(--surface)', color: '#C0392B', opacity: busy ? 0.5 : 1, marginBottom: 14,
         }}>🗑️ מחק משתמש</button>
+
+        {/* יומן פעילות אישי של המשתמש */}
+        <UserActivityLog uid={u.id} name={fullName(u)} />
 
         <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
       </div>
