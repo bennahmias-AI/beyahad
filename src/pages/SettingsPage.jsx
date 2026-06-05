@@ -20,6 +20,7 @@ import {
 import {
   getAccessibilitySettings, setAccessibilitySetting,
 } from '../utils/accessibility.js'
+import { isStandalone, isIOS, canPrompt, subscribe, promptInstall } from '../utils/pwaInstall.js'
 import {
   IconBackRTL, IconSpeaker, IconText, IconBell, IconHeart, IconBook,
 } from '../icons/index.jsx'
@@ -40,6 +41,7 @@ export default function SettingsPage({ onBack, onHome }) {
       </div>
 
       <div style={{ padding: '8px 20px 40px' }}>
+        <InstallAppSection />
         <AccessibilitySection />
         <NotificationsSection uid={authUser?.uid} />
         <PrivacySection uid={authUser?.uid} />
@@ -75,6 +77,131 @@ const cardStyle = {
   background: 'var(--surface)', border: '1px solid var(--line)',
   borderRadius: 18, padding: '16px 18px', marginBottom: 24,
   boxShadow: 'var(--shadow-sm)',
+}
+
+// ════════════════════════════════════════════
+// 0. התקנת האפליקציה — כפתור קבוע (תמיד זמין)
+// ═════════════════════════════════════════════
+function InstallAppSection() {
+  const [installed, setInstalled] = useState(() => isStandalone())
+  const [showHelp, setShowHelp] = useState(false)
+
+  useEffect(() => {
+    const unsub = subscribe(() => setInstalled(isStandalone()))
+    return unsub
+  }, [])
+
+  const handleInstall = async () => {
+    if (canPrompt()) {
+      const res = await promptInstall()
+      if (res === 'accepted') setInstalled(true)
+      else if (res === 'unavailable') setShowHelp(true)
+      // 'dismissed' — המשתמש סגר את הדיאלוג, לא עושים כלום
+    } else {
+      // אין דיאלוג מקורי (אייפון, או דפדפן ללא תמיכה) — מציגים הוראות
+      setShowHelp(true)
+    }
+  }
+
+  return (
+    <>
+      <SectionTitle
+        icon={<span style={{ fontSize: 22 }}>📲</span>}
+        title="התקנת האפליקציה"
+        subtitle="גישה מהירה ממסך הבית, בלי דפדפן"
+      />
+      <div style={cardStyle}>
+        {installed ? (
+          <div style={{
+            fontSize: 15, fontWeight: 800, color: 'var(--success)',
+            display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.5,
+          }}>
+            <span style={{ fontSize: 20 }}>✓</span>
+            האפליקציה כבר מותקנת במכשיר הזה
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.6, marginBottom: 16 }}>
+              מתקינים את "ביחד" על הטלפון כמו אפליקציה רגילה — אייקון במסך הבית, פתיחה מהירה, ובלי לחפש את הקישור כל פעם.
+            </div>
+            <button
+              onClick={handleInstall}
+              className="big-btn big-btn--primary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <span style={{ fontSize: 20 }}>📲</span>
+              התקנת האפליקציה
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              style={{
+                width: '100%', marginTop: 10, padding: '10px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--ink-3)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+              }}
+            >
+              איך מתקינים? הסבר שלב-אחר-שלב
+            </button>
+          </>
+        )}
+      </div>
+
+      {showHelp && <InstallInstructionsModal onClose={() => setShowHelp(false)} />}
+    </>
+  )
+}
+
+// הוראות התקנה ידניות לפי סוג המכשיר
+function InstallInstructionsModal({ onClose }) {
+  const ios = isIOS()
+  const android = !ios && /Android/i.test(navigator.userAgent || '')
+
+  const steps = ios
+    ? [
+        'פתחו את האתר בדפדפן Safari.',
+        'לחצו על כפתור השיתוף ⬆️ (ריבוע עם חץ למעלה) בתחתית המסך.',
+        'גללו ובחרו "הוסף למסך הבית" (Add to Home Screen).',
+        'לחצו "הוסף" — האייקון יופיע במסך הבית.',
+      ]
+    : android
+    ? [
+        'פתחו את האתר בדפדפן Chrome.',
+        'לחצו על תפריט שלוש הנקודות ⋮ בפינה העליונה.',
+        'בחרו "התקנת האפליקציה" או "הוספה למסך הבית".',
+        'אשרו — האייקון יופיע במסך הבית.',
+      ]
+    : [
+        'פתחו את התפריט של הדפדפן.',
+        'חפשו "התקן אפליקציה" / "Install" או "הוסף למסך הבית".',
+        'אשרו — האפליקציה תיפתח כמו תוכנה רגילה.',
+      ]
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 2000, padding: 24, direction: 'rtl',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24,
+        padding: '26px 22px 22px', maxWidth: 380, width: '100%',
+        boxShadow: 'var(--shadow-lg)',
+      }}>
+        <div style={{ fontSize: 44, textAlign: 'center', marginBottom: 8 }}>📲</div>
+        <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', textAlign: 'center', marginBottom: 16 }}>
+          התקנת האפליקציה
+        </div>
+        <ol style={{ margin: 0, paddingInlineStart: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {steps.map((s, i) => (
+            <li key={i} style={{ fontSize: 15, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.5 }}>{s}</li>
+          ))}
+        </ol>
+        <button onClick={onClose} className="big-btn big-btn--primary" style={{ width: '100%', marginTop: 20 }}>
+          הבנתי
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ════════════════════════════════════════════════════════

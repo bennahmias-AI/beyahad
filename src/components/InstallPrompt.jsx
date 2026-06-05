@@ -2,30 +2,30 @@
 // ─────────────────────────────────────────────────────────────
 // באנר עדין שמציע למשתמש להתקין את "ביחד" כאפליקציה.
 //
-// • באנדרואיד/כרום — תופס את אירוע beforeinstallprompt ומציג
-//   כפתור "התקן" שמפעיל את הדיאלוג המקורי.
-// • באייפון (סאפారי) — אין אירוע כזה, אז מציג הנחיה ידנית
+// • באנדרואיד/כרום — משתמש באירוע beforeinstallprompt שנתפס מוקדם
+//   (utils/pwaInstall) ומציג כפתור "התקן" שמפעיל את הדיאלוג המקורי.
+// • באייפון (סאפארי) — אין אירוע כזה, אז מציג הנחיה ידנית
 //   ("שתף → הוסף למסך הבית").
 // • נסגר ל-30 יום אם המשתמש בחר "אחר כך", ולא מוצג כלל אם
 //   האפליקציה כבר מותקנת.
+//
+// הערה: יש גם כפתור התקנה קבוע במסך ההגדרות (InstallAppSection)
+// שתמיד זמין — הבאנר הזה הוא רק תזכורת עדינה וחד-פעמית.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import AppLogo from './AppLogo.jsx'
+import { isStandalone, isIOS, canPrompt, subscribe, promptInstall } from '../utils/pwaInstall.js'
 
 const SNOOZE_KEY = 'beyahad_install_snooze'
 const SNOOZE_DAYS = 30
 
 export default function InstallPrompt() {
-  const [deferredEvent, setDeferredEvent] = useState(null)
   const [show, setShow] = useState(false)
-  const [isIOS, setIsIOS] = useState(false)
+  const [ios, setIos] = useState(false)
 
   useEffect(() => {
-    // already installed? (running in standalone) — never show
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true
-    if (standalone) return
+    // already installed? — never show
+    if (isStandalone()) return
 
     // snoozed recently? — don't show
     try {
@@ -33,24 +33,17 @@ export default function InstallPrompt() {
       if (snoozedUntil && Date.now() < snoozedUntil) return
     } catch (e) { /* localStorage blocked — ignore */ }
 
-    // detect iOS Safari (no beforeinstallprompt there)
-    const ua = window.navigator.userAgent
-    const iOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream
-    if (iOS) {
-      setIsIOS(true)
-      // show the manual hint after a short delay
+    // iOS — no install event; show the manual hint after a short delay
+    if (isIOS()) {
+      setIos(true)
       const t = setTimeout(() => setShow(true), 3000)
       return () => clearTimeout(t)
     }
 
-    // Android / Chrome — wait for the install event
-    const onBeforeInstall = (e) => {
-      e.preventDefault()
-      setDeferredEvent(e)
-      setShow(true)
-    }
-    window.addEventListener('beforeinstallprompt', onBeforeInstall)
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+    // Android / Chrome — show as soon as the install event is available
+    if (canPrompt()) setShow(true)
+    const unsub = subscribe(() => { if (canPrompt()) setShow(true) })
+    return unsub
   }, [])
 
   const snooze = () => {
@@ -61,10 +54,7 @@ export default function InstallPrompt() {
   }
 
   const install = async () => {
-    if (!deferredEvent) return
-    deferredEvent.prompt()
-    try { await deferredEvent.userChoice } catch (e) { /* ignore */ }
-    setDeferredEvent(null)
+    await promptInstall()
     setShow(false)
   }
 
@@ -105,7 +95,7 @@ export default function InstallPrompt() {
           </div>
         </div>
 
-        {isIOS ? (
+        {ios ? (
           <>
             <div style={{
               fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5,

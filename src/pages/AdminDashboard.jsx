@@ -605,7 +605,7 @@ function UserRow({ u, busy, onOpen, onRole, onBlock }) {
         background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right', padding: '4px 2px',
       }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <Avatar name={fullName(u)} size={40} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} />
+          <Avatar name={fullName(u)} size={40} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} seed={u.id} gender={u.gender} />
           {online && (
             <span style={{
               position: 'absolute', bottom: -1, left: -1,
@@ -687,7 +687,7 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
         {/* כותרת — אווטאר + שם מלא + תגיות + מצב חיבור */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <Avatar name={fullName(u)} size={56} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} />
+            <Avatar name={fullName(u)} size={56} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} seed={u.id} gender={u.gender} />
             <span style={{
               position: 'absolute', bottom: 0, left: 0,
               width: 16, height: 16, borderRadius: '50%', background: online ? '#3E6B34' : '#C2C2C2', border: '3px solid var(--bg-app)',

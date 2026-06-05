@@ -236,7 +236,7 @@ export default function AdminDashboardDesktop({ onExit }) {
 
   return (
     <div style={overlay}>
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '26px 36px 70px' }}>
+      <div style={{ width: '100%', margin: '0 auto', padding: '26px 48px 70px' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -486,7 +486,7 @@ function UserTableRow({ u, busy, onOpen, onRole, onBlock }) {
       <td style={{ padding: '9px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <Avatar name={fullName(u)} size={36} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} />
+            <Avatar name={fullName(u)} size={36} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} seed={u.id} gender={u.gender} />
             {online && <span style={{ position: 'absolute', bottom: -1, left: -1, width: 11, height: 11, borderRadius: '50%', background: '#3E6B34', border: '2px solid var(--surface)' }} />}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -555,7 +555,7 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-app)', borderRadius: 20, padding: '24px 26px', width: '100%', maxWidth: 560, maxHeight: '88vh', overflowY: 'auto', direction: 'rtl', boxShadow: 'var(--shadow-lg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <Avatar name={fullName(u)} size={56} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} />
+            <Avatar name={fullName(u)} size={56} color={ROLE_COLOR[role]} photoURL={u.photoURL || null} seed={u.id} gender={u.gender} />
             <span style={{ position: 'absolute', bottom: 0, left: 0, width: 16, height: 16, borderRadius: '50%', background: online ? '#3E6B34' : '#C2C2C2', border: '3px solid var(--bg-app)' }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>

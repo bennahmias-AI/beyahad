@@ -140,6 +140,12 @@ const TEXT_COLORS = [
   { id: 'teal',   name: 'טורקיז',  hex: '#2C7A7B' },
   { id: 'pink',   name: 'ורוד',    hex: '#D6498B' },
   { id: 'green',  name: 'ירוק',    hex: '#3E8E5A' },
+  { id: 'red',     name: 'אדום',   hex: '#D7263D' },
+  { id: 'orange',  name: 'כתום',   hex: '#E8841A' },
+  { id: 'purple',  name: 'סגול',   hex: '#7E3FF2' },
+  { id: 'sky',     name: 'תכלת',   hex: '#2E9BD6' },
+  { id: 'brown',   name: 'חום',    hex: '#6E4B2A' },
+  { id: 'silver',  name: 'כסף',    hex: '#9AA3AD' },
 ]
 
 // ══════════════════════════════════════════════════════════
@@ -365,6 +371,8 @@ export default function GreetingMaker({ onBack, onHome }) {
   const [textColorId, setTextColorId] = useState('auto')
   // האם להציג את השם של המאחל (ברירת מחדל: כן, אם יש שם בפרופיל)
   const [showSender, setShowSender] = useState(true)
+  // בלוקי טקסט נוספים שהמשתמש מוסיף — מופיעים מתחת לטקסט הראשי
+  const [extraTexts, setExtraTexts] = useState([])
 
   const goBack = () => step === 'design' ? setStep('text') : onBack()
 
@@ -410,6 +418,7 @@ export default function GreetingMaker({ onBack, onHome }) {
           sizeId={sizeId} setSizeId={setSizeId}
           effectId={effectId} setEffectId={setEffectId}
           textColorId={textColorId} setTextColorId={setTextColorId}
+          extraTexts={extraTexts} setExtraTexts={setExtraTexts}
         />
       )}
     </div>
@@ -505,11 +514,15 @@ function DesignStep({
   templateId, setTemplateId,
   paletteId, setPaletteId, fontId, setFontId, sizeId, setSizeId,
   effectId, setEffectId, textColorId, setTextColorId,
+  extraTexts = [], setExtraTexts,
 }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   // איזו לשונית פתוחה ב-bottom sheet (null = סגור)
   const [activeTab, setActiveTab] = useState(null)
+  // צבע מותאם אישית (מבורר הצבעים המלא) + ref לפתיחתו
+  const [customColor, setCustomColor] = useState('#D4A437')
+  const colorInputRef = useRef(null)
 
   // מזריק את כל הפונטים ל-<head> פעם אחת בכניסה למסך,
   // ואז מבקש מהדפדפן לטעון אותם — כדי שיהיו זמינים בתוך הגרפיקה.
@@ -576,7 +589,9 @@ function DesignStep({
   const font = FONTS.find(f => f.id === fontId) || FONTS[0]
   const size = TEXT_SIZES.find(s => s.id === sizeId) || TEXT_SIZES[1]
   const effect = TEXT_EFFECTS.find(e => e.id === effectId) || TEXT_EFFECTS[0]
-  const textColor = TEXT_COLORS.find(c => c.id === textColorId) || TEXT_COLORS[0]
+  const textColor = textColorId === 'custom'
+    ? { id: 'custom', name: 'מותאם', hex: customColor }
+    : (TEXT_COLORS.find(c => c.id === textColorId) || TEXT_COLORS[0])
   const tpl = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0]
   // השם מוצג רק אם המשתמש בחר להציג אותו (ויש לו שם בפרופיל)
   const cardName = (showSender && senderName) ? senderName.trim() : ''
@@ -599,11 +614,50 @@ function DesignStep({
     applyTemplate(templateId)
   }, [])
 
-  // היסט אנכי נפרד לטקסט הראשי ולשם (בפיקסלי SVG, טווח 1080)
-  const [offsetYText, setOffsetYText] = useState(0)
+  // מיקום הטקסט הראשי (היסט מברירת המחדל, בפיקסלי SVG בטווח 1080)
+  const [mainPos, setMainPos] = useState({ dx: 0, dy: 0 })
+  // איזה בלוק נבחר/נגרר: 'main' | אינדקס טקסט נוסף | null
+  const [selected, setSelected] = useState(null)
 
-  // כשמחליפים תבנית/רקע — מאפסים את ההיסט
-  useEffect(() => { setOffsetYText(0) }, [templateId, bgId])
+  // החלפת תבנית משנה את אזור ברירת המחדל של הטקסט הראשי — מאפסים את מיקומו
+  useEffect(() => { setMainPos({ dx: 0, dy: 0 }) }, [templateId])
+
+  // פריסת בלוקי הטקסט (ראשי + נוספים) — מקור אמת יחיד לתצוגה, לשמירה ולגרירה
+  const W = 1080, H = 1080
+  const baseInk = bg ? bg.ink : palette.ink
+  const ink = (textColor && textColor.hex) ? textColor.hex : baseInk
+  const effId = (effect && effect.id) || 'none'
+  // גודל הטקסט הראשי לפי אורך + סקייל
+  let mainFont = (() => {
+    const n = (text || '').trim().length
+    return n > 80 ? 50 : n > 50 ? 60 : n > 26 ? 72 : n > 16 ? 88 : 104
+  })()
+  mainFont = Math.round(mainFont * size.scale)
+  {
+    const tmp = wrapText((text || '').trim(), Math.floor(760 / (mainFont * 0.56)))
+    if (tmp.length > 4) mainFont = Math.max(40, mainFont - (tmp.length - 4) * 8)
+  }
+  const zone = (tpl && tpl.textZone) || 'center'
+  const mainCenterY0 = zone === 'top' ? H * 0.27 : zone === 'bottom' ? H * 0.72 : H * 0.50
+  const extraFont = Math.max(34, Math.round(mainFont * 0.5))
+
+  // בונה בלוק טקסט: שורות גלושות סביב מרכז (centerX, centerY)
+  const makeBlock = (kind, idx, str, fontPx, centerX, centerY) => {
+    const lines = wrapText((str || '').trim(), Math.floor(760 / (fontPx * 0.56)))
+    const lineHeight = fontPx * 1.32
+    const blockHeight = lines.length * lineHeight
+    const firstLineY = centerY - blockHeight / 2 + lineHeight / 2
+    const maxChars = Math.max(1, ...lines.map(l => l.length))
+    const halfW = Math.min(W / 2 - 16, maxChars * fontPx * 0.3)
+    return { kind, idx, lines, fontPx, centerX, centerY, lineHeight, blockHeight, firstLineY, halfW }
+  }
+
+  const blocks = []
+  blocks.push(makeBlock('main', -1, text, mainFont, W / 2 + mainPos.dx, mainCenterY0 + mainPos.dy))
+  ;(extraTexts || []).forEach((ex, i) => {
+    if (!ex || !((ex.text || '').trim())) return
+    blocks.push(makeBlock('extra', i, ex.text, extraFont, W / 2 + (ex.dx || 0), H * 0.66 + i * 132 + (ex.dy || 0)))
+  })
 
   // ── גרירה ──────────────────────────────────────
   // שתי ידיות נפרדות: אחת לטקסט הראשי, אחת לשם.
@@ -612,24 +666,45 @@ function DesignStep({
   const previewRef = useRef(null)
   const dragRef = useRef(null)
 
-  const clampOffset = (v) => Math.max(-380, Math.min(380, v))
+  const clampPos = (v) => Math.max(-470, Math.min(470, v))
 
-  const onDragStart = (clientY) => {
-    dragRef.current = {
-      startY: clientY,
-      startOffset: offsetYText,
+  // מאתר את הבלוק הקרוב ביותר לנקודת מגע (בקואורדינטות SVG)
+  const blockAt = (sx, sy) => {
+    let best = null, bestD = Infinity
+    for (const b of blocks) {
+      const d = Math.hypot(sx - b.centerX, sy - b.centerY)
+      if (d < bestD) { bestD = d; best = b }
     }
+    return best
   }
-  const onDragMove = (clientY) => {
+
+  const onDragStart = (clientX, clientY) => {
+    if (!previewRef.current) return
+    const rect = previewRef.current.getBoundingClientRect()
+    const sx = (clientX - rect.left) * (1080 / rect.width)
+    const sy = (clientY - rect.top) * (1080 / rect.height)
+    const b = blockAt(sx, sy)
+    if (!b) return
+    const key = b.kind === 'main' ? 'main' : b.idx
+    setSelected(key)
+    const cur = b.kind === 'main' ? mainPos : (extraTexts[b.idx] || { dx: 0, dy: 0 })
+    dragRef.current = { kind: b.kind, idx: b.idx, startX: clientX, startY: clientY, startDx: cur.dx || 0, startDy: cur.dy || 0 }
+  }
+  const onDragMove = (clientX, clientY) => {
     if (!dragRef.current || !previewRef.current) return
     const rect = previewRef.current.getBoundingClientRect()
-    const scale = 1080 / rect.height
-    const deltaPx = (clientY - dragRef.current.startY) * scale
-    setOffsetYText(clampOffset(dragRef.current.startOffset + deltaPx))
+    const dx = clampPos(dragRef.current.startDx + (clientX - dragRef.current.startX) * (1080 / rect.width))
+    const dy = clampPos(dragRef.current.startDy + (clientY - dragRef.current.startY) * (1080 / rect.height))
+    if (dragRef.current.kind === 'main') {
+      setMainPos({ dx, dy })
+    } else {
+      const i = dragRef.current.idx
+      setExtraTexts(extraTexts.map((x, j) => j === i ? { ...x, dx, dy } : x))
+    }
   }
   const onDragEnd = () => { dragRef.current = null }
 
-  const svg = buildSVG({ text, cardName, senderVerb, tpl, palette, font, size, bg, offsetYText, effect, textColor })
+  const svg = buildCardSVG({ blocks, selected, cardName, senderVerb, palette, font, bg, ink, effId })
 
   // תמונת תצוגה מקדימה לתבנית: משתמשת ברקע מתאים לטקסט הברכה אם יש.
   // התבנית המשתנה היא בסגנון (פונט/אפקט/צבע), אז מספיק לתת תצוגה
@@ -677,41 +752,19 @@ function DesignStep({
 
     // ── טקסט ראשי ──
     // גלישת טקסט + גודל
-    const len = text.trim().length
-    let bigFont = len > 80 ? 50 : len > 50 ? 60 : len > 26 ? 72 : len > 16 ? 88 : 104
-    bigFont = Math.round(bigFont * size.scale)
-    const maxCharsPerLine = Math.floor(760 / (bigFont * 0.56))
-    const lines = wrapText(text.trim(), maxCharsPerLine)
-    let actualFont = bigFont
-    if (lines.length > 4) actualFont = Math.max(40, bigFont - (lines.length - 4) * 8)
-    const lineHeight = actualFont * 1.32
-    const blockHeight = lines.length * lineHeight
-
-    // מיקום אנכי לפי textZone
-    const zone = (tpl && tpl.textZone) || 'center'
-    const centerY = zone === 'top'    ? H * 0.27
-                  : zone === 'bottom' ? H * 0.72
-                  : H * 0.50
-    const firstLineY = centerY - blockHeight / 2 + lineHeight / 2 + offsetYText
-
-    // צבע הטקסט
-    const baseInk = bg ? bg.ink : palette.ink
-    const ink = (textColor && textColor.hex) ? textColor.hex : baseInk
-
-    // המשפחת הפונט ל-Canvas
     const fam = (font.css.match(/'([^']+)'/) || [])[1] || font.css
-    ctx.font = `${font.weight} ${actualFont}px "${fam}", serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
     ctx.direction = 'rtl'
+    for (const b of blocks) {
+      ctx.font = `${font.weight} ${b.fontPx}px "${fam}", serif`
+      b.lines.forEach((ln, i) => {
+        drawTextWithEffect(ctx, ln, b.centerX, b.firstLineY + i * b.lineHeight, ink, effId, b.fontPx)
+      })
+    }
 
-    // מצייר כל שורה עם האפקט המתאים
-    const effId = (effect && effect.id) || 'none'
-    lines.forEach((ln, i) => {
-      const x = W / 2
-      const y = firstLineY + i * lineHeight
-      drawTextWithEffect(ctx, ln, x, y, ink, effId, actualFont)
-    })
+    // ── טקסטים נוספים — מתחת לטקסט הראשי ──
+    const extraClean = []
 
     // ── שם המאחל — מוצג מעל הכיתוב השיווקי, עם קו-מתאר לבן לקריאות על כל רקע ──
     if (cardName) {
@@ -873,8 +926,8 @@ function DesignStep({
           position: 'relative',
           touchAction: 'none', cursor: 'grab',
         }}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientY) }}
-          onPointerMove={e => onDragMove(e.clientY)}
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientX, e.clientY) }}
+          onPointerMove={e => onDragMove(e.clientX, e.clientY)}
           onPointerUp={onDragEnd}
           onPointerCancel={onDragEnd}
         >
@@ -894,7 +947,7 @@ function DesignStep({
         alignItems: 'center', padding: '0 16px 8px',
         fontSize: 12, fontWeight: 600, color: 'var(--ink-3)',
       }}>
-        <span>👆 גררו למיקום מועדף</span>
+        <span>👆 געו בטקסט וגררו לכל מקום</span>
       </div>
 
       {/* ─── סרגל לשוניות תחתון ─── */}
@@ -1076,6 +1129,47 @@ function DesignStep({
                   </button>
                 </div>
               )}
+
+              {/* טקסטים נוספים — בלוקים שיופיעו מתחת לטקסט הראשי */}
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {extraTexts.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <textarea
+                      value={t.text || ''}
+                      onChange={e => { const v = e.target.value.slice(0, MAX_TEXT); setExtraTexts(extraTexts.map((x, j) => j === i ? { ...x, text: v } : x)) }}
+                      rows={1}
+                      maxLength={MAX_TEXT}
+                      placeholder="טקסט נוסף..."
+                      style={{
+                        flex: 1, fontSize: 15, fontFamily: 'inherit',
+                        padding: '9px 11px', borderRadius: 10,
+                        border: '1.5px solid var(--line-strong)',
+                        background: 'var(--bg-app)', color: 'var(--ink)',
+                        direction: 'rtl', resize: 'none', lineHeight: 1.4,
+                      }}
+                    />
+                    <button onClick={() => setExtraTexts(extraTexts.filter((_, j) => j !== i))}
+                      aria-label="הסר טקסט נוסף" style={{
+                        width: 38, height: 38, flexShrink: 0, borderRadius: 10,
+                        background: 'var(--surface)', border: '1px solid var(--line)',
+                        color: 'var(--burgundy)', fontSize: 18, cursor: 'pointer', lineHeight: 1,
+                      }}>×</button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setExtraTexts([...extraTexts, { text: '', dx: 0, dy: 0 }])}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    width: '100%', padding: '11px', borderRadius: 10,
+                    background: 'var(--surface)', border: '1.5px dashed var(--burgundy)',
+                    color: 'var(--burgundy)', fontSize: 15, fontWeight: 700,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1 }}>+</span>
+                  הוספת טקסט נוסף
+                </button>
+              </div>
             </div>
           )}
 
@@ -1118,25 +1212,62 @@ function DesignStep({
 
           {activeTab === 'color' && (
             <HScroll>
-              {TEXT_COLORS.map(c => (
+              {/* בורר צבע מלא — כל צבע אפשרי (ראשון) */}
+              <button
+                onClick={() => colorInputRef.current?.click()}
+                aria-label="בחר צבע כלשהו"
+                style={{
+                  padding: 0, position: 'relative', flexShrink: 0,
+                  width: 56, height: 56, borderRadius: 14, cursor: 'pointer',
+                  border: textColorId === 'custom' ? '3px solid var(--ink)' : '2px solid var(--line)',
+                  background: textColorId === 'custom'
+                    ? customColor
+                    : 'conic-gradient(from 0deg, #FF6B6B, #FFD93D, #6BCB77, #4D96FF, #B86BFF, #FF6B6B)',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', inset: 0, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontSize: 28, fontWeight: 800, lineHeight: 1,
+                  color: 'white', textShadow: '0 1px 3px rgba(0,0,0,.6)',
+                }}>{textColorId === 'custom' ? '' : '+'}</span>
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  value={customColor}
+                  onChange={e => { setCustomColor(e.target.value); setTextColorId('custom') }}
+                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', bottom: 0, insetInlineEnd: 0 }}
+                />
+              </button>
+              {/* צבעים מוכנים (ללא אוטו) */}
+              {TEXT_COLORS.filter(c => c.id !== 'auto').map(c => (
                 <button key={c.id} onClick={() => setTextColorId(c.id)} aria-label={c.name} style={{
                   padding: 0,
-                  background: c.hex || 'conic-gradient(from 0deg, #FF6B6B, #FFD93D, #6BCB77, #4D96FF, #B86BFF, #FF6B6B)',
+                  background: c.hex,
                   border: c.id === textColorId ? '3px solid var(--ink)' : '2px solid var(--line)',
                   borderRadius: 14, cursor: 'pointer',
                   width: 56, height: 56, flexShrink: 0,
                   position: 'relative',
-                }}>
-                  {c.id === 'auto' && (
-                    <span style={{
-                      position: 'absolute', inset: 0, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800, color: 'white',
-                      textShadow: '0 1px 2px rgba(0,0,0,.5)',
-                    }}>אוטו</span>
-                  )}
-                </button>
+                }} />
               ))}
+              {/* צבע אקראי (היה "אוטו") — בוחר צבע קריא רנדומלי בכל לחיצה (אחרון) */}
+              <button
+                onClick={() => { const rc = randomReadableColor(customColor); setCustomColor(rc); setTextColorId('custom') }}
+                aria-label="צבע אקראי"
+                style={{
+                  padding: 0, position: 'relative', flexShrink: 0,
+                  width: 56, height: 56, borderRadius: 14, cursor: 'pointer',
+                  border: '2px solid var(--line)',
+                  background: 'conic-gradient(from 0deg, #FF6B6B, #FFD93D, #6BCB77, #4D96FF, #B86BFF, #FF6B6B)',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', inset: 0, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 800, color: 'white',
+                  textShadow: '0 1px 2px rgba(0,0,0,.5)',
+                }}>אוטו</span>
+              </button>
             </HScroll>
           )}
 
@@ -1570,7 +1701,7 @@ function buildTextWithEffect({ effectId, textLines, fontCss, fontWeight, fontSiz
   }
 }
 
-function buildSVG({ text, cardName, senderVerb = 'מאחל', tpl, palette, font, size, bg, offsetYText = 0, effect, textColor }) {
+function buildSVG({ text, extraTexts = [], cardName, senderVerb = 'מאחל', tpl, palette, font, size, bg, offsetYText = 0, effect, textColor }) {
   const W = 1080, H = 1080
 
   // כשיש רקע תמונה — הוא גובר על הצבע/תבנית.
@@ -1612,6 +1743,28 @@ function buildSVG({ text, cardName, senderVerb = 'מאחל', tpl, palette, font,
     fontSize: bigFont, fill: ink, uid: fxUid,
   })
 
+  // ── טקסטים נוספים — מתחת לטקסט הראשי, באותו צבע/פונט/אפקט, קטן יותר ──
+  const extraClean = (extraTexts || []).map(s => (s || '').trim()).filter(Boolean)
+  let extraDefs = '', extraContent = ''
+  if (extraClean.length) {
+    const extraFont = Math.max(34, Math.round(bigFont * 0.5))
+    const extraLineHeight = extraFont * 1.3
+    const extraMaxChars = Math.floor(760 / (extraFont * 0.56))
+    const extraLines = []
+    for (const t of extraClean) for (const ln of wrapText(t, extraMaxChars)) extraLines.push(ln)
+    const lastMainY = firstLineY + (lines.length - 1) * lineHeight
+    const extraFirstY = lastMainY + lineHeight * 0.4 + extraLineHeight
+    const extraTspans = extraLines.map((ln, i) =>
+      `<tspan x="${W / 2}" y="${extraFirstY + i * extraLineHeight}">${escapeXML(ln)}</tspan>`
+    ).join('')
+    const fxe = buildTextWithEffect({
+      effectId: effId, textLines: extraTspans, fontCss: font.css, fontWeight: font.weight,
+      fontSize: extraFont, fill: ink, uid: fxUid + 'e',
+    })
+    extraDefs = fxe.defs
+    extraContent = fxe.content
+  }
+
   // ── רקע + דקורציה ─────────────────────────────────────────
   let background = ''
 
@@ -1627,11 +1780,11 @@ function buildSVG({ text, cardName, senderVerb = 'מאחל', tpl, palette, font,
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block" preserveAspectRatio="xMidYMid meet">
-  <defs><style>${buildFontFace(font.id)}</style>${fx.defs}</defs>
+  <defs><style>${buildFontFace(font.id)}</style>${fx.defs}${extraDefs}</defs>
   ${background}
 
   <g transform="translate(0, ${offsetYText})">
-    ${fx.content}
+    ${fx.content}${extraContent}
   </g>
 
   <!-- שם המאחל — מוצג מעל הכיתוב השיווקי, עם קו-מתאר לבן לקריאות על כל רקע -->
@@ -1677,4 +1830,89 @@ function escapeXML(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+// ── צבע אקראי קריא ──
+// גוון אקראי עם רוויה/בהירות בטווח קריא (לא בהיר/כהה מדי),
+// כך שהטקסט נשאר ברור. avoid = הצבע הנוכחי (כדי לא להגריל אותו שוב).
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100
+  const a = s * Math.min(l, 1 - l)
+  const f = n => {
+    const k = (n + h / 30) % 12
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(255 * c).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+function randomReadableColor(avoid) {
+  let hex = ''
+  for (let i = 0; i < 5; i++) {
+    const hue = Math.floor(Math.random() * 360)
+    const sat = 55 + Math.floor(Math.random() * 25)    // 55–80%
+    const light = 38 + Math.floor(Math.random() * 16)  // 38–53%
+    hex = hslToHex(hue, sat, light)
+    if (!avoid || hex.toLowerCase() !== String(avoid).toLowerCase()) break
+  }
+  return hex
+}
+
+// ═════════════════════════════════════════════════════════════════
+// בונה SVG לכרטיס — כל בלוק טקסט במיקום העצמאי שלו (מרכז X,Y מחושב ב-DesignStep).
+// מצייר גם מסגרת בחירה מקווקות סביב הבלוק הנבחר (לתצוגה בלבד — לא נכנסת ל-PNG).
+// השם והכיתוב השיווקי קבועים בתחתית (לא נגררים).
+// ═════════════════════════════════════════════════════════════════
+function buildCardSVG({ blocks, selected, cardName, senderVerb = 'מאחל', palette, font, bg, ink, effId }) {
+  const W = 1080, H = 1080
+  const fxUid = Math.random().toString(36).slice(2, 8)
+
+  // רקע: תמונה אם יש, אחרת מדרג צבע
+  let bgDefs = '', background = ''
+  if (bg) {
+    background = `<image href="${bg.dataUrl}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`
+  } else {
+    bgDefs = `<linearGradient id="bg-grad-${fxUid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${palette.bg}"/><stop offset="1" stop-color="${palette.bgDeep}"/></linearGradient>`
+    background = `<rect width="${W}" height="${H}" fill="url(#bg-grad-${fxUid})"/>`
+  }
+
+  // כל בלוק טקסט במיקומו
+  let defs = '', body = '', selRect = ''
+  blocks.forEach((b, bi) => {
+    const tspans = b.lines.map((ln, i) =>
+      `<tspan x="${b.centerX}" y="${b.firstLineY + i * b.lineHeight}">${escapeXML(ln)}</tspan>`
+    ).join('')
+    const fx = buildTextWithEffect({
+      effectId: effId, textLines: tspans, fontCss: font.css, fontWeight: font.weight,
+      fontSize: b.fontPx, fill: ink, uid: `${fxUid}-${bi}`,
+    })
+    defs += fx.defs
+    body += fx.content
+    const key = b.kind === 'main' ? 'main' : b.idx
+    if (selected === key) {
+      const pad = 18
+      const rx = Math.max(6, b.centerX - b.halfW - pad)
+      const ry = b.centerY - b.blockHeight / 2 - pad
+      selRect = `<rect x="${rx}" y="${ry}" width="${b.halfW * 2 + pad * 2}" height="${b.blockHeight + pad * 2}" rx="14" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-dasharray="14 10" opacity="0.85"/>`
+    }
+  })
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block" preserveAspectRatio="xMidYMid meet">
+  <defs><style>${buildFontFace(font.id)}</style>${bgDefs}${defs}</defs>
+  ${background}
+  ${body}
+  ${selRect}
+
+  ${cardName ? `<text x="${W / 2}" y="${H - 80}"
+        font-family="${font.css}" font-size="28" font-weight="700"
+        fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
+        stroke-linejoin="round" text-anchor="middle"
+        direction="rtl">${escapeXML(senderVerb)}: ${escapeXML(cardName)}</text>` : ''}
+
+  <text x="${W / 2}" y="${H - 40}"
+        font-family="'Heebo', sans-serif" font-size="21" font-weight="600"
+        fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
+        stroke-linejoin="round" text-anchor="middle"
+        direction="rtl" letter-spacing="0.5">ברכה זו נוצרה באמצעות אפליקציית ביחד</text>
+</svg>`
 }
