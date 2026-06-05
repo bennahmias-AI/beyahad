@@ -12,7 +12,7 @@ import Avatar from '../components/Avatar.jsx'
 import {
   IconPhone, IconCoffee, IconPodium, IconFriends,
   IconKitchen, IconGreeting, IconBell, IconBackRTL, IconLightbulb,
-  IconGames, IconRadio, IconTV, IconGroup, IconMusic,
+  IconGames, IconRadio, IconMusic, IconTV, IconGroup,
 } from '../icons/index.jsx'
 import { useRadioStore } from '../stores/radioStore.js'
 import { searchStations } from '../services/radio.js'
@@ -445,22 +445,22 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             badge="התאמה אוטומטית"
           />
           <RoomTile
-            onClick={onGoFamily}
-            icon={<IconFriends size={60} />}
-            label="המשפחה שלי"
-            sub="קרובים אליי"
-            badge="שיחה · תמונה · הודעה"
+            onClick={onGoFriends}
+            icon={<IconGroup size={60} />}
+            label="חברים"
+            sub="הרשימה שלי"
+            badge="החברים שלי"
           />
         </div>
 
-        {/* כרטיס חברים (רוחב מלא) */}
-        <button onClick={onGoFriends} style={{
+        {/* כרטיס המשפחה שלי — רוחב מלא */}
+        <button onClick={onGoFamily} style={{
           width: '100%', textAlign: 'right',
           marginTop: 12,
           background: 'var(--surface)',
           border: '1px solid var(--line)',
           borderRadius: 20,
-          padding: '14px 16px',
+          padding: '16px 16px',
           color: 'var(--ink)',
           boxShadow: 'var(--shadow-sm)',
           display: 'flex', flexDirection: 'row-reverse',
@@ -469,45 +469,180 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
         }}>
           <IconBackRTL size={22} color="#8389A4" />
           <div style={{ flex: 1 }}>
-            <div className="h-display" style={{ fontSize: 19, color: 'var(--ink)', lineHeight: 1.15 }}>
-              החברים שלי
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.15 }}>
+              המשפחה שלי
             </div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 3 }}>
-              מי מחובר עכשיו ושיחה אישית
+              שיחות וידאו והודעות עם בני המשפחה
             </div>
           </div>
-          <IconGroup size={50} />
+          <IconFriends size={56} />
         </button>
 
-        {/* ── שורה: ברכה + משחקים — רשת אחידה ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-          <FeatureTile
-            onClick={onGoGreeting} cream
-            icon={<IconGreeting size={48} />} title="ברכה אישית"
-          />
-          <FeatureTile
-            onClick={onGoGames}
-            bg="linear-gradient(135deg, #7E2C2E 0%, #5A1D1E 100%)"
-            shadow="rgba(126,44,46,.5)" nimbus="rgba(232,200,121,.25)"
-            eyebrow="✨ חדש!" icon={<IconGames size={50} />} title="משחקים"
-          />
-        </div>
+        {/* ── כרטיס ברכה אישית — רוחב מלא ── */}
+        <button onClick={onGoGreeting} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
+          borderRadius: 20,
+          padding: '16px 16px',
+          color: 'var(--ink)',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+        }}>
+          <IconBackRTL size={22} color="#8389A4" />
+          <div style={{ flex: 1 }}>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.15 }}>
+              צור ברכה אישית
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 3 }}>
+              ברכה יפה למשפחה ולחברים בלחיצה אחת
+            </div>
+          </div>
+          <IconGreeting size={56} />
+        </button>
 
-        {/* ── שורה: רדיו + טלוויזיה — רשת אחידה ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-          <FeatureTile
-            onClick={onGoRadio}
-            bg="linear-gradient(135deg, #6B3A4F 0%, #482638 100%)"
-            shadow="rgba(107,58,79,.5)"
-            eyebrow="✨ חדש!" icon={<IconRadio size={50} />} title="רדיו"
-          />
-          <FeatureTile
-            onClick={onGoTV}
-            bg="linear-gradient(135deg, #2C5566 0%, #16323F 100%)"
-            shadow="rgba(44,85,102,.5)"
-            eyebrow="✨ חדש!" icon={<IconTV size={50} />} title="טלוויזיה"
-          />
-        </div>
+        {/* כרטיס רדיו — רוחב מלא, חם ומזמין */}
+        <button onClick={onGoRadio} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #6B3A4F 0%, #482638 100%)',
+          border: 'none',
+          borderRadius: 20,
+          padding: '18px 18px',
+          color: '#FBF7EE',
+          boxShadow: '0 10px 24px -8px rgba(107,58,79,.5)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,.18), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <IconBackRTL size={22} color="#FBF7EE" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800, marginBottom: 4,
+              color: '#E8C879',
+              textTransform: 'uppercase', letterSpacing: '0.10em',
+              fontFamily: 'var(--font-display)',
+            }}>
+              ✨ חדש!
+            </div>
+            <div className="h-display" style={{
+              fontSize: 22, lineHeight: 1.15, color: '#FBF7EE', letterSpacing: '-0.01em',
+            }}>
+              רדיו
+            </div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, marginTop: 3,
+              color: 'rgba(255,255,255,.92)',
+            }}>
+              תחנות ישראליות ומכל העולם — האזינו תוך כדי תנועה
+            </div>
+          </div>
+          <IconRadio size={64} />
+        </button>
+
+        {/* כרטיס טלוויזיה — רוחב מלא */}
+        <button onClick={onGoTV} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #2C5566 0%, #173846 100%)',
+          border: 'none',
+          borderRadius: 20,
+          padding: '18px 18px',
+          color: '#FBF7EE',
+          boxShadow: '0 10px 24px -8px rgba(44,85,102,.5)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,.16), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <IconBackRTL size={22} color="#FBF7EE" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800, marginBottom: 4,
+              color: '#E8C879',
+              textTransform: 'uppercase', letterSpacing: '0.10em',
+              fontFamily: 'var(--font-display)',
+            }}>
+              ✨ חדש!
+            </div>
+            <div className="h-display" style={{
+              fontSize: 22, lineHeight: 1.15, color: '#FBF7EE', letterSpacing: '-0.01em',
+            }}>
+              טלוויזיה
+            </div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, marginTop: 3,
+              color: 'rgba(255,255,255,.92)',
+            }}>
+              ערוצים ישראליים ומכל העולם — לצפייה ישירה
+            </div>
+          </div>
+          <IconTV size={64} />
+        </button>
+
+        {/* ── כרטיס זירת המשחקים — רוחב מלא, בולט ── */}
+        <button onClick={onGoGames} style={{
+          width: '100%', textAlign: 'right',
+          marginTop: 12,
+          background: 'linear-gradient(135deg, #7E2C2E 0%, #5A1D1E 100%)',
+          border: 'none',
+          borderRadius: 20,
+          padding: '18px 18px',
+          color: '#FBF7EE',
+          boxShadow: '0 10px 24px -8px rgba(126,44,46,.5)',
+          display: 'flex', flexDirection: 'row-reverse',
+          alignItems: 'center', gap: 14,
+          fontFamily: 'inherit',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* נימבוס זוהר ברקע */}
+          <div style={{
+            position: 'absolute', insetInlineEnd: -30, top: -30,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(232,200,121,.25), transparent 70%)',
+            pointerEvents: 'none',
+          }}/>
+          <IconBackRTL size={22} color="#FBF7EE" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 800, marginBottom: 4,
+              color: '#E8C879',
+              textTransform: 'uppercase', letterSpacing: '0.10em',
+              fontFamily: 'var(--font-display)',
+            }}>
+              ✨ חדש!
+            </div>
+            <div className="h-display" style={{
+              fontSize: 22, lineHeight: 1.15, color: '#FBF7EE', letterSpacing: '-0.01em',
+            }}>
+              זירת המשחקים
+            </div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, marginTop: 3,
+              color: 'rgba(255,255,255,.92)',
+            }}>
+              שחקו בינגו, שש-בש, שחמט ועוד — עם חברים מקוון
+            </div>
+          </div>
+          <IconGames size={64} />
+        </button>
 
         {/* ── 3 utility tiles ── */}
         <div style={{
@@ -721,50 +856,6 @@ function RoomTile({ onClick, icon, label, sub, badge, live }) {
         <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginBottom: 3, letterSpacing: '0.01em' }}>{sub}</div>
         <div className="h-display" style={{ fontSize: 22, lineHeight: 1.05, marginBottom: 6, color: 'var(--ink)' }}>{label}</div>
         <div style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.3 }}>{badge}</div>
-      </div>
-    </button>
-  )
-}
-
-// ── אריח פיצ'ר לרשת האחידה (דו-טורי) — צבעוני או בהיר (cream) ──
-function FeatureTile({ onClick, cream, bg, shadow, nimbus, eyebrow, icon, emoji, title }) {
-  return (
-    <button onClick={onClick} style={{
-      width: '100%', textAlign: 'right',
-      background: cream ? 'var(--surface)' : bg,
-      border: cream ? '1px solid var(--line)' : 'none',
-      borderRadius: 20,
-      padding: '15px 14px',
-      minHeight: 120,
-      color: cream ? 'var(--ink)' : '#FBF7EE',
-      boxShadow: cream ? 'var(--shadow-sm)' : `0 10px 24px -8px ${shadow || 'rgba(20,23,42,.4)'}`,
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      position: 'relative', overflow: 'hidden',
-      fontFamily: 'inherit',
-    }}>
-      {!cream && (
-        <div style={{
-          position: 'absolute', insetInlineEnd: -28, top: -28,
-          width: 104, height: 104, borderRadius: '50%',
-          background: `radial-gradient(circle, ${nimbus || 'rgba(255,255,255,.16)'}, transparent 70%)`,
-          pointerEvents: 'none',
-        }}/>
-      )}
-      <div style={{ position: 'relative' }}>
-        {eyebrow && (
-          <div style={{
-            fontSize: 10, fontWeight: 800, marginBottom: 3,
-            color: '#E8C879', textTransform: 'uppercase', letterSpacing: '0.10em',
-            fontFamily: 'var(--font-display)',
-          }}>{eyebrow}</div>
-        )}
-        <div className="h-display" style={{
-          fontSize: 19, lineHeight: 1.12,
-          color: cream ? 'var(--ink)' : '#FBF7EE', letterSpacing: '-0.01em',
-        }}>{title}</div>
-      </div>
-      <div style={{ alignSelf: 'flex-end', marginTop: 6, position: 'relative' }}>
-        {emoji ? <span style={{ fontSize: 46, lineHeight: 1 }}>{emoji}</span> : icon}
       </div>
     </button>
   )
