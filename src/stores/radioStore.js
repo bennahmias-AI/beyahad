@@ -10,6 +10,8 @@
 //   favorites — רשימת תחנות מועדפות (נשמר ב-localStorage)
 // ─────────────────────────────────────────────────────────────
 import { create } from 'zustand'
+import { useUserStore } from './userStore.js'
+import { logActivity } from '../services/firebase.js'
 
 const FAV_KEY = 'beyahad_radio_favorites'
 
@@ -34,7 +36,16 @@ export const useRadioStore = create((set, get) => ({
   favorites: loadFavorites(),
 
   // בוחרים תחנה חדשה ומנגנים אותה
-  playStation: (station) => set({ station, playing: true, loading: true }),
+  playStation: (station) => {
+    set({ station, playing: true, loading: true })
+    // רישום לבקרת הניהול — מי האזין ולאיזו תחנה (best-effort)
+    try {
+      const { authUser, profile } = useUserStore.getState()
+      if (authUser?.uid && station?.name) {
+        logActivity({ uid: authUser.uid, name: profile?.name || '', type: 'radio', detail: station.name })
+      }
+    } catch { /* לעולם לא חוסם נגינה */ }
+  },
 
   // עצירה / המשך של התחנה הנוכחית
   togglePlay: () => set(s => ({ playing: s.station ? !s.playing : false })),

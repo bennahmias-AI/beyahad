@@ -951,6 +951,93 @@ export async function getFriendshipStatus(myUid, otherUid) {
   }
 }
 
+// ─── משפחה (לולאת משפחה) ──────────────────────────────
+// המשפחה נשענת על אותו אוסף friendships, עם תיוג relation:'family'.
+// ההתחברות נעשית בקוד הזמנה שמשותף בקישור (וואטסאפ): בן משפחה יוצר קוד,
+// הצד השני פותח את הקישור / מקליד את הקוד — ונוצרת חברות משפחתית מאושרת מיד
+// (הקישור עצמו הוא ההסכמה, ולכן אין צורך בשלב אישור נפרד).
+//   familyInvites/{code}: { inviterUid, inviterName, used, createdAt }
+
+// מחולל קוד הזמנה קצר וברור (אותיות גדולות + ספרות, בלי תווים מבלבלים)
+function familyInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  return code
+}
+
+// יוצר קוד/קישור הזמנה למשפחה. מחזיר { code }.
+export async function createFamilyInvite({ uid, name }) {
+  if (!uid) return null
+  const code = familyInviteCode()
+  await setDoc(doc(db, 'familyInvites', code), {
+    inviterUid: uid,
+    inviterName: name || 'בן משפחה',
+    used: false,
+    createdAt: serverTimestamp(),
+  })
+  return { code }
+}
+
+// מאשר הזמנת משפחה לפי קוד — יוצר חברות משפחתית מאושרת בין המזמין למשתמש.
+// מחזיר { ok, inviterUid, inviterName } או { ok:false, reason }.
+export async function acceptFamilyInvite({ code, me }) {
+  if (!code || !me?.uid) return { ok: false, reason: 'missing' }
+  const clean = String(code).trim().toUpperCase()
+  try {
+    const inviteSnap = await getDoc(doc(db, 'familyInvites', clean))
+    if (!inviteSnap.exists()) return { ok: false, reason: 'not-found' }
+    const invite = inviteSnap.data()
+    const inviterUid = invite.inviterUid
+    if (!inviterUid || inviterUid === me.uid) return { ok: false, reason: 'self' }
+
+    const id = friendshipId(me.uid, inviterUid)
+    await setDoc(doc(db, 'friendships', id), {
+      users: [me.uid, inviterUid].sort(),
+      requester: inviterUid,
+      status: 'accepted',
+      relation: 'family',
+      names: { [me.uid]: me.name || 'בן משפחה', [inviterUid]: invite.inviterName || 'בן משפחה' },
+      createdAt: serverTimestamp(),
+      acceptedAt: serverTimestamp(),
+    }, { merge: true })
+
+    // מסמנים את ההזמנה כנוצלה (best-effort; אותו קוד יכול לשמש כמה בני משפחה)
+    try { await updateDoc(doc(db, 'familyInvites', clean), { used: true }) } catch {}
+
+    return { ok: true, inviterUid, inviterName: invite.inviterName || 'בן משפחה' }
+  } catch (e) {
+    console.error('acceptFamilyInvite error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מאזין לבני המשפחה שלי — חברויות מאושרות עם relation:'family'.
+// מחזיר מערך של { docId, otherUid, otherName }.
+export function watchFamily(myUid, cb) {
+  const q = query(
+    collection(db, 'friendships'),
+    where('users', 'array-contains', myUid),
+  )
+  return onSnapshot(q, snap => {
+    const family = []
+    snap.docs.forEach(d => {
+      const data = d.data()
+      if (data.relation !== 'family' || data.status !== 'accepted') return
+      const otherUid = (data.users || []).find(u => u !== myUid)
+      family.push({
+        docId: d.id,
+        otherUid,
+        otherName: (data.names || {})[otherUid] || 'בן משפחה',
+      })
+    })
+    cb(family)
+  }, err => {
+    console.error('watchFamily error:', err)
+    cb([])
+  })
+}
+
 // ─── Game rooms — זירת משחקים אונליין ────────────────────
 // התשתית הכללית למשחקי רשת — משמשת את Connect4 ולכל משחק עתידי.
 //

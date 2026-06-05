@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ביחד — לולאת משפחה (תצוגה מקדימה)</title>
+<style>
+  :root{
+    --bg:#F3ECDD; --surface:#FBF7EE; --ink:#1B2540; --ink2:#5b6478; --ink3:#8b91a6;
+    --line:#E7DEC9; --gold:#E8C879; --brass:#B89048;
+    --burgundy:#7E2C2E; --wine:#6B3A4F; --teal:#2C5566; --tealDeep:#16323F;
+    --forest:#4F6B4A; --green:#3E6B34;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:#20242e; color:#EDE7DA; font-family:'Segoe UI',Arial,sans-serif; padding:28px 16px 60px; }
+  h1{ text-align:center; font-size:24px; margin:0 0 4px; }
+  .lead{ text-align:center; color:#aab0c0; font-size:14px; margin:0 0 28px; max-width:760px; margin-inline:auto; line-height:1.6; }
+  .gallery{ display:flex; flex-wrap:wrap; gap:34px 28px; justify-content:center; align-items:flex-start; }
+  .col{ width:300px; }
+  .cap{ margin-bottom:10px; }
+  .cap .num{ font-size:12px; font-weight:800; color:var(--gold); letter-spacing:.08em; }
+  .cap .nm{ font-size:17px; font-weight:800; color:#fff; margin:2px 0; }
+  .cap .ds{ font-size:12.5px; color:#aab0c0; line-height:1.5; }
+
+  .phone{ width:300px; height:600px; background:var(--bg); border:10px solid #0e1018;
+          border-radius:36px; overflow:hidden; box-shadow:0 18px 40px rgba(0,0,0,.45);
+          display:flex; flex-direction:column; }
+  .screen{ flex:1; padding:14px; overflow:hidden; }
+
+  .topbar{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .ava{ width:38px; height:38px; border-radius:50%; color:#fff; display:grid; place-items:center; font-weight:800; font-size:16px; flex:0 0 auto; }
+  .hi{ flex:1; min-width:0; }
+  .hi .sm{ font-size:9px; font-weight:800; color:var(--burgundy); letter-spacing:.1em; }
+  .hi .lg{ font-size:18px; font-weight:800; color:var(--ink); line-height:1; }
+  .bell{ font-size:18px; }
+  .scrtitle{ font-size:20px; font-weight:800; color:var(--ink); margin:2px 2px 14px; }
+
+  /* כרטיס בן משפחה (תצוגת המבוגר) */
+  .fam{ background:var(--surface); border:1px solid var(--line); border-radius:18px;
+        padding:13px; margin-bottom:12px; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .fam-head{ display:flex; align-items:center; gap:11px; margin-bottom:11px; }
+  .fava{ width:50px; height:50px; border-radius:50%; color:#fff; display:grid; place-items:center;
+         font-weight:800; font-size:20px; flex:0 0 auto; position:relative; }
+  .fava .gd{ position:absolute; bottom:1px; inset-inline-start:1px; width:13px; height:13px;
+             border-radius:50%; background:#4ADE80; border:2.5px solid var(--surface); }
+  .fname{ font-size:18px; font-weight:800; color:var(--ink); }
+  .fname .rel{ font-size:12px; font-weight:700; color:var(--brass); }
+  .fstat{ font-size:13px; font-weight:700; margin-top:2px; color:var(--ink3); display:flex; align-items:center; gap:5px; }
+  .fstat.on{ color:var(--green); }
+  .gdot{ width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; }
+  .facts{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .fact{ border:none; border-radius:13px; padding:11px 4px; font-family:inherit; font-weight:800;
+         font-size:12.5px; color:#fff; display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; }
+  .fact .e{ font-size:20px; }
+  .fact.call{ background:var(--forest); }
+  .fact.photo{ background:var(--teal); }
+  .fact.voice{ background:var(--wine); }
+
+  .invite-btn{ width:100%; border:1.5px dashed var(--brass); background:var(--surface);
+               color:var(--brass); font-family:inherit; font-weight:800; font-size:15px;
+               border-radius:16px; padding:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+
+  /* הבלטת מתנה בבית */
+  .gift{ background:linear-gradient(135deg,#7E2C2E,#5A1D1E); color:#FBF7EE; border-radius:20px;
+         padding:16px; display:flex; align-items:center; gap:14px; position:relative; overflow:hidden;
+         box-shadow:0 10px 24px -8px rgba(126,44,46,.5); margin-bottom:14px; }
+  .gift .ge{ font-size:40px; }
+  .gift .gt{ font-size:18px; font-weight:800; }
+  .gift .gs{ font-size:13px; opacity:.92; margin-top:3px; }
+  .gthumb{ width:54px; height:54px; border-radius:12px; background:#E8C879; flex:0 0 auto;
+           display:grid; place-items:center; font-size:24px; }
+
+  .dim{ opacity:.45; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px; }
+  .mini{ border-radius:16px; padding:14px; color:#fff; min-height:74px; font-weight:800; display:flex; flex-direction:column; justify-content:space-between; }
+  .mini.r{ background:linear-gradient(135deg,#6B3A4F,#482638); } .mini.t{ background:linear-gradient(135deg,#2C5566,#16323F); }
+
+  /* תצוגת הבן/בת — מבט פעילות */
+  .glance{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .glance .ok{ display:flex; align-items:center; gap:8px; font-size:18px; font-weight:800; color:var(--green); }
+  .glance .ln{ font-size:14px; color:var(--ink2); font-weight:600; margin-top:8px; line-height:1.5; }
+  .week{ display:flex; gap:6px; margin-top:14px; }
+  .week span{ flex:1; text-align:center; font-size:11px; font-weight:800; color:var(--ink3);
+              background:#EFE7D6; border-radius:8px; padding:7px 0; }
+  .week span.on{ background:var(--forest); color:#fff; }
+  .consent{ font-size:11.5px; color:var(--ink3); margin-top:12px; display:flex; align-items:center; gap:6px; line-height:1.5; }
+
+  /* הזמנה */
+  .invite{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:18px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,.05); }
+  .invite .it{ font-size:19px; font-weight:800; color:var(--ink); }
+  .invite .is{ font-size:13.5px; color:var(--ink2); font-weight:600; margin:6px 0 16px; line-height:1.5; }
+  .link{ background:#EFE7D6; border:1px dashed var(--brass); border-radius:12px; padding:12px;
+         font-size:15px; font-weight:800; color:var(--ink); direction:ltr; letter-spacing:.04em; }
+  .wa{ width:100%; margin-top:12px; background:#25D366; color:#fff; border:none; border-radius:14px;
+       padding:14px; font-family:inherit; font-weight:800; font-size:15px; cursor:pointer; }
+  .steps{ text-align:right; margin-top:16px; }
+  .step{ display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; font-size:13px; color:var(--ink2); font-weight:600; line-height:1.45; }
+  .stepn{ width:22px; height:22px; border-radius:50%; background:var(--brass); color:#fff; font-weight:800; font-size:12px; display:grid; place-items:center; flex:0 0 auto; }
+  .sectitle{ font-size:11px; font-weight:800; color:var(--ink3); letter-spacing:.04em; margin:16px 2px 8px; }
+</style>
+</head>
+<body>
+  <h1>ביחד — לולאת משפחה</h1>
+  <p class="lead">איך זה נראה בפועל: המבוגר רואה את בני המשפחה במסך אחד פשוט עם כפתורי ענק; בן המשפחה (הבן/בת) מקבל שקט נפשי שרואה שההורה פעיל; וההתחברות נעשית בקישור אחד בוואטסאפ. רוב זה כבר בנוי אצלך (צ'אט, קול, וידאו, התראות) — אנחנו רק עוטפים את זה.</p>
+
+  <div class="gallery">
+
+    <!-- מסך 1: המשפחה שלי (תצוגת המבוגר) -->
+    <div class="col">
+      <div class="cap">
+        <div class="num">מסך 1 · תצוגת המבוגר</div>
+        <div class="nm">"המשפחה שלי"</div>
+        <div class="ds">בני המשפחה במקום אחד, סטטוס גדול וברור, ושלושה כפתורי ענק: שיחה · תמונה · הודעה קולית.</div>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="scrtitle">המשפחה שלי</div>
+
+        <div class="fam">
+          <div class="fam-head">
+            <div class="fava" style="background:#6B3A4F">ר<span class="gd"></span></div>
+            <div>
+              <div class="fname">רותי <span class="rel">· הבת</span></div>
+              <div class="fstat on"><span class="gdot"></span>מחוברת עכשיו</div>
+            </div>
+          </div>
+          <div class="facts">
+            <button class="fact call"><span class="e">📞</span>שיחה</button>
+            <button class="fact photo"><span class="e">📷</span>תמונה</button>
+            <button class="fact voice"><span class="e">🎤</span>הודעה</button>
+          </div>
+        </div>
+
+        <div class="fam">
+          <div class="fam-head">
+            <div class="fava" style="background:#2C5566">י</div>
+            <div>
+              <div class="fname">יוסי <span class="rel">· הנכד</span></div>
+              <div class="fstat">היה פעיל הבוקר</div>
+            </div>
+          </div>
+          <div class="facts">
+            <button class="fact call"><span class="e">📞</span>שיחה</button>
+            <button class="fact photo"><span class="e">📷</span>תמונה</button>
+            <button class="fact voice"><span class="e">🎤</span>הודעה</button>
+          </div>
+        </div>
+
+        <button class="invite-btn">＋ הזמן בן משפחה</button>
+      </div></div>
+    </div>
+
+    <!-- מסך 2: הבית עם הבלטת תמונה -->
+    <div class="col">
+      <div class="cap">
+        <div class="num">מסך 2 · תצוגת המבוגר</div>
+        <div class="nm">הבלטה חמה בבית</div>
+        <div class="ds">כשמשהו מגיע מהמשפחה, זה קופץ גדול בראש מסך הבית — סיבה אמיתית וחמה לפתוח את האפליקציה.</div>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="topbar">
+          <div class="ava" style="background:#6B3A4F">ש</div>
+          <div class="hi"><div class="sm">בוקר טוב</div><div class="lg">שרה</div></div>
+          <div class="bell">🔔</div>
+        </div>
+
+        <div class="gift">
+          <div class="gthumb">🖼️</div>
+          <div style="flex:1">
+            <div class="gt">קיבלת תמונה מרותי 💌</div>
+            <div class="gs">הקש כדי לראות ולהגיב</div>
+          </div>
+        </div>
+
+        <div class="row2 dim">
+          <div class="mini" style="background:var(--surface);color:var(--ink);border:1px solid var(--line)">קפה בסלון</div>
+          <div class="mini" style="background:var(--surface);color:var(--ink);border:1px solid var(--line)">המשפחה שלי</div>
+        </div>
+        <div class="row2 dim">
+          <div class="mini r">רדיו</div>
+          <div class="mini t">טלוויזיה</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- מסך 3: תצוגת הבן/בת — מבט פעילות -->
+    <div class="col">
+      <div class="cap">
+        <div class="num">מסך 3 · תצוגת הבן/בת</div>
+        <div class="nm">מבט פעילות (שקט נפשי)</div>
+        <div class="ds">הבת רואה שאמא פעילה ובסדר — בלי להציק לה. זה ההוק שמחזיר את המשפחה כל יום. רק באישור המבוגר.</div>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="topbar">
+          <div class="ava" style="background:#2C5566">ד</div>
+          <div class="hi"><div class="sm">שלום</div><div class="lg">דנה</div></div>
+          <div class="bell">🔔</div>
+        </div>
+        <div class="scrtitle" style="margin-bottom:10px">אמא</div>
+
+        <div class="glance">
+          <div class="ok">✓ אמא פעילה היום</div>
+          <div class="ln">נראתה לאחרונה היום ב-9:14 · האזינה לרדיו (גלגלצ) ושיחקה בינגו</div>
+          <div class="week">
+            <span class="on">א</span><span class="on">ב</span><span class="on">ג</span><span>ד</span><span class="on">ה</span><span class="on">ו</span><span>ש</span>
+          </div>
+          <div class="consent">🔒 אמא בחרה לשתף איתך את הפעילות שלה</div>
+        </div>
+
+        <div class="sectitle">שלחי לה משהו חם</div>
+        <div class="facts">
+          <button class="fact call"><span class="e">📞</span>התקשרי</button>
+          <button class="fact photo"><span class="e">📷</span>תמונה</button>
+          <button class="fact voice"><span class="e">🎤</span>הודעה</button>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- מסך 4: הזמנה -->
+    <div class="col">
+      <div class="cap">
+        <div class="num">מסך 4 · ההתחברות</div>
+        <div class="nm">הזמנה בקישור אחד</div>
+        <div class="ds">בן המשפחה שולח קישור בוואטסאפ, הצד השני לוחץ ומתחבר. עוקף את כל מחסום ההרשמה למבוגר.</div>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="scrtitle">הזמן בן משפחה</div>
+        <div class="invite">
+          <div class="it">צרפו את המשפחה לביחד</div>
+          <div class="is">שלחו את הקישור — הם פותחים, מתחברים, ומופיעים אצלכם ב"המשפחה שלי".</div>
+          <div class="link">beyahad.app/join/7K2Q</div>
+          <button class="wa">📲 שיתוף בוואטסאפ</button>
+        </div>
+
+        <div class="steps">
+          <div class="step"><span class="stepn">1</span><span>שולחים את הקישור לבן/בת/נכד בוואטסאפ.</span></div>
+          <div class="step"><span class="stepn">2</span><span>הם לוחצים, נכנסים, ומאשרים את החיבור.</span></div>
+          <div class="step"><span class="stepn">3</span><span>מעכשיו הם מופיעים זה אצל זה — שיחה, תמונה והודעה במרחק כפתור.</span></div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</body>
+</html>

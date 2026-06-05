@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
+import { logActivity } from '../services/firebase.js'
 import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
@@ -524,6 +525,25 @@ function DesignStep({
   const [customColor, setCustomColor] = useState('#D4A437')
   const colorInputRef = useRef(null)
 
+  // רישום לבקרת הניהול — יצירת ברכה (פעם אחת לכניסה) + שמירה/שיתוף.
+  // best-effort — לעולם לא חוסם את המשתמש.
+  const createdLoggedRef = useRef(false)
+  const logGreeting = (action) => {
+    try {
+      const { authUser, profile } = useUserStore.getState()
+      if (!authUser?.uid) return
+      const name = profile?.name || ''
+      const detail = (text || '').trim().slice(0, 80)
+      // סופרים "נוצרה ברכה" פעם אחת בכל כניסה לעריכה (שמירה/שיתוף ראשון)
+      if (!createdLoggedRef.current) {
+        createdLoggedRef.current = true
+        logActivity({ uid: authUser.uid, name, type: 'greeting', detail })
+      }
+      // ואז רושמים את הפעולה עצמה (greeting_save / greeting_share)
+      logActivity({ uid: authUser.uid, name, type: action, detail })
+    } catch { /* לא חוסם */ }
+  }
+
   // מזריק את כל הפונטים ל-<head> פעם אחת בכניסה למסך,
   // ואז מבקש מהדפדפן לטעון אותם — כדי שיהיו זמינים בתוך הגרפיקה.
   const [fontsReady, setFontsReady] = useState(false)
@@ -815,6 +835,7 @@ function DesignStep({
       a.href = url; a.download = 'ברכה-אישית.png'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 1000)
+      logGreeting('greeting_save')
       setMsg('✓ נשמר!')
       setTimeout(() => setMsg(''), 2000)
     } catch (e) {
@@ -837,6 +858,7 @@ function DesignStep({
         const t = encodeURIComponent(text + '\n\nנוצר באמצעות אפליקציית ביחד')
         window.open(`https://wa.me/?text=${t}`, '_blank')
       }
+      logGreeting('greeting_share')
     } catch (e) {
       if (e?.name !== 'AbortError') { console.error(e); setMsg('שיתוף נכשל') }
     }

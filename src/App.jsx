@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './hooks/useAuth.js'
 import { useUserStore } from './stores/userStore.js'
 import { useSessionStore } from './stores/sessionStore.js'
@@ -12,10 +12,12 @@ import CommunityPage from './pages/CommunityPage.jsx'
 import RecipesPage from './pages/RecipesPage.jsx'
 import RadioPage from './pages/RadioPage.jsx'
 import RadioPlayer from './components/RadioPlayer.jsx'
+import TVPage from './pages/TVPage.jsx'
 import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
+import FamilyPage from './pages/FamilyPage.jsx'
 import DirectChatPage from './pages/DirectChatPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
@@ -37,6 +39,7 @@ import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser, logActivity,
+  acceptFamilyInvite,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
@@ -66,6 +69,8 @@ export default function App() {
   const [gameMode, setGameMode] = useState(null)
   // החבר שאיתו פתוחה שיחת צ'אט פרטית
   const [chatFriend, setChatFriend] = useState(null)
+  // מאיפה נפתח הצ'אט — כדי שכפתור החזרה יחזיר למסך הנכון (חברים / משפחה)
+  const [chatOrigin, setChatOrigin] = useState('friends')
   // החבר שאיתו רוצים לשחק — נכנסים לזירה במצב "הזמנת חבר", והבחירה שולחת הזמנה
   const [playFriend, setPlayFriend] = useState(null)
   // שיחת וידאו — מצב השיחה הפעילה (יוצאת / נכנסת / מחוברת)
@@ -100,6 +105,23 @@ export default function App() {
   useEffect(() => {
     applyAccessibilityFromStorage()
   }, [])
+
+  // ── הצטרפות למשפחה דרך קישור הזמנה (?join=CODE) ──
+  // כשמשתמש מחובר פותח קישור הזמנה, יוצרים את חברות המשפחה ומנווטים אליו.
+  const joinHandledRef = useRef(false)
+  useEffect(() => {
+    if (!authUser?.uid || joinHandledRef.current) return
+    const code = new URLSearchParams(window.location.search).get('join')
+    if (!code) return
+    joinHandledRef.current = true
+    ;(async () => {
+      try {
+        const res = await acceptFamilyInvite({ code, me: { uid: authUser.uid, name: profile?.name || '' } })
+        try { window.history.replaceState(null, '', window.location.pathname) } catch {}
+        if (res?.ok) setPage('family')
+      } catch (e) { console.error('join family error:', e) }
+    })()
+  }, [authUser?.uid])
 
   // חזרה למסך הבית — מנקה כל מצב חדר/חבר וחוזר ל-hub.
   // משמש את כפתור הבית שליד כפתור החזרה בכל המסכים.
@@ -311,6 +333,7 @@ export default function App() {
       {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} />}
       {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} />}
       {page === 'radio' && <RadioPage onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'tv' && <TVPage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'settings' && <SettingsPage onBack={() => setPage('hub')} onHome={goHome} />}
@@ -318,13 +341,23 @@ export default function App() {
         <FriendsPage
           onBack={() => setPage('hub')}
           onHome={goHome}
-          onMessageFriend={(f) => { setChatFriend(f); setPage('chat') }}
+          onMessageFriend={(f) => { setChatOrigin('friends'); setChatFriend(f); setPage('chat') }}
+        />
+      )}
+      {page === 'family' && (
+        <FamilyPage
+          onBack={() => setPage('hub')}
+          onHome={goHome}
+          onMessageFamily={(f) => { setChatOrigin('family'); setChatFriend(f); setPage('chat') }}
+          onVideoCall={(f) => handleVideoCall(f, false)}
+          onAudioCall={(f) => handleVideoCall(f, true)}
+          onGoFriends={() => setPage('friends')}
         />
       )}
       {page === 'chat' && (
         <DirectChatPage
           friend={chatFriend}
-          onBack={() => { setChatFriend(null); setPage('friends') }}
+          onBack={() => { setChatFriend(null); setPage(chatOrigin === 'family' ? 'family' : 'friends') }}
           onHome={goHome}
           onVideoCall={(f) => handleVideoCall(f, false)}
           onCallFriend={(f) => handleVideoCall(f, true)}
@@ -433,10 +466,12 @@ export default function App() {
           onGoRecipes={() => setPage('recipes')}
           onGoRecipe={(postId) => { setInitialPostId(postId); setPage('recipes') }}
           onGoRadio={() => setPage('radio')}
+          onGoTV={() => setPage('tv')}
           onGoGreeting={() => setPage('greeting')}
           onGoProfile={() => setPage('profile')}
           onGoSettings={() => setPage('settings')}
           onGoFriends={() => setPage('friends')}
+          onGoFamily={() => setPage('family')}
           onGoGames={() => setPage('games')}
           onPlayGame={handlePlayGame}
           onOpenNotification={handleOpenNotification}

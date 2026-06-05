@@ -59,8 +59,8 @@ const RANGES = [
   { key: 'custom', label: 'מותאם' },
 ]
 const RANGE_LABEL = { today: 'היום', yesterday: 'אתמול', week: 'השבוע', month: 'החודש', year: 'השנה', custom: 'בטווח' }
-const ACTIVITY_LABEL = { login: 'כניסה', cafe: 'קפה בסלון', parliament: 'פרלמנט', singing: 'שירה בציבור', game: 'משחק' }
-const ACTIVITY_COLOR = { login: '#5E7CA6', cafe: '#2C5566', parliament: '#7E2C2E', singing: '#6B3A4F', game: '#4F6B4A' }
+const ACTIVITY_LABEL = { login: 'כניסה', cafe: 'קפה בסלון', parliament: 'פרלמנט', singing: 'שירה בציבור', game: 'משחק', radio: 'רדיו', tv: 'טלוויזיה', greeting: 'ברכה', greeting_share: 'שיתוף ברכה', greeting_save: 'שמירת ברכה' }
+const ACTIVITY_COLOR = { login: '#5E7CA6', cafe: '#2C5566', parliament: '#7E2C2E', singing: '#6B3A4F', game: '#4F6B4A', radio: '#6B3A4F', tv: '#2C5566', greeting: '#B8860B', greeting_share: '#4F6B4A', greeting_save: '#7E2C2E' }
 const GAME_LABEL = { connect4: '4 בשורה', checkers: 'דמקה', chess: 'שחמט', sheshbesh: 'שש-בש', rummikub: 'רמיקוב', arena: 'מלך הזירה', bingo: 'בינגו', millionaire: 'מי רוצה להיות מיליונר', memory: 'משחק הזיכרון' }
 
 // מחשב [fromMs, toMs] לפי מפתח הטווח (custom משתמש בתאריכי המשתמש)
@@ -261,6 +261,23 @@ export default function AdminDashboard({ onExit }) {
   // ספירות מתוך יומן הפעילות (לטווח הנבחר)
   const logCounts = log.reduce((a, e) => { a[e.type] = (a[e.type] || 0) + 1; return a }, {})
 
+  // אגרגציה לרדיו / טלוויזיה / ברכות (מתוך היומן, לטווח הנבחר)
+  const mediaStats = (() => {
+    const radio = { plays: 0, users: new Set(), byStation: {}, byUser: {} }
+    const tv = { plays: 0, users: new Set(), byChannel: {}, byUser: {} }
+    const greeting = { created: 0, users: new Set(), byUser: {}, shares: [], saves: [] }
+    const bump = (obj, key) => { const k = key || '—'; obj[k] = (obj[k] || 0) + 1 }
+    for (const e of log) {
+      const who = e.name || e.uid || '—'
+      if (e.type === 'radio') { radio.plays++; if (e.uid) radio.users.add(e.uid); bump(radio.byStation, e.detail); bump(radio.byUser, who) }
+      else if (e.type === 'tv') { tv.plays++; if (e.uid) tv.users.add(e.uid); bump(tv.byChannel, e.detail); bump(tv.byUser, who) }
+      else if (e.type === 'greeting') { greeting.created++; if (e.uid) greeting.users.add(e.uid); bump(greeting.byUser, who) }
+      else if (e.type === 'greeting_share') { greeting.shares.push(e) }
+      else if (e.type === 'greeting_save') { greeting.saves.push(e) }
+    }
+    return { radio, tv, greeting }
+  })()
+
   // הגרסה החיה של המשתמש שפתוח בחלון הפרטים (מתעדכן בזמן אמת)
   const liveSelected = selectedUid ? (users.find(u => u.id === selectedUid) || null) : null
 
@@ -325,6 +342,39 @@ export default function AdminDashboard({ onExit }) {
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.5 }}>
               קפה ופרלמנט כוללים היסטוריה מלאה. שירה, משחקים וכניסות נאספים מרגע הפעלת היומן ואילך.
+            </div>
+
+            {/* ===== רדיו ===== */}
+            <div style={sectionTitle}>📻 רדיו</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <StatCard label="האזנות" value={mediaStats.radio.plays} accent="#6B3A4F" sub={RANGE_LABEL[range]} />
+              <StatCard label="מאזינים" value={mediaStats.radio.users.size} accent="#6B3A4F" sub={RANGE_LABEL[range]} />
+            </div>
+            <BreakdownList title="תחנות מובילות" entries={mediaStats.radio.byStation} empty="אין האזנות בטווח זה" />
+            <BreakdownList title="מי האזין" entries={mediaStats.radio.byUser} empty="—" />
+
+            {/* ===== טלוויזיה ===== */}
+            <div style={sectionTitle}>📺 טלוויזיה</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <StatCard label="צפיות" value={mediaStats.tv.plays} accent="#2C5566" sub={RANGE_LABEL[range]} />
+              <StatCard label="צופים" value={mediaStats.tv.users.size} accent="#2C5566" sub={RANGE_LABEL[range]} />
+            </div>
+            <BreakdownList title="ערוצים מובילים" entries={mediaStats.tv.byChannel} empty="אין צפיות בטווח זה" />
+            <BreakdownList title="מי צפה" entries={mediaStats.tv.byUser} empty="—" />
+
+            {/* ===== ברכות ===== */}
+            <div style={sectionTitle}>💌 ברכות</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <StatCard label="נוצרו" value={mediaStats.greeting.created} accent="#B8860B" sub={RANGE_LABEL[range]} />
+              <StatCard label="יוצרים" value={mediaStats.greeting.users.size} accent="#B8860B" sub={RANGE_LABEL[range]} />
+              <StatCard label="שותפו" value={mediaStats.greeting.shares.length} accent="#4F6B4A" sub={RANGE_LABEL[range]} />
+              <StatCard label="נשמרו" value={mediaStats.greeting.saves.length} accent="#7E2C2E" sub={RANGE_LABEL[range]} />
+            </div>
+            <BreakdownList title="מי יצר הכי הרבה" entries={mediaStats.greeting.byUser} empty="אין ברכות בטווח זה" />
+            <GreetingList title="ברכות ששותפו" items={mediaStats.greeting.shares} />
+            <GreetingList title="ברכות שנשמרו" items={mediaStats.greeting.saves} />
+            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.5 }}>
+              הנתונים כאן נאספים מרגע הוספת המעקב ואילך, ומשתנים לפי הטווח שנבחר למעלה ({RANGE_LABEL[range]}). לסך הכל — בחרו טווח "השנה" או טווח מותאם.
             </div>
 
             {/* ===== יומן פעילות — כפתור שפותח חלון ===== */}
@@ -418,6 +468,57 @@ function StatCard({ label, value, accent, sub }) {
       <div style={{ fontSize: 24, fontWeight: 900, color: accent || 'var(--ink)', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginTop: 6 }}>{label}</div>
       {sub ? <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 3 }}>{sub}</div> : null}
+    </div>
+  )
+}
+
+// רשימת פילוח — זוגות תווית→ספירה (תחנה/ערוץ/משתמש), ממוין יורד.
+function BreakdownList({ title, entries, empty = '—', max = 8 }) {
+  const arr = Object.entries(entries || {}).sort((a, b) => b[1] - a[1]).slice(0, max)
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-2)', margin: '0 2px 6px' }}>{title}</div>
+      {arr.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', fontWeight: 600, padding: '8px 2px' }}>{empty}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {arr.map(([label, count]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: ACCENT, background: 'var(--bg-page)', borderRadius: 999, padding: '2px 10px', flexShrink: 0 }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// רשימת ברכות — מציגה את טקסט הברכה (detail), מי ומתי. החדש בראש.
+function GreetingList({ title, items, max = 12 }) {
+  const arr = [...(items || [])].sort((a, b) => toMs(b.ts) - toMs(a.ts)).slice(0, max)
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-2)', margin: '0 2px 6px' }}>{title}{(items && items.length) ? ` (${items.length})` : ''}</div>
+      {arr.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', fontWeight: 600, padding: '8px 2px' }}>אין עדיין</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {arr.map(e => {
+            const ms = toMs(e.ts)
+            const when = ms ? new Date(ms).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+            return (
+              <div key={e.id} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.detail || '(ללא טקסט)'}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600 }}>{e.name || '—'}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 600, direction: 'ltr' }}>{when}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

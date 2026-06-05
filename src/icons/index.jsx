@@ -404,6 +404,51 @@ export const IconRadio = ({ size }) => (
   </CircleIcon>
 )
 
+// טלוויזיה — איקון קטגוריה (עיגול מלא) — מסך עם אנטנה ורגליים, באותו סגנון כמו הרדיו
+export const IconTV = ({ size }) => (
+  <CircleIcon size={size} fill="#2C5566" ring="#16323F">
+    {/* אנטנה — שתי שלוחות */}
+    <path d="M40 29 32 18M40 29 48 18" stroke={W} strokeWidth="3.2" strokeLinecap="round" />
+    {/* גוף הטלוויזיה */}
+    <rect x="21" y="29" width="38" height="26" rx="5" fill={W} />
+    {/* המסך (פנים כהה) */}
+    <rect x="26" y="34" width="22" height="16" rx="2.5" fill="#2C5566" />
+    {/* לחצנים בצד */}
+    <circle cx="54" cy="38" r="1.8" fill="#2C5566" />
+    <rect x="52" y="43" width="4" height="6" rx="2" fill="#2C5566" />
+    {/* רגליים */}
+    <path d="M30 55 27 61M50 55 53 61" stroke={W} strokeWidth="3.2" strokeLinecap="round" />
+  </CircleIcon>
+)
+
+// צ'אט / חברים — איקון קטגוריה (עיגול מלא) — בועת שיחה עם שלוש נקודות
+export const IconChat = ({ size }) => (
+  <CircleIcon size={size} fill="#4F6B4A" ring="#354D31">
+    {/* גוף הבועה */}
+    <rect x="20" y="26" width="40" height="26" rx="7" fill={W} />
+    {/* זנב הבועה */}
+    <path d="M30 50 L30 60 L41 50 Z" fill={W} />
+    {/* שלוש נקודות */}
+    <circle cx="31" cy="39" r="3" fill="#4F6B4A" />
+    <circle cx="40" cy="39" r="3" fill="#4F6B4A" />
+    <circle cx="49" cy="39" r="3" fill="#4F6B4A" />
+  </CircleIcon>
+)
+
+// קבוצה / חברים — איקון קטגוריה (עיגול מלא) — שלושה אנשים (שונה מהמשפחה)
+export const IconGroup = ({ size }) => (
+  <CircleIcon size={size} fill="#7E2C2E" ring="#5A1D1E">
+    {/* שני אנשים מאחור */}
+    <circle cx="26" cy="32" r="6.5" fill={W} opacity="0.55" />
+    <circle cx="54" cy="32" r="6.5" fill={W} opacity="0.55" />
+    <path d="M15 56c0-7 4.8-12 11-12s11 5 11 12H15Z" fill={W} opacity="0.55" />
+    <path d="M43 56c0-7 4.8-12 11-12s11 5 11 12H43Z" fill={W} opacity="0.55" />
+    {/* אדם קדמי במרכז */}
+    <circle cx="40" cy="34" r="8.5" fill={W} />
+    <path d="M25 59c0-9 6.7-15 15-15s15 6 15 15H25Z" fill={W} />
+  </CircleIcon>
+)
+
 // ══ אייקוני סרגל העריכה (מחולל הברכה) ═══════════════════════
 // קו אחיד, נקי ומודרני — תואמים לשאר אייקוני ה-UI.
 
