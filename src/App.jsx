@@ -146,6 +146,10 @@ export default function App() {
   // יורדת מסך אחד פנימה — בדיוק כמו כפתורי החזרה שבמסכים — ודוחפת מלכודת
   // חדשה. בעמוד הבית לא דוחפים, כך שלחיצת חזרה נוספת יוצאת מהאפליקציה כרגיל.
   const backNavRef = useRef({ page: 'hub', chatOrigin: 'friends', inCall: false })
+  // ניווט פנימי בתוך מסך (למשל הרדיו) — המסך רושם פה פונקציית "חזרה צעד אחד".
+  // מחזירה true אם טופל פנימית; false → חוזרים מסך אחד אחורה כרגיל.
+  const pageBackRef = useRef(null)
+  const registerPageBack = useRef((fn) => { pageBackRef.current = fn }).current
   useEffect(() => {
     backNavRef.current = { page, chatOrigin, inCall: Boolean(activeCall || outgoingCall) }
   })
@@ -190,6 +194,11 @@ export default function App() {
       const { page: cur, chatOrigin: origin, inCall } = backNavRef.current
       // באמצע שיחת וידאו/קול — לא קוטעים; דוחפים מלכודת חדשה ונשארים במסך
       if (inCall) {
+        try { window.history.pushState({ beyahad: true }, '') } catch {}
+        return
+      }
+      // אם המסך מנהל ניווט פנימי (כמו הרדיו) — צעד אחד אחורה בתוכו
+      if (pageBackRef.current && pageBackRef.current()) {
         try { window.history.pushState({ beyahad: true }, '') } catch {}
         return
       }
@@ -435,7 +444,7 @@ export default function App() {
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
       {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} />}
       {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} />}
-      {page === 'radio' && <RadioPage onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'radio' && <RadioPage onBack={() => setPage('hub')} onHome={goHome} registerBack={registerPageBack} />}
       {page === 'tv' && <TVPage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} onHome={goHome} />}

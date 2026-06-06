@@ -17,7 +17,7 @@ import HomeButton from '../components/HomeButton.jsx'
 const ACCENT = '#6B3A4F'
 const ACCENT_DEEP = '#482638'
 
-export default function RadioPage({ onBack, onHome }) {
+export default function RadioPage({ onBack, onHome, registerBack }) {
   const { station, playing, playStation, togglePlay, favorites, toggleFavorite } = useRadioStore()
   const [tab, setTab] = useState('israel')   // israel | search | favorites
   const [israeli, setIsraeli] = useState([])
@@ -101,6 +101,25 @@ export default function RadioPage({ onBack, onHome }) {
     setResults([])
   }
 
+  // צעד חזרה אחד: קודם בתוך הדף (תת-מסכים/לשוניות), ורק בשורש יוצאים החוצה.
+  // מחזיר true אם טופל פנימית; false → צריך לצאת מהדף.
+  const handleBackStep = () => {
+    if (tab === 'search') {
+      if (view === 'country') { setView('countries'); return true }
+      if (view === 'countries' || view === 'tag' || view === 'search') { backToHome(); return true }
+      setTab('israel'); return true   // מסך הבית של החיפוש → לשונית ברירת המחדל
+    }
+    if (tab === 'favorites') { setTab('israel'); return true }
+    return false   // לשונית ישראל בשורש — יציאה מהדף
+  }
+
+  // מחברים את כפתור החזרה של אנדרואיד לניווט הפנימי (צעד אחד אחורה)
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, tab, view])
+
   const onPick = (s) => {
     // אם זו אותה תחנה — toggle ניגון; אחרת מנגנים חדשה
     if (station?.id === s.id) togglePlay()
@@ -110,7 +129,7 @@ export default function RadioPage({ onBack, onHome }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', paddingBottom: station ? 90 : 0 }}>
       <div className="screen-header">
-        <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
+        <button className="screen-header__back" onClick={() => { if (!handleBackStep()) onBack() }} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
         </button>
         <HomeButton onClick={onHome} />

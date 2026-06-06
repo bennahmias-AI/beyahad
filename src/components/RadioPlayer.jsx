@@ -24,6 +24,10 @@ export default function RadioPlayer() {
     toggleFavorite, favorites,
   } = useRadioStore()
   const [error, setError] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+
+  // כל תחנה חדשה פותחת את הנגן המלא (מבטל מצב ממוזער קודם)
+  useEffect(() => { setMinimized(false) }, [station?.id])
 
   const isFav = station && favorites.find(f => f.id === station.id)
 
@@ -72,6 +76,24 @@ export default function RadioPlayer() {
       />
 
       {/* פס נגן צף — תמיד מעל התוכן, מעל סרגל הניווט התחתון */}
+      {minimized ? (
+        <button onClick={() => setMinimized(false)} aria-label="הצגת נגן הרדיו" style={{
+          position: 'fixed', insetInlineStart: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 1500,
+          width: 62, height: 62, borderRadius: '50%', border: 'none', cursor: 'pointer', overflow: 'hidden',
+          background: `linear-gradient(135deg, ${ACCENT} 0%, #482638 100%)`, color: '#FBF7EE',
+          boxShadow: '0 6px 20px rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ position: 'absolute', fontSize: 26 }}>📻</span>
+          {station.favicon && (
+            <img src={station.favicon} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'cover' }}
+                 onError={e => { e.target.style.display = 'none' }} />
+          )}
+          {playing && <span style={{
+            position: 'absolute', bottom: 4, insetInlineEnd: 4, width: 12, height: 12, borderRadius: '50%',
+            background: '#4ADE80', border: '2px solid #482638',
+          }} />}
+        </button>
+      ) : (
       <div style={{
         position: 'fixed', insetInline: 0, bottom: 0, zIndex: 1500,
         background: `linear-gradient(180deg, ${ACCENT} 0%, #482638 100%)`,
@@ -120,8 +142,19 @@ export default function RadioPlayer() {
           {playing ? <IconPause size={24} color={ACCENT} /> : <IconPlay size={24} color={ACCENT} />}
         </button>
 
-        {/* סגירה */}
-        <button onClick={stop} aria-label="סגור רדיו" style={{
+        {/* מזעור */}
+        <button onClick={() => setMinimized(true)} aria-label="מזעור הנגן" style={{
+          width: 42, height: 42, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', border: 'none',
+          background: 'rgba(255,255,255,.15)', color: '#FBF7EE',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 13h14" stroke="#FBF7EE" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+        </button>
+
+        {/* סגירה מוחלטת */}
+        <button onClick={stop} aria-label="סגירת הרדיו" style={{
           width: 42, height: 42, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', border: 'none',
           background: 'rgba(255,255,255,.15)', color: '#FBF7EE',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -129,6 +162,7 @@ export default function RadioPlayer() {
           <IconX size={20} color="#FBF7EE" />
         </button>
       </div>
+      )}
     </>
   )
 }
