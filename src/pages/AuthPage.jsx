@@ -236,7 +236,7 @@ export default function AuthPage() {
           </div>
           <FormField label="קוד אימות">
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456" inputMode="numeric" dir="ltr" maxLength={6}
+              placeholder="הזינו קוד" inputMode="numeric" dir="ltr" maxLength={6}
               style={{ ...underlineInput, textAlign: 'center', letterSpacing: '0.4em', fontSize: 24 }}/>
           </FormField>
 
