@@ -6,6 +6,7 @@ import AuthPage from './pages/AuthPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import OnboardingPhoto from './pages/OnboardingPhoto.jsx'
 import AdminSecondFactor from './pages/AdminSecondFactor.jsx'
+import FriendProfile from './pages/FriendProfile.jsx'
 import KafePage from './pages/KafePage.jsx'
 import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
@@ -62,6 +63,7 @@ export default function App() {
   )
   const [showAuth, setShowAuth] = useState(false)
   const [adminVerified, setAdminVerified] = useState(false)
+  const [profileFriend, setProfileFriend] = useState(null)
   const [loadingParliament, setLoadingParliament] = useState(false)
   const [loadingSinging, setLoadingSinging] = useState(false)
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
@@ -154,6 +156,9 @@ export default function App() {
     switch (cur) {
       case 'chat':
         setChatFriend(null)
+        return 'friends'
+      case 'friend-profile':
+        setProfileFriend(null)
         return 'friends'
       case 'memory-game':
       case 'millionaire-game':
@@ -433,12 +438,14 @@ export default function App() {
       {page === 'tv' && <TVPage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'friend-profile' && <FriendProfile friend={profileFriend} onBack={() => { setProfileFriend(null); setPage('friends') }} onHome={goHome} />}
       {page === 'settings' && <SettingsPage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'friends' && (
         <FriendsPage
           onBack={() => setPage('hub')}
           onHome={goHome}
           onMessageFriend={(f) => { setChatOrigin('friends'); setChatFriend(f); setPage('chat') }}
+          onOpenFriendProfile={(f) => { setProfileFriend(f); setPage('friend-profile') }}
         />
       )}
       {page === 'chat' && (

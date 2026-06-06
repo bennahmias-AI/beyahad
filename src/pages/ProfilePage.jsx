@@ -12,6 +12,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   createOrUpdateUser, getUser,
+  getGallery, addGalleryPhoto, removeGalleryPhoto,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import AvatarPicker from '../components/AvatarPicker.jsx'
@@ -61,6 +62,39 @@ function compressImage(file, maxSize = 200) {
   })
 }
 
+// כיווץ תמונה לגלריה — שומר יחס גובה/רוחב, מקטין לצלע מרבית, ודוחס ל-JPEG.
+// יעד ~600KB כדי להישאר בבטחה מתחת למגבלת מסמך Firestore (1MB).
+const GALLERY_MAX_BYTES = 600 * 1024
+function compressGalleryImage(file, maxDim = 1000) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        if (width >= height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim }
+        else if (height > width && height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim }
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, width, height)
+        ctx.drawImage(img, 0, 0, width, height)
+        let quality = 0.72
+        let dataURL = canvas.toDataURL('image/jpeg', quality)
+        while (dataURL.length > GALLERY_MAX_BYTES && quality > 0.3) {
+          quality -= 0.12
+          dataURL = canvas.toDataURL('image/jpeg', quality)
+        }
+        resolve(dataURL)
+      }
+      img.onerror = () => reject(new Error('image load failed'))
+      img.src = e.target.result
+    }
+    reader.onerror = () => reject(new Error('file read failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function ProfilePage({ onBack, onHome }) {
   const { profile, authUser, setProfile } = useUserStore()
   const fileRef = useRef(null)
@@ -69,12 +103,44 @@ export default function ProfilePage({ onBack, onHome }) {
   const [lastName, setLastName]   = useState(profile?.lastName || '')
   const [gender, setGender]       = useState(profile?.gender || '')
   const [phone, setPhone]         = useState(profile?.phone || '')
+  const [about, setAbout]         = useState(profile?.about || '')
   const [photoURL, setPhotoURL]   = useState(profile?.photoURL || null)
   const [saving, setSaving]       = useState(false)
   const [msg, setMsg]             = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [gallery, setGallery] = useState([])
+  const [galBusy, setGalBusy] = useState(false)
+  const galleryFileRef = useRef(null)
 
   const email = authUser?.email || profile?.email || ''
+
+  useEffect(() => {
+    if (!authUser?.uid) return
+    getGallery(authUser.uid).then(setGallery).catch(() => {})
+  }, [authUser?.uid])
+
+  const handleGalleryAdd = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !file.type.startsWith('image/')) return
+    if (gallery.length >= 6) { setMsg('אפשר עד 6 תמונות בגלריה'); return }
+    setGalBusy(true); setMsg('')
+    try {
+      const dataURL = await compressGalleryImage(file)
+      const id = await addGalleryPhoto(authUser.uid, dataURL)
+      setGallery(g => [...g, { id, dataURL }])
+    } catch (err) {
+      console.error('gallery add error:', err)
+      setMsg(err?.message === 'gallery-full' ? 'אפשר עד 6 תמונות בגלריה' : 'לא הצלחנו להוסיף את התמונה')
+    }
+    setGalBusy(false)
+  }
+
+  const handleGalleryRemove = async (photoId) => {
+    setGallery(g => g.filter(p => p.id !== photoId))
+    try { await removeGalleryPhoto(authUser.uid, photoId) }
+    catch (err) { console.error('gallery remove error:', err) }
+  }
 
   const handlePhotoPick = async (e) => {
     const file = e.target.files?.[0]
@@ -107,6 +173,7 @@ export default function ProfilePage({ onBack, onHome }) {
         lastName: lastName.trim(),
         gender,
         phone: phone.trim(),
+        about: about.trim(),
       }
       if (photoURL) data.photoURL = photoURL
       if (email) data.email = email
@@ -254,6 +321,54 @@ export default function ProfilePage({ onBack, onHome }) {
             style={inputStyle}
           />
         </Field>
+
+        <Field label="מעט עלי">
+          <textarea
+            value={about}
+            onChange={e => setAbout(e.target.value)}
+            placeholder="כמה מילים על עצמכם — תחביבים, מה אתם אוהבים..."
+            maxLength={300}
+            rows={4}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 96, lineHeight: 1.5 }}
+          />
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4, fontWeight: 500, textAlign: 'left' }}>
+            {about.length}/300
+          </div>
+        </Field>
+
+        {/* גלריית תמונות אישית — עד 6, נראות לכל החברים */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', display: 'block', marginBottom: 6 }}>
+            תמונות נוספות ({gallery.length}/6)
+          </label>
+          <div style={{ fontSize: 12.5, color: 'var(--ink-3)', fontWeight: 500, marginBottom: 10 }}>
+            תמונות שכל החברים שלך יוכלו לראות בגודל מלא.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {gallery.map(p => (
+              <div key={p.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: 'var(--surface-2)' }}>
+                <img src={p.dataURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <button onClick={() => handleGalleryRemove(p.id)} aria-label="הסר תמונה" style={{
+                  position: 'absolute', insetInlineEnd: 4, top: 4, width: 26, height: 26, borderRadius: '50%',
+                  background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', cursor: 'pointer', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, lineHeight: 1,
+                }}>×</button>
+              </div>
+            ))}
+            {gallery.length < 6 && (
+              <button onClick={() => galleryFileRef.current?.click()} disabled={galBusy} style={{
+                aspectRatio: '1', borderRadius: 12, border: '2px dashed var(--line-strong)',
+                background: 'var(--surface)', color: 'var(--ink-3)', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: 2, fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+              }}>
+                <span style={{ fontSize: 26, lineHeight: 1 }}>{galBusy ? '…' : '+'}</span>
+                {galBusy ? 'מוסיף' : 'הוסף'}
+              </button>
+            )}
+          </div>
+          <input ref={galleryFileRef} type="file" accept="image/*" onChange={handleGalleryAdd} style={{ display: 'none' }} />
+        </div>
 
         <Field label="אימייל">
           <input

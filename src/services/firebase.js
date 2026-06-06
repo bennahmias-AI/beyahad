@@ -97,6 +97,27 @@ export async function verifyAdminEmail(email, password) {
 
 // ─── User profile ─────────────────────────────────────────────
 
+// גלריית תמונות אישית (תת-אוסף users/{uid}/gallery, עד 6 תמונות).
+// כל תמונה במסמך נפרד כדי לא לתפוח את מסמך המשתמש (מגבלת 1MB למסמך).
+const GALLERY_MAX = 6
+
+export async function getGallery(uid) {
+  if (!uid) return []
+  const snap = await getDocs(query(collection(db, 'users', uid, 'gallery'), orderBy('createdAt', 'asc')))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function addGalleryPhoto(uid, dataURL) {
+  const existing = await getDocs(collection(db, 'users', uid, 'gallery'))
+  if (existing.size >= GALLERY_MAX) throw new Error('gallery-full')
+  const ref = await addDoc(collection(db, 'users', uid, 'gallery'), { dataURL, createdAt: serverTimestamp() })
+  return ref.id
+}
+
+export async function removeGalleryPhoto(uid, photoId) {
+  await deleteDoc(doc(db, 'users', uid, 'gallery', photoId))
+}
+
 export async function createOrUpdateUser(uid, data) {
   await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true })
 }
@@ -994,6 +1015,51 @@ export async function getFriendshipStatus(myUid, otherUid) {
     return snap.data().status === 'accepted' ? 'accepted' : 'pending'
   } catch (e) {
     return 'none'
+  }
+}
+
+// "אנשים שאולי תכירו" — חברים של חברים (mutual).
+// מחזיר עד topN מועמדים {uid, name, photoURL, mutualCount}, ממוין לפי מספר חברים משותפים.
+// מדלג על עצמי, על חברים קיימים ועל בקשות פתוחות.
+export async function getSuggestedFriends(myUid, topN = 12) {
+  if (!myUid) return []
+  try {
+    const mySnap = await getDocs(query(collection(db, 'friendships'), where('users', 'array-contains', myUid)))
+    const exclude = new Set([myUid])
+    const myFriendUids = []
+    mySnap.docs.forEach(d => {
+      const data = d.data()
+      const other = (data.users || []).find(u => u !== myUid)
+      if (!other) return
+      exclude.add(other)   // חבר מאושר או בקשה פתוחה — לא להציע שוב
+      if (data.status === 'accepted') myFriendUids.push(other)
+    })
+    if (myFriendUids.length === 0) return []
+
+    const counts = new Map()   // uid מועמד -> כמה חברים משותפים
+    for (const fUid of myFriendUids.slice(0, 30)) {
+      const fSnap = await getDocs(query(collection(db, 'friendships'), where('users', 'array-contains', fUid)))
+      fSnap.docs.forEach(d => {
+        const data = d.data()
+        if (data.status !== 'accepted') return
+        const cand = (data.users || []).find(u => u !== fUid)
+        if (!cand || exclude.has(cand)) return
+        counts.set(cand, (counts.get(cand) || 0) + 1)
+      })
+    }
+
+    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN)
+    const out = []
+    for (const [uid, mutualCount] of ranked) {
+      const u = await getUser(uid)
+      if (!u || u.blocked || u.deletionScheduledAt) continue
+      const name = [u.name, u.lastName].filter(Boolean).join(' ') || u.name || 'משתמש'
+      out.push({ uid, name, photoURL: u.photoURL || null, mutualCount })
+    }
+    return out
+  } catch (e) {
+    console.error('getSuggestedFriends error:', e)
+    return []
   }
 }
 

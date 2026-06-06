@@ -27,6 +27,13 @@ service cloud.firestore {
       // מחיקה — אדמין, או בעל המסמך (מחיקת חשבון עצמית).
       allow delete: if isAdmin() || request.auth.uid == uid;
     }
+
+    // גלריית תמונות אישית — כל מחובר יכול לראות; רק הבעלים או מנהל עורך.
+    match /users/{uid}/gallery/{photoId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+
     match /cafeSessions/{id} {
       allow create: if request.auth != null;
       allow read: if request.auth != null
