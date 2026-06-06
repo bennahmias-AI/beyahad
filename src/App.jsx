@@ -418,14 +418,15 @@ export default function App() {
     )
   }
 
-  // אדמין — אימות דו-שלבי: דורש מייל+סיסמה (גורם שני) אחרי כניסת ה-SMS, לפני כניסה לאפליקציה.
-  if (authUser && profile && profile.role === 'admin' && !adminVerified) {
-    return (
-      <div className="app-shell">
-        <AdminSecondFactor onVerified={() => setAdminVerified(true)} />
-      </div>
-    )
-  }
+  // אדמין — אימות דו-שלבי (מייל+סיסמה). מנוטרל כרגע לבקשת המשתמש.
+  // כדי להחזיר: בטל את ההערה על הבלוק הבא.
+  // if (authUser && profile && profile.role === 'admin' && !adminVerified) {
+  //   return (
+  //     <div className="app-shell">
+  //       <AdminSecondFactor onVerified={() => setAdminVerified(true)} />
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className={'app-shell' + (isDesktop && page === 'hub' ? ' hub-wide' : '')} style={shellHeight ? { height: shellHeight } : undefined}>
@@ -445,7 +446,8 @@ export default function App() {
           onBack={() => setPage('hub')}
           onHome={goHome}
           onMessageFriend={(f) => { setChatOrigin('friends'); setChatFriend(f); setPage('chat') }}
-          onOpenFriendProfile={(f) => { setProfileFriend(f); setPage('friend-profile') }}
+          onVideoCallFriend={(f) => handleVideoCall(f, false)}
+          onCallFriend={(f) => handleVideoCall(f, true)}
         />
       )}
       {page === 'chat' && (

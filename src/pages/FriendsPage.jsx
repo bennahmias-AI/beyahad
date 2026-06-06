@@ -13,22 +13,14 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchFriendships, acceptFriendRequest, removeFriendship,
-  watchUser, sendFriendRequest, getSuggestedFriends, getAllUsers,
+  watchUser, sendFriendRequest, getSuggestedFriends, getGallery,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import Lightbox from '../components/Lightbox.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 
-// נרמול מספר טלפון ישראלי להשוואה — מסיר קידומת/אפס מוביל, משאיר עד 9 ספרות.
-function normILPhone(raw) {
-  if (!raw) return ''
-  let d = String(raw).replace(/\D/g, '')
-  if (d.startsWith('972')) d = d.slice(3)
-  if (d.startsWith('0')) d = d.slice(1)
-  return d.length >= 8 ? d.slice(-9) : ''
-}
-
-export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFriendProfile }) {
+export default function FriendsPage({ onBack, onHome, onMessageFriend, onVideoCallFriend, onCallFriend }) {
   const { authUser, profile } = useUserStore()
   const [friends, setFriends] = useState([])
   const [incoming, setIncoming] = useState([])
@@ -36,10 +28,7 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFri
   const [loading, setLoading] = useState(true)
   const [suggestions, setSuggestions] = useState([])
   const [sentReqs, setSentReqs] = useState({})
-  const [contactsBusy, setContactsBusy] = useState(false)
-  const [contactMatches, setContactMatches] = useState(null)
-  const [contactsNotOnApp, setContactsNotOnApp] = useState(0)
-  const [contactsMsg, setContactsMsg] = useState('')
+  const [quickFriend, setQuickFriend] = useState(null)
 
   // הזמנת חברים ומשפחה — שיתוף קישור להתקנת/כניסה לאפליקציה
   const [copied, setCopied] = useState(false)
@@ -80,45 +69,6 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFri
       const myName = [profile?.name, profile?.lastName].filter(Boolean).join(' ') || profile?.name || 'משתמש'
       await sendFriendRequest({ uid: authUser.uid, name: myName }, { uid: s.uid, name: s.name })
     } catch (e) { console.error('add suggested error:', e) }
-  }
-
-  // מציאת חברים מתוך אנשי הקשר (Contact Picker API — נתמך באנדרואיד/Chrome בלבד).
-  async function findFromContacts() {
-    setContactsMsg(''); setContactMatches(null)
-    const supported = typeof navigator !== 'undefined' && navigator.contacts && typeof navigator.contacts.select === 'function'
-    if (!supported) { setContactsMsg('unsupported'); return }
-    setContactsBusy(true)
-    try {
-      const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true })
-      if (picked && picked.length) {
-        const wanted = new Set()
-        picked.forEach(c => (c.tel || []).forEach(t => { const n = normILPhone(t); if (n) wanted.add(n) }))
-        if (wanted.size) {
-          const all = await getAllUsers()
-          const known = new Set([authUser.uid, ...friends.map(f => f.otherUid), ...incoming.map(i => i.otherUid), ...outgoing.map(o => o.otherUid)])
-          const matches = []
-          const matchedNorms = new Set()
-          all.forEach(u => {
-            const n = normILPhone(u.phone)
-            if (n && wanted.has(n)) {
-              matchedNorms.add(n)
-              if (!known.has(u.id)) {
-                matches.push({ uid: u.id, name: [u.name, u.lastName].filter(Boolean).join(' ') || u.name || 'משתמש', photoURL: u.photoURL || null })
-              }
-            }
-          })
-          setContactMatches(matches)
-          setContactsNotOnApp(wanted.size - matchedNorms.size)
-        } else {
-          setContactMatches([]); setContactsNotOnApp(0)
-        }
-      }
-    } catch (e) {
-      if (e?.name !== 'AbortError' && e?.name !== 'NotAllowedError') {
-        console.error('contacts error:', e); setContactsMsg('error')
-      }
-    }
-    setContactsBusy(false)
   }
 
   const g = profile?.gender
@@ -163,56 +113,7 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFri
               fontFamily: 'inherit', cursor: 'pointer',
             }}>{copied ? 'הקישור הועתק ✓' : 'העתקת קישור'}</button>
           </div>
-          <button onClick={findFromContacts} disabled={contactsBusy} style={{
-            width: '100%', marginTop: 10, padding: '13px', borderRadius: 12,
-            background: 'rgba(255,255,255,.14)', border: '1.5px solid rgba(255,255,255,.4)',
-            color: '#FBF7EE', fontSize: 16, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
-          }}>{contactsBusy ? 'בודק...' : '📇 מצא חברים מאנשי הקשר'}</button>
         </div>
-
-        {contactsMsg === 'unsupported' && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', marginBottom: 16, fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.5 }}>
-            קריאת אנשי קשר נתמכת רק ב-Chrome על אנדרואיד. באייפון או במחשב אפשר להזמין דרך קישור ההזמנה למעלה.
-          </div>
-        )}
-        {contactsMsg === 'error' && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', marginBottom: 16, fontSize: 14, color: 'var(--danger)', fontWeight: 600 }}>
-            לא הצלחנו לגשת לאנשי הקשר — נסו שוב.
-          </div>
-        )}
-        {contactMatches && (
-          <div style={{ marginBottom: 20 }}>
-            {contactMatches.length > 0 ? (
-              <>
-                <h2 className="h-display" style={{ fontSize: 19, margin: '0 0 10px' }}>מאנשי הקשר שלך — כבר באפליקציה</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {contactMatches.map(s => (
-                    <div key={s.uid} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <Avatar name={s.name} size={48} photoURL={s.photoURL} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
-                      </div>
-                      {sentReqs[s.uid] ? (
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-3)', flexShrink: 0 }}>נשלחה בקשה ✓</span>
-                      ) : (
-                        <button onClick={() => handleAddSuggested(s)} className="big-btn big-btn--primary" style={{ padding: '9px 16px', flexShrink: 0 }}>הוסף חבר</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px', fontSize: 15, color: 'var(--ink-2)', fontWeight: 600 }}>
-                לא נמצאו אנשי קשר שכבר באפליקציה.
-              </div>
-            )}
-            {contactsNotOnApp > 0 && (
-              <div style={{ fontSize: 13.5, color: 'var(--ink-3)', fontWeight: 600, marginTop: 10, lineHeight: 1.5 }}>
-                {contactsNotOnApp} מאנשי הקשר שבחרת עדיין לא באפליקציה — הזמינו אותם דרך קישור ההזמנה למעלה.
-              </div>
-            )}
-          </div>
-        )}
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-3)', fontSize: 16 }}>
@@ -301,7 +202,7 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFri
                       key={f.docId}
                       friend={f}
                       onOpen={() => onMessageFriend && onMessageFriend(f)}
-                      onOpenProfile={() => onOpenFriendProfile && onOpenFriendProfile(f)}
+                      onOpenQuick={() => setQuickFriend(f)}
                     />
                   ))}
                 </div>
@@ -375,6 +276,16 @@ export default function FriendsPage({ onBack, onHome, onMessageFriend, onOpenFri
           </>
         )}
       </div>
+
+      {quickFriend && (
+        <FriendQuickView
+          friend={quickFriend}
+          onClose={() => setQuickFriend(null)}
+          onMessage={() => onMessageFriend && onMessageFriend(quickFriend)}
+          onVideoCall={() => onVideoCallFriend && onVideoCallFriend(quickFriend)}
+          onVoiceCall={() => onCallFriend && onCallFriend(quickFriend)}
+        />
+      )}
     </div>
   )
 }
@@ -393,7 +304,7 @@ function LiveAvatar({ uid, name, size, online }) {
 
 // ── one friend row — watches that friend's live online status ──
 // לחיצה על השורה פותחת את הצ'אט עם החבר (ושם יש כפתורי וידאו/קפה/משחק)
-function FriendRow({ friend, onOpen, onOpenProfile }) {
+function FriendRow({ friend, onOpen, onOpenQuick }) {
   const [online, setOnline] = useState(false)
   const [prof, setProf] = useState(null)  // פרופיל חי: { name, lastName, photoURL }
 
@@ -431,9 +342,9 @@ function FriendRow({ friend, onOpen, onOpenProfile }) {
       }}
     >
       <button
-        onClick={e => { e.stopPropagation(); onOpenProfile && onOpenProfile() }}
+        onClick={e => { e.stopPropagation(); onOpenQuick && onOpenQuick() }}
         style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', borderRadius: '50%', flexShrink: 0 }}
-        aria-label="הצגת פרופיל החבר"
+        aria-label="הצגת פרטי החבר"
       >
         <Avatar name={fullName} size={50} online={online} photoURL={photoURL} />
       </button>
@@ -455,5 +366,116 @@ function FriendRow({ friend, onOpen, onOpenProfile }) {
       {/* חץ שמרמז על כניסה לצ'אט */}
       <IconBackRTL size={22} color="#8389A4" />
     </div>
+  )
+}
+
+// חלונית פעולות מהירה לחבר (בסגנון וואטסאפ) — נפתחת בלחיצה על תמונת החבר.
+// מעל הרשימה המעומעמת: תמונה גדולה + שיחה/וידאו/הודעה/פרטים.
+function FriendQuickView({ friend, onClose, onMessage, onVideoCall, onVoiceCall }) {
+  const uid = friend?.otherUid
+  const [prof, setProf] = useState(null)
+  const [gallery, setGallery] = useState([])
+  const [showItems, setShowItems] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
+
+  useEffect(() => {
+    if (!uid) return
+    const unsub = watchUser(uid, u => setProf(u || null))
+    getGallery(uid).then(setGallery).catch(() => {})
+    return () => unsub && unsub()
+  }, [uid])
+
+  const fullName = prof
+    ? ([prof.name, prof.lastName].filter(Boolean).join(' ') || friend?.otherName || '')
+    : (friend?.otherName || '')
+  const photoURL = prof?.photoURL || null
+  const about = prof?.about || ''
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(20,20,24,.62)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, direction: 'rtl',
+      }}>
+        <div onClick={e => e.stopPropagation()} style={{
+          width: '100%', maxWidth: 320, background: 'var(--surface)', borderRadius: 18,
+          overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,.4)',
+          maxHeight: '88%', display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{
+            background: '#7E2C2E', color: '#FBF7EE', padding: '12px 16px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+          }}>
+            <div className="h-display" style={{ fontSize: 18, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</div>
+            <button onClick={onClose} aria-label="סגירה" style={{
+              border: 'none', background: 'rgba(255,255,255,.18)', color: '#FBF7EE',
+              width: 30, height: 30, borderRadius: '50%', fontSize: 16, cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0, marginInlineStart: 10,
+            }}>✕</button>
+          </div>
+
+          <button
+            onClick={() => photoURL && setLightbox(photoURL)}
+            style={{
+              border: 'none', background: photoURL ? '#000' : '#F3E3E1', padding: 0,
+              cursor: photoURL ? 'zoom-in' : 'default', width: '100%', aspectRatio: '1',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+            aria-label="הצגת התמונה בגודל מלא"
+          >
+            {photoURL
+              ? <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <span style={{ fontSize: 92, fontWeight: 800, color: '#7E2C2E', fontFamily: 'inherit' }}>{(fullName || '?').trim().charAt(0)}</span>}
+          </button>
+
+          <div style={{ display: 'flex', borderTop: '1px solid var(--line)', flexShrink: 0 }}>
+            <QuickAction emoji="📞" label="שיחה" onClick={() => { onClose(); onVoiceCall && onVoiceCall() }} />
+            <QuickAction emoji="📹" label="וידאו" onClick={() => { onClose(); onVideoCall && onVideoCall() }} />
+            <QuickAction emoji="💬" label="הודעה" onClick={() => { onClose(); onMessage && onMessage() }} />
+            <QuickAction emoji="👤" label="פרטים" active={showItems} onClick={() => setShowItems(s => !s)} />
+          </div>
+
+          {showItems && (
+            <div style={{ padding: '14px 16px', overflowY: 'auto', borderTop: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-3)', marginBottom: 5 }}>מעט עליו</div>
+              <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {about || 'לא מולא/ה עדיין פרטים.'}
+              </div>
+              {gallery.length > 0 && (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-3)', margin: '14px 0 8px' }}>תמונות</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {gallery.map(p => (
+                      <button key={p.id} onClick={() => setLightbox(p.dataURL)} style={{
+                        aspectRatio: '1', borderRadius: 10, overflow: 'hidden', border: 'none',
+                        padding: 0, background: 'var(--surface-2)', cursor: 'pointer',
+                      }} aria-label="הצגת התמונה בגודל מלא">
+                        <img src={p.dataURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
+    </>
+  )
+}
+
+// כפתור פעולה יחיד בשורת הפעולות של החלונית.
+function QuickAction({ emoji, label, onClick, active }) {
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, border: 'none', background: active ? '#F3E3E1' : 'transparent',
+      padding: '12px 4px', cursor: 'pointer', fontFamily: 'inherit',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+    }}>
+      <span style={{ fontSize: 22 }}>{emoji}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>{label}</span>
+    </button>
   )
 }
