@@ -397,7 +397,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell" style={shellHeight ? { height: shellHeight } : undefined}>
+    <div className={'app-shell' + (isDesktop && page === 'hub' ? ' hub-wide' : '')} style={shellHeight ? { height: shellHeight } : undefined}>
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}

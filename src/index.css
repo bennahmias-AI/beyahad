@@ -287,6 +287,9 @@ html[data-reduce-motion="on"] *::after {
   scroll-behavior: auto !important;
 }
 
+/* hub-multicol: על מובייל העטיפה שקופה (display:contents) — תצוגה זהה לחלוטין */
+.hub-multicol { display: contents; }
+
 /* ============================================================
    DESKTOP LAYER (min-width: 1024px) -- DESKTOP ONLY.
    Every rule here applies only on wide screens. Below 1024px
@@ -315,4 +318,8 @@ html[data-reduce-motion="on"] *::after {
     border: 1px solid var(--line);
     overflow: hidden;
   }
+  /* Step 2: wide Hub — two balanced columns on desktop */
+  .app-shell.hub-wide { width: 880px; max-width: 880px; }
+  .hub-multicol { display: block; column-count: 2; column-gap: 18px; }
+  .hub-multicol > * { break-inside: avoid; }
 }

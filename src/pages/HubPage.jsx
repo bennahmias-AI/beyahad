@@ -480,6 +480,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
         </button>
 
         {/* כרטיס רדיו — רוחב מלא, חם ומזמין */}
+        <div className="hub-multicol">
         <button onClick={onGoRadio} style={{
           width: '100%', textAlign: 'right',
           marginTop: 12,
@@ -666,6 +667,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
           ))}
         </div>
 
+        </div>
         <div style={{ height: 24 }}/>
       </div>
 
