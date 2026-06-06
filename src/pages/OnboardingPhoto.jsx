@@ -9,7 +9,8 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { createOrUpdateUser, getUser } from '../services/firebase.js'
+import { createOrUpdateUser, getUser, signOut } from '../services/firebase.js'
+import { IconBackRTL } from '../icons/index.jsx'
 import Avatar from '../components/Avatar.jsx'
 import AvatarPicker from '../components/AvatarPicker.jsx'
 import AppLogo from '../components/AppLogo.jsx'
@@ -86,13 +87,27 @@ export default function OnboardingPhoto() {
     }
   }
 
+  function handleBack() {
+    if (saving) return
+    signOut()   // מתנתק וחוזר למסך הכניסה
+  }
+
   return (
     <div style={{
       height: '100%', overflowY: 'auto', direction: 'rtl',
       background: 'linear-gradient(180deg, var(--bg-page) 0%, var(--bg-app) 100%)',
       display: 'flex', flexDirection: 'column',
-      padding: '34px 24px 40px', textAlign: 'center',
+      padding: '34px 24px 40px', textAlign: 'center', position: 'relative',
     }}>
+      <button onClick={handleBack} aria-label="חזרה למסך הכניסה" style={{
+        position: 'absolute', insetInlineStart: 16, top: 18,
+        width: 40, height: 40, borderRadius: '50%', padding: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--surface-2)', border: '1px solid var(--line)',
+        color: 'var(--ink-2)', cursor: 'pointer',
+      }}>
+        <IconBackRTL size={22} />
+      </button>
       <div style={{ width: 60, height: 60, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <AppLogo size={60} />
       </div>
