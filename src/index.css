@@ -286,3 +286,33 @@ html[data-reduce-motion="on"] *::after {
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ============================================================
+   DESKTOP LAYER (min-width: 1024px) -- DESKTOP ONLY.
+   Every rule here applies only on wide screens. Below 1024px
+   nothing here is active, so mobile stays byte-for-byte identical.
+   Step 1 (foundation): show the app as a centered, framed card on a
+   soft page backdrop instead of a lone narrow strip. Wide per-page
+   layouts (Hub grid, etc.) are added in later steps.
+   ============================================================ */
+@media (min-width: 1024px) {
+  #root {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(900px 520px at 50% 0%, var(--surface-2), transparent 65%),
+      var(--bg-page);
+  }
+  .app-shell {
+    width: 460px;
+    max-width: 460px;
+    height: 94vh;
+    max-height: 940px;
+    border-radius: 30px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+}

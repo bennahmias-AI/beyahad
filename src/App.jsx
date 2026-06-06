@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth.js'
 import { useUserStore } from './stores/userStore.js'
 import { useSessionStore } from './stores/sessionStore.js'
 import AuthPage from './pages/AuthPage.jsx'
+import LandingPage from './pages/LandingPage.jsx'
 import KafePage from './pages/KafePage.jsx'
 import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
@@ -53,6 +54,11 @@ export default function App() {
   const [page, setPage] = useState(() =>
     (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('admin')) ? 'admin' : 'hub'
   )
+  // אתר תדמית לדסקטופ — מוצג רק במחשב ולמשתמש לא מחובר (ראה למטה)
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(min-width: 1024px)').matches
+  )
+  const [showAuth, setShowAuth] = useState(false)
   const [loadingParliament, setLoadingParliament] = useState(false)
   const [loadingSinging, setLoadingSinging] = useState(false)
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
@@ -102,6 +108,19 @@ export default function App() {
   // ── נגישות — מחילים את העדפות המשתמש (גודל טקסט/ניגודיות/אנימציות) בעליית האפליקציה ──
   useEffect(() => {
     applyAccessibilityFromStorage()
+  }, [])
+
+  // מעדכן isDesktop בעת שינוי רוחב חלון (משפיע רק על נתיב הלא-מחובר)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const on = () => setIsDesktop(mq.matches)
+    if (mq.addEventListener) mq.addEventListener('change', on)
+    else mq.addListener(on)
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', on)
+      else mq.removeListener(on)
+    }
   }, [])
 
   // ── הצטרפות למשפחה דרך קישור הזמנה (?join=CODE) ──
@@ -364,6 +383,11 @@ export default function App() {
   }
 
   if (!authUser) {
+    // במחשב + לא מחובר → אתר התדמית; "כניסה" מציג את ההתחברות הקיימת.
+    // בנייד (isDesktop=false) זורם ישר ל-AuthPage כמו תמיד — אפס שינוי במובייל.
+    if (isDesktop && !showAuth) {
+      return <LandingPage onLogin={() => setShowAuth(true)} />
+    }
     return (
       <div className="app-shell">
         <AuthPage />
