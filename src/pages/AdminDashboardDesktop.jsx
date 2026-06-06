@@ -13,6 +13,7 @@ import {
   watchPendingPosts, setPostApproval, deleteCommunityPost,
   getActivityInRange, getActivityLog, getActivityLogForUser,
   sendUserNotification, adminDeleteUser, sendDirectMessage,
+  adminSetUserPhone,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 
@@ -133,6 +134,13 @@ export default function AdminDashboardDesktop({ onExit }) {
   }
   async function messageUser(uid, text) {
     await sendDirectMessage({ fromUid: authUser?.uid, toUid: uid, text, senderName: profile?.name || 'מנהל' })
+  }
+  // מצמיד מספר טלפון לחשבון הקיים (דרך צד-שרת). מחזיר את התוצאה לרכיב.
+  async function setPhone(uid, phone) {
+    setBusyUid(uid)
+    const r = await adminSetUserPhone(uid, phone)
+    setBusyUid(null)
+    return r
   }
   async function approvePost(p) {
     setBusyPost(p.id)
@@ -429,6 +437,7 @@ export default function AdminDashboardDesktop({ onExit }) {
           onRole={changeRole}
           onBlock={toggleBlock}
           onMessage={messageUser}
+          onSetPhone={setPhone}
           onDelete={deleteUser}
           onClose={() => setSelectedUid(null)}
         />
@@ -628,13 +637,29 @@ function UserTableRow({ u, busy, onOpen, onRole, onBlock }) {
 }
 
 // חלון פרטי משתמש — ממורכז (לא מלמטה כמו במובייל)
-function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClose }) {
+function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onDelete, onClose }) {
   const role = roleOf(u)
   const online = isOnline(u)
   const genderText = u.gender === 'male' ? 'גבר' : u.gender === 'female' ? 'אישה' : (u.gender || '—')
   const [msgText, setMsgText] = useState('')
   const [msgSending, setMsgSending] = useState(false)
   const [msgSent, setMsgSent] = useState(false)
+  const [phoneInput, setPhoneInput] = useState(u.phone || '')
+  const [phoneSaving, setPhoneSaving] = useState(false)
+  const [phoneMsg, setPhoneMsg] = useState(null)
+
+  async function savePhone() {
+    const val = phoneInput.trim()
+    if (!val) return
+    setPhoneSaving(true); setPhoneMsg(null)
+    const r = await onSetPhone(u.id, val)
+    setPhoneSaving(false)
+    if (r && r.ok) setPhoneMsg({ ok: true, text: `✓ המספר ${r.phone} שויך לחשבון. אפשר להיכנס איתו + קוד SMS.` })
+    else if (r && r.reason === 'phone-taken') setPhoneMsg({ ok: false, text: 'המספר כבר משויך לחשבון אחר (אולי חשבון בדיקה). מחק אותו ב-Firebase Console ונסה שוב.' })
+    else if (r && r.reason === 'not-admin') setPhoneMsg({ ok: false, text: 'אין הרשאת אדמין לפעולה הזו.' })
+    else if (r && r.reason === 'bad-phone') setPhoneMsg({ ok: false, text: 'מספר לא תקין. הזן מספר ישראלי, למשל 0501234567.' })
+    else setPhoneMsg({ ok: false, text: 'הפעולה נכשלה. ודא שהאתר פרוס (Vercel) ושיש חיבור.' })
+  }
 
   const rows = [
     ['טלפון', u.phone || '—'],
@@ -686,6 +711,25 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
               <span style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 600, wordBreak: 'break-all', textAlign: 'left', flex: 1, direction: 'ltr' }}>{value}</span>
             </div>
           ))}
+        </div>
+
+        {/* טלפון לכניסה — הצמדת מספר לחשבון הקיים (הגירה / כניסה ב-SMS) */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>📱 מספר טלפון לכניסה</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+            מצמיד את המספר לחשבון הקיים של המשתמש. אחרי השמירה הוא יוכל להיכנס עם המספר הזה וקוד SMS — לאותו חשבון, עם כל המידע וההרשאות.
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              value={phoneInput}
+              onChange={e => setPhoneInput(e.target.value)}
+              placeholder="05X-XXXXXXX"
+              inputMode="tel"
+              style={{ flex: 1, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 12, padding: '11px 12px', direction: 'ltr', textAlign: 'right', outline: 'none' }}
+            />
+            <button onClick={savePhone} disabled={phoneSaving || !phoneInput.trim()} style={{ fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: phoneInput.trim() ? 'pointer' : 'default', border: 'none', borderRadius: 12, padding: '11px 18px', background: ACCENT, color: '#fff', opacity: (phoneSaving || !phoneInput.trim()) ? 0.5 : 1, whiteSpace: 'nowrap' }}>{phoneSaving ? 'שומר...' : 'שמור טלפון'}</button>
+          </div>
+          {phoneMsg && <div style={{ fontSize: 12.5, fontWeight: 700, color: phoneMsg.ok ? '#3E6B34' : '#C0392B', marginTop: 8, lineHeight: 1.5 }}>{phoneMsg.text}</div>}
         </div>
 
         {/* שליחת הודעה */}

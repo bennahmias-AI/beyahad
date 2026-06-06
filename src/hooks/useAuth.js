@@ -35,6 +35,7 @@ export function useAuth() {
             phone: firebaseUser.phoneNumber || '',
             status: 'available',
             interests: [],
+            onboarded: false,
           })
           profile = await getUser(firebaseUser.uid)
         }

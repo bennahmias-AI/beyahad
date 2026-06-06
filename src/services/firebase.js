@@ -53,13 +53,13 @@ export function setupRecaptcha(containerId) {
 }
 
 export async function sendOtp(phone) {
-  if (window.recaptchaVerifier) {
-    try { window.recaptchaVerifier.clear() } catch(e) {}
+  // יוצרים את ה-RecaptchaVerifier פעם אחת בלבד ומשתמשים בו מחדש.
+  // יצירה חוזרת על אותו אלמנט זורקת "reCAPTCHA has already been rendered in this element".
+  if (!window.recaptchaVerifier) {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+    })
   }
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-    size: 'invisible',
-  })
-  await window.recaptchaVerifier.render()
   const result = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier)
   window.confirmationResult = result
   return result
@@ -101,6 +101,29 @@ export async function setUserRole(uid, role) {
 // חוסם / משחרר משתמש.
 export async function setUserBlocked(uid, blocked) {
   await updateDoc(doc(db, 'users', uid), { blocked: !!blocked, updatedAt: serverTimestamp() })
+}
+
+// מגדיר/מעדכן מספר טלפון למשתמש קיים — דרך צד-שרת (Admin SDK).
+// מצמיד את הטלפון לחשבון ה-Auth הקיים, כך שכניסה ב-SMS תכניס אותו
+// לחשבון הזה (שומר על ה-uid, המידע וההרשאות). דורש שהקורא יהיה אדמין.
+// מחזיר { ok, phone } בהצלחה, או { ok:false, reason } בכשל.
+//   reason: 'phone-taken' = המספר כבר שייך לחשבון אחר (למשל חשבון בדיקה).
+export async function adminSetUserPhone(uid, phone) {
+  if (!uid || !phone) return { ok: false, reason: 'missing' }
+  try {
+    const idToken = await auth.currentUser.getIdToken()
+    const res = await fetch('/api/set-phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ uid, phone }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, reason: data.reason || 'error' }
+    return data
+  } catch (e) {
+    console.error('adminSetUserPhone error:', e)
+    return { ok: false, reason: 'error' }
+  }
 }
 
 // מאזין לכל המשתמשים (חי — לבורד הניהול). מוגן בצד השרת שרק אדמין יקבל את כל המסמכים.

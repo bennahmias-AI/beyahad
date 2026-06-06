@@ -4,6 +4,7 @@ import { useUserStore } from './stores/userStore.js'
 import { useSessionStore } from './stores/sessionStore.js'
 import AuthPage from './pages/AuthPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
+import OnboardingPhoto from './pages/OnboardingPhoto.jsx'
 import KafePage from './pages/KafePage.jsx'
 import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
@@ -392,6 +393,15 @@ export default function App() {
       <div className="app-shell">
         <AuthPage />
         <InstallPrompt />
+      </div>
+    )
+  }
+
+  // שלב התמונה בהרשמה — מוצג מיד אחרי אימות הטלפון (onboarded:false). משתמשים ותיקים (ללא השדה) לא נלכדים.
+  if (authUser && profile && profile.onboarded === false) {
+    return (
+      <div className="app-shell">
+        <OnboardingPhoto />
       </div>
     )
   }
