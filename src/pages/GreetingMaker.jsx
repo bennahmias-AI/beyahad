@@ -634,6 +634,10 @@ function DesignStep({
     if (didInitialApply.current) return
     didInitialApply.current = true
     applyTemplate(templateId)
+    // צבע כתב התחלתי אקראי וקריא (לעולם לא לבן) — משתנה בכל כניסה למסך העיצוב
+    const rc = randomReadableColor()
+    setCustomColor(rc)
+    setTextColorId('custom')
   }, [])
 
   // מיקום הטקסט הראשי (היסט מברירת המחדל, בפיקסלי SVG בטווח 1080)
@@ -746,6 +750,8 @@ function DesignStep({
       const fam = (font.css.match(/'([^']+)'/) || [])[1] || font.css
       try {
         await document.fonts.load(`${font.weight} 100px '${fam}'`, text.trim().slice(0, 40) || 'אבגד')
+        await document.fonts.load("700 28px 'M PLUS Rounded 1c'", 'מאחלאבגד')
+        await document.fonts.load("600 21px 'Huninn'", 'ברכהזונוצרה')
         await document.fonts.ready
       } catch (e) { /* ממשיכים */ }
     }
@@ -790,26 +796,25 @@ function DesignStep({
 
     // ── שם המאחל — מוצג מעל הכיתוב השיווקי, עם קו-מתאר לבן לקריאות על כל רקע ──
     if (cardName) {
-      ctx.font = `700 28px "${fam}", serif`
-      ctx.textAlign = 'center'
-      ctx.fillStyle = '#1B1B1B'
-      ctx.strokeStyle = '#FFFFFF'
-      ctx.lineWidth = 4
-      ctx.lineJoin = 'round'
       const senderText = `${senderVerb}: ${cardName}`
-      ctx.strokeText(senderText, W / 2, H - 80)
+      ctx.font = `700 28px "M PLUS Rounded 1c", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'alphabetic'
+      const sw = ctx.measureText(senderText).width
+      drawPill(ctx, W / 2, H - 80, sw, 28, 'rgba(251,247,238,0.82)')  // כרית לבנה שקופה
+      ctx.fillStyle = '#1B1B1B'
       ctx.fillText(senderText, W / 2, H - 80)
     }
 
     // ── כיתוב שיווקי ──
-    ctx.font = '600 21px "Heebo", sans-serif'
+    const credit = 'ברכה זו נוצרה באמצעות אפליקציית ביחד'
+    ctx.font = '600 21px "Huninn", sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillStyle = '#1B1B1B'
-    ctx.strokeStyle = '#FFFFFF'
-    ctx.lineWidth = 4
-    ctx.lineJoin = 'round'
-    ctx.strokeText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 40)
-    ctx.fillText('ברכה זו נוצרה באמצעות אפליקציית ביחד', W / 2, H - 40)
+    ctx.textBaseline = 'alphabetic'
+    const cw = ctx.measureText(credit).width
+    drawPill(ctx, W / 2, H - 40, cw, 21, 'rgba(24,18,16,0.46)')  // כרית כהה
+    ctx.fillStyle = '#FBF7EE'
+    ctx.fillText(credit, W / 2, H - 40)
 
     return new Promise((resolve, reject) => {
       canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png')
@@ -1668,6 +1673,25 @@ function illustDovesWithFlowers(W, H, accent, ink) {
 // drawTextWithEffect — מצייר טקסט עם אפקט ישירות ל-canvas (לצורך PNG export).
 // משמש את אותה תפקיד כמו buildTextWithEffect של ה-SVG, אבל על canvas 2D.
 // ════════════════════════════════════════════════════════════════
+// מצייר "כרית" (מלבן מעוגל) מאחורי טקסט — לכיתובים התחתונים בברכה (שם המברך / קרדיט).
+function drawPill(ctx, cx, baselineY, textW, fontSize, fillStyle) {
+  const padX = Math.round(fontSize * 0.8)
+  const w = Math.round(textW + padX * 2)
+  const h = Math.round(fontSize * 1.7)
+  const x = Math.round(cx - w / 2)
+  const y = Math.round((baselineY - fontSize * 0.33) - h / 2)
+  const r = Math.round(h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+  ctx.fillStyle = fillStyle
+  ctx.fill()
+}
+
 function drawTextWithEffect(ctx, text, x, y, fill, effectId, fontSize) {
   // שומר את המצב הנוכחי לשחזורה
   const reset = () => {
@@ -2057,16 +2081,21 @@ function buildCardSVG({ blocks, selected, cardName, senderVerb = 'מאחל', pal
   ${body}
   ${selRect}
 
-  ${cardName ? `<text x="${W / 2}" y="${H - 80}"
-        font-family="${font.css}" font-size="28" font-weight="700"
-        fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
-        stroke-linejoin="round" text-anchor="middle"
-        direction="rtl">${escapeXML(senderVerb)}: ${escapeXML(cardName)}</text>` : ''}
+  ${cardName ? (() => {
+    const fs = 28, by = H - 80
+    const w = Math.min(W - 60, (senderVerb + ': ' + cardName).length * fs * 0.58 + fs * 1.6)
+    const h = Math.round(fs * 1.7), py = Math.round((by - fs * 0.33) - h / 2), px = Math.round(W / 2 - w / 2)
+    return `<rect x="${px}" y="${py}" width="${Math.round(w)}" height="${h}" rx="${Math.round(h / 2)}" fill="#FBF7EE" fill-opacity="0.82"/>
+  <text x="${W / 2}" y="${by}" font-family="'M PLUS Rounded 1c', sans-serif" font-size="${fs}" font-weight="700" fill="#1B1B1B" text-anchor="middle" direction="rtl">${escapeXML(senderVerb)}: ${escapeXML(cardName)}</text>`
+  })() : ''}
 
-  <text x="${W / 2}" y="${H - 40}"
-        font-family="'Heebo', sans-serif" font-size="21" font-weight="600"
-        fill="#1B1B1B" stroke="#FFFFFF" stroke-width="4" paint-order="stroke"
-        stroke-linejoin="round" text-anchor="middle"
-        direction="rtl" letter-spacing="0.5">ברכה זו נוצרה באמצעות אפליקציית ביחד</text>
+  ${(() => {
+    const credit = 'ברכה זו נוצרה באמצעות אפליקציית ביחד'
+    const fs = 21, by = H - 40
+    const w = Math.min(W - 50, credit.length * fs * 0.5 + fs * 1.8)
+    const h = Math.round(fs * 1.7), py = Math.round((by - fs * 0.33) - h / 2), px = Math.round(W / 2 - w / 2)
+    return `<rect x="${px}" y="${py}" width="${Math.round(w)}" height="${h}" rx="${Math.round(h / 2)}" fill="#181210" fill-opacity="0.46"/>
+  <text x="${W / 2}" y="${by}" font-family="'Huninn', sans-serif" font-size="${fs}" font-weight="600" fill="#FBF7EE" text-anchor="middle" direction="rtl" letter-spacing="0.5">${credit}</text>`
+  })()}
 </svg>`
 }

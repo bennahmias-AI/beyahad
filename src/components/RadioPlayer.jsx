@@ -45,14 +45,18 @@ export default function RadioPlayer() {
     // eslint-disable-next-line
   }, [station?.id])
 
-  // ניגון / עצירה לפי ה-state
+  // ניגון / עצירה לפי ה-state (כולל עצירה מלאה בלחיצה על X)
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !station) return
-    if (playing) {
+    if (!audio) return
+    if (station && playing) {
       audio.play().catch(() => {})
     } else {
       audio.pause()
+      // אין תחנה (נסגר ב-X) — מנתקים את הסטרים כדי שלא ימשיך לזרום ברקע
+      if (!station) {
+        try { audio.removeAttribute('src'); audio.load() } catch {}
+      }
     }
   }, [playing, station])
 
@@ -60,11 +64,6 @@ export default function RadioPlayer() {
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
   }, [volume])
-
-  if (!station) {
-    // עדיין מרנדרים את ה-audio כדי שלא יאבד בין מעברים — אך בלי UI
-    return <audio ref={audioRef} />
-  }
 
   return (
     <>
@@ -75,8 +74,9 @@ export default function RadioPlayer() {
         onError={() => { setError(true); setLoading(false); setPlaying(false) }}
       />
 
-      {/* פס נגן צף — תמיד מעל התוכן, מעל סרגל הניווט התחתון */}
-      {minimized ? (
+      {/* ה-UI מוצג רק כשיש תחנה. אלמנט ה-audio תמיד אותו אחד (לא משוכפל),
+          כך שלחיצה על X באמת משתיקה אותו ולא נשאר נגן שרץ ברקע. */}
+      {station && (minimized ? (
         <button onClick={() => setMinimized(false)} aria-label="הצגת נגן הרדיו" style={{
           position: 'fixed', insetInlineStart: 14, bottom: 'calc(14px + env(safe-area-inset-bottom))', zIndex: 1500,
           width: 62, height: 62, borderRadius: '50%', border: 'none', cursor: 'pointer', overflow: 'hidden',
@@ -162,7 +162,7 @@ export default function RadioPlayer() {
           <IconX size={20} color="#FBF7EE" />
         </button>
       </div>
-      )}
+      ))}
     </>
   )
 }

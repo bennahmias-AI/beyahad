@@ -6,9 +6,12 @@
 //
 // שימוש:  <AppLogo size={66} />
 // ─────────────────────────────────────────────────────────────
-export default function AppLogo({ size = 66, rounded = 20 }) {
+import { useId } from 'react'
+
+export default function AppLogo({ size = 66, rounded = 20, bg = '#8A4D6A', bgDeep = '#6B3A4F' }) {
   // יחס הפינות נשמר ביחס לגודל (115/512 ≈ 0.225 כמו באייקון המקורי)
   const radius = rounded != null ? rounded : Math.round(size * 0.225)
+  const uid = 'lg' + useId().replace(/[^a-zA-Z0-9]/g, '')
   return (
     <svg
       width={size} height={size} viewBox="0 0 512 512"
@@ -17,18 +20,18 @@ export default function AppLogo({ size = 66, rounded = 20 }) {
       role="img" aria-label="ביחד"
     >
       <defs>
-        <linearGradient id="appLogoBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8A4D6A" />
-          <stop offset="1" stopColor="#6B3A4F" />
+        <linearGradient id={`appLogoBg-${uid}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={bg} />
+          <stop offset="1" stopColor={bgDeep} />
         </linearGradient>
-        <radialGradient id="appLogoGlow" cx="0.5" cy="0.38" r="0.62">
+        <radialGradient id={`appLogoGlow-${uid}`} cx="0.5" cy="0.38" r="0.62">
           <stop offset="0" stopColor="#E8C879" stopOpacity="0.32" />
           <stop offset="1" stopColor="#E8C879" stopOpacity="0" />
         </radialGradient>
       </defs>
 
-      <rect width="512" height="512" rx="115" fill="url(#appLogoBg)" />
-      <rect width="512" height="512" rx="115" fill="url(#appLogoGlow)" />
+      <rect width="512" height="512" rx="115" fill={`url(#appLogoBg-${uid})`} />
+      <rect width="512" height="512" rx="115" fill={`url(#appLogoGlow-${uid})`} />
 
       {/* לב קטן למעלה */}
       <path d="M 256 120 C 238 96 202 99 202 132 C 202 159 256 188 256 188 C 256 188 310 159 310 132 C 310 99 274 96 256 120 Z" fill="#E8896A" />
