@@ -6,6 +6,9 @@ import {
   signOut as fbSignOut,
   onAuthStateChanged,
   deleteUser,
+  EmailAuthProvider,
+  linkWithCredential,
+  reauthenticateWithCredential,
 } from 'firebase/auth'
 import {
   getFirestore,
@@ -71,6 +74,26 @@ export async function verifyOtp(code) {
 
 export const signOut = () => fbSignOut(auth)
 export { onAuthStateChanged }
+
+// ─── אימות דו-שלבי לאדמין (מייל+סיסמה כגורם שני מעל טלפון+SMS) ──
+// בודק אם לחשבון המחובר כבר מקושרת זהות מייל+סיסמה (provider 'password').
+export function adminHasEmailFactor() {
+  const u = auth.currentUser
+  return !!u && (u.providerData || []).some(p => p.providerId === 'password')
+}
+
+// הגדרה חד-פעמית: מקשר מייל+סיסמה לחשבון המנהל המחובר (בטלפון). זורק בכשל.
+export async function linkAdminEmail(email, password) {
+  const cred = EmailAuthProvider.credential(email, password)
+  await linkWithCredential(auth.currentUser, cred)
+}
+
+// אימות הגורם השני: מאמת מחדש את המנהל המחובר מול המייל+סיסמה שלו.
+// נכשל אם הפרטים שגויים או שייכים לחשבון אחר — בלי לשבש את ה-session. זורק בכשל.
+export async function verifyAdminEmail(email, password) {
+  const cred = EmailAuthProvider.credential(email, password)
+  await reauthenticateWithCredential(auth.currentUser, cred)
+}
 
 // ─── User profile ─────────────────────────────────────────────
 

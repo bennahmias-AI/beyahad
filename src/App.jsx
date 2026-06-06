@@ -5,6 +5,7 @@ import { useSessionStore } from './stores/sessionStore.js'
 import AuthPage from './pages/AuthPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import OnboardingPhoto from './pages/OnboardingPhoto.jsx'
+import AdminSecondFactor from './pages/AdminSecondFactor.jsx'
 import KafePage from './pages/KafePage.jsx'
 import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
@@ -60,6 +61,7 @@ export default function App() {
     typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(min-width: 1024px)').matches
   )
   const [showAuth, setShowAuth] = useState(false)
+  const [adminVerified, setAdminVerified] = useState(false)
   const [loadingParliament, setLoadingParliament] = useState(false)
   const [loadingSinging, setLoadingSinging] = useState(false)
   // כשמקבלים הזמנת משחק ומאשרים — שומרים את מזהה החדר כדי להיכנס ישר אליו
@@ -110,6 +112,11 @@ export default function App() {
   useEffect(() => {
     applyAccessibilityFromStorage()
   }, [])
+
+  // איפוס אימות המנהל כשמתנתקים — כל כניסה חדשה דורשת גורם שני מחדש
+  useEffect(() => {
+    if (!authUser) setAdminVerified(false)
+  }, [authUser])
 
   // מעדכן isDesktop בעת שינוי רוחב חלון (משפיע רק על נתיב הלא-מחובר)
   useEffect(() => {
@@ -402,6 +409,15 @@ export default function App() {
     return (
       <div className="app-shell">
         <OnboardingPhoto />
+      </div>
+    )
+  }
+
+  // אדמין — אימות דו-שלבי: דורש מייל+סיסמה (גורם שני) אחרי כניסת ה-SMS, לפני כניסה לאפליקציה.
+  if (authUser && profile && profile.role === 'admin' && !adminVerified) {
+    return (
+      <div className="app-shell">
+        <AdminSecondFactor onVerified={() => setAdminVerified(true)} />
       </div>
     )
   }
