@@ -326,8 +326,9 @@ function Switch({ on, onToggle, disabled }) {
 // 2. התראות
 // ════════════════════════════════════════════════════════
 function NotificationsSection({ uid }) {
+  const { profile } = useUserStore()
   const [supported, setSupported] = useState(null)
-  const [permission, setPermission] = useState('default')
+  const [enabled, setEnabled] = useState(false)   // מצב אפליקטיבי (הופעל בפועל) — לא הרשאת הדפדפן
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
 
@@ -336,22 +337,26 @@ function NotificationsSection({ uid }) {
     notificationsSupported().then(s => {
       if (!alive) return
       setSupported(s)
-      setPermission(getNotificationPermission())
+      // המתג דלוק רק אם יש הרשאה וגם המשתמש הפעיל בפועל
+      setEnabled(getNotificationPermission() === 'granted' && profile?.notificationsEnabled === true)
     })
     return () => { alive = false }
-  }, [])
+  }, [profile?.notificationsEnabled])
 
-  const on = permission === 'granted'
+  const on = enabled
 
   const handleToggle = async () => {
     setBusy(true); setNote('')
     if (on) {
       await disableNotifications(uid)
-      setNote('התראות כובו למכשיר הזה. כדי לבטל לגמרי — אפשר לחסום גם בהגדרות הדפדפן.')
+      setEnabled(false)
+      setNote('התראות כובו למכשיר הזה.')
     } else {
       const res = await enableNotifications(uid)
-      setPermission(getNotificationPermission())
-      if (res.ok) setNote('✓ התראות הופעלו! תקבלו התראה כשחבר מתקשר או שולח הודעה.')
+      if (res.ok) {
+        setEnabled(true)
+        setNote('✓ התראות הופעלו! תקבלו התראה כשחבר מתקשר או שולח הודעה.')
+      }
       else if (res.reason === 'denied') setNote('⚠ ההרשאה נחסמה. כדי לאפשר התראות יש לאשר אותן בהגדרות הדפדפן/הטלפון.')
       else if (res.reason === 'no-vapid-key') setNote('⚠ חסר מפתח הגדרה — צריך להגדיר אותו תחילה.')
       else if (res.reason === 'unsupported') setNote('⚠ המכשיר או הדפדפן לא תומך בהתראות.')
