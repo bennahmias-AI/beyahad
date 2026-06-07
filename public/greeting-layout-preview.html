@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ביחד — סידור אזור הברכה במובייל · 3 אופציות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#e6dac2; --bg-2:#f1e7d4; --surface:#f6eedc; --surface-2:#fcf5e6;
+    --hair:rgba(160,126,60,.30); --ink:#2c271f; --ink-soft:#6c6150; --ink-faint:#9a8e77;
+    --gold:#d8b878; --gold-2:#b8924a; --gold-deep:#856828; --burg:#7E2C2E;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:'Fredoka',system-ui,sans-serif; background:#ddd0b6; color:var(--ink); padding:26px 14px 70px; }
+  .head{ max-width:430px; margin:0 auto 22px; }
+  h1{ font-size:24px; font-weight:700; margin:0 0 6px; }
+  .intro{ font-size:14.5px; color:#5f5746; font-weight:500; line-height:1.6; margin:0; }
+
+  .lab{ max-width:380px; margin:30px auto 10px; display:flex; align-items:baseline; gap:8px; }
+  .lab .n{ width:26px; height:26px; flex:none; border-radius:50%; background:var(--burg); color:#fff; font-weight:700; font-size:15px; display:grid; place-items:center; }
+  .lab .ttl{ font-size:17px; font-weight:700; }
+  .lab .ds{ font-size:13px; color:#6c6150; font-weight:500; }
+
+  /* מסגרת "טלפון" */
+  .phone{ max-width:380px; margin:0 auto; border-radius:26px; padding:16px 16px 22px;
+    background:
+      radial-gradient(700px 420px at 92% -6%, rgba(184,146,74,.22), transparent 58%),
+      linear-gradient(180deg, var(--bg-2), var(--bg));
+    border:1px solid var(--hair); box-shadow:0 14px 34px -16px rgba(74,52,24,.5); }
+
+  /* סרגל עליון (זהה בכל האופציות) */
+  .bar{ display:flex; align-items:center; gap:11px; }
+  .logo{ width:42px; height:42px; flex:none; border-radius:11px; background:linear-gradient(150deg,#9a3a3c,var(--burg)); display:grid; place-items:center; box-shadow:0 6px 16px -8px rgba(126,44,46,.7); }
+  .logo svg{ width:24px; height:24px; }
+  .bw{ display:flex; flex-direction:column; line-height:1.05; flex:1; min-width:0; }
+  .nm{ font-weight:700; font-size:1.3rem; } .nm b{ color:var(--gold-2); }
+  .sl{ font-size:.74rem; color:var(--ink-faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .clock{ flex:none; text-align:center; line-height:1.12; }
+  .clock .t{ font-size:1.02rem; font-weight:700; }
+  .clock .d{ font-size:.68rem; color:var(--ink-faint); white-space:nowrap; }
+  .bell{ width:42px; height:42px; flex:none; border-radius:50%; border:1px solid var(--hair); background:var(--surface); color:var(--gold-2); display:grid; place-items:center; }
+  .bell svg{ width:21px; height:21px; }
+
+  .av{ border-radius:50%; background:#6B3A4F; color:#fff; font-weight:700; display:grid; place-items:center; flex:none; box-shadow:0 0 0 2px var(--gold); overflow:hidden; }
+  .gl{ font-size:.92rem; color:var(--gold-2); letter-spacing:2px; font-weight:600; }
+  .nmeH{ font-weight:700; font-size:1.95rem; line-height:1; margin:2px 0 0; }
+  .sub{ margin:14px 2px 0; font-size:1rem; color:var(--ink-soft); line-height:1.45; }
+  .sub b{ color:var(--ink); font-weight:700; }
+
+  /* ── אופציה 1 — ממורכז ── */
+  .o1 .greet{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:22px; }
+  .o1 .av{ width:78px; height:78px; font-size:32px; margin-bottom:10px; }
+  .o1 .nmeH{ font-size:2.1rem; }
+
+  /* ── אופציה 2 — כרטיס מוקף ── */
+  .o2 .greet{ display:flex; align-items:center; gap:14px; margin-top:20px; padding:16px 16px;
+    background:linear-gradient(160deg,var(--surface-2),var(--surface)); border:1px solid var(--hair);
+    border-radius:20px; box-shadow:0 1px 2px rgba(74,52,24,.06), 0 16px 32px -22px rgba(74,52,24,.4); }
+  .o2 .av{ width:60px; height:60px; font-size:25px; }
+  .o2 .tx{ flex:1; min-width:0; }
+
+  /* ── אופציה 3 — שורה מהוקצעת ── */
+  .o3 .greet{ display:flex; align-items:center; gap:14px; margin-top:22px; }
+  .o3 .av{ width:54px; height:54px; font-size:22px; }
+  .o3 .gl{ font-size:.82rem; }
+  .o3 .nmeH{ font-size:1.8rem; }
+  .o3 .tx{ display:flex; flex-direction:column; justify-content:center; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>סידור אזור הברכה במובייל — 3 אופציות</h1>
+    <p class="intro">הסרגל העליון (לוגו · שעון · פעמון) נשאר זהה בכולן. מה שמשתנה הוא איך יושבים התמונה + "אחר צהריים טובים, אמי". תבחר מספר ואטמיע אותו.</p>
+  </div>
+
+  <!-- אופציה 1 -->
+  <div class="lab"><span class="n">1</span><span class="ttl">ממורכז</span><span class="ds">· תמונה גדולה במרכז, ברכה ושם מתחת</span></div>
+  <div class="phone o1">
+    <div class="bar">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21S4 15.5 4 9.5C4 6.4 6.4 4 9.3 4c1.7 0 3 .9 2.7 2.3C12.7 4.9 14 4 15.7 4 18.6 4 21 6.4 21 9.5 21 15.5 12 21 12 21Z"/></svg></div>
+      <div class="bw"><span class="nm">בְּ<b>יחד</b></span><span class="sl">כל מה שאתם צריכים!</span></div>
+      <div class="clock"><div class="t">17:02</div><div class="d">יום ראשון · 7 ביוני</div></div>
+      <button class="bell"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z"/></svg></button>
+    </div>
+    <div class="greet">
+      <div class="av">א</div>
+      <div class="gl">אחר צהריים טובים</div>
+      <div class="nmeH">אמי</div>
+    </div>
+    <p class="sub">מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.</p>
+  </div>
+
+  <!-- אופציה 2 -->
+  <div class="lab"><span class="n">2</span><span class="ttl">כרטיס מוקף</span><span class="ds">· התמונה והשם בתוך כרטיס רך נפרד</span></div>
+  <div class="phone o2">
+    <div class="bar">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21S4 15.5 4 9.5C4 6.4 6.4 4 9.3 4c1.7 0 3 .9 2.7 2.3C12.7 4.9 14 4 15.7 4 18.6 4 21 6.4 21 9.5 21 15.5 12 21 12 21Z"/></svg></div>
+      <div class="bw"><span class="nm">בְּ<b>יחד</b></span><span class="sl">כל מה שאתם צריכים!</span></div>
+      <div class="clock"><div class="t">17:02</div><div class="d">יום ראשון · 7 ביוני</div></div>
+      <button class="bell"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z"/></svg></button>
+    </div>
+    <div class="greet">
+      <div class="av">א</div>
+      <div class="tx">
+        <div class="gl">אחר צהריים טובים</div>
+        <div class="nmeH">אמי</div>
+      </div>
+    </div>
+    <p class="sub">מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.</p>
+  </div>
+
+  <!-- אופציה 3 -->
+  <div class="lab"><span class="n">3</span><span class="ttl">שורה מהוקצעת</span><span class="ds">· כמו עכשיו אבל תמונה קטנה ומיושרת היטב</span></div>
+  <div class="phone o3">
+    <div class="bar">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21S4 15.5 4 9.5C4 6.4 6.4 4 9.3 4c1.7 0 3 .9 2.7 2.3C12.7 4.9 14 4 15.7 4 18.6 4 21 6.4 21 9.5 21 15.5 12 21 12 21Z"/></svg></div>
+      <div class="bw"><span class="nm">בְּ<b>יחד</b></span><span class="sl">כל מה שאתם צריכים!</span></div>
+      <div class="clock"><div class="t">17:02</div><div class="d">יום ראשון · 7 ביוני</div></div>
+      <button class="bell"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z"/></svg></button>
+    </div>
+    <div class="greet">
+      <div class="av">א</div>
+      <div class="tx">
+        <div class="gl">אחר צהריים טובים</div>
+        <div class="nmeH">אמי</div>
+      </div>
+    </div>
+    <p class="sub">מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.</p>
+  </div>
+</body>
+</html>

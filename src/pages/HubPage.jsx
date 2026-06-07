@@ -27,6 +27,26 @@ const StarChip = () => (
   <span className="chip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.2 4.9L19 7l-3 3.8L17 16l-5-2.4L7 16l1-5.2L5 7l4.8-.1L12 2Z" /></svg>חדש</span>
 )
 
+// מאגר משפטי פתיחה למסך הבית — מתחלף בכל כניסה, מותאם לזכר/נקבה.
+function heroLines(gender) {
+  const f = gender === 'female', m = gender === 'male'
+  const lines = [
+    'מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.',
+    'כל מה שמתחשק לך לעשות — הכול במקום אחד.',
+    'מה שלומך? בואו נראה מה עושים היום.',
+  ]
+  if (f || m) {
+    lines.push(f ? 'מוכנה ליום נעים? הכול מחכה לך כאן.' : 'מוכן ליום נעים? הכול מחכה לך כאן.')
+    lines.push(f ? 'בואי נמצא משהו נחמד לעשות עכשיו.' : 'בוא נמצא משהו נחמד לעשות עכשיו.')
+    lines.push(f ? 'איזה כיף שאת כאן! מה מתחשק לך?' : 'איזה כיף שאתה כאן! מה מתחשק לך?')
+  } else {
+    lines.push('מוכנים ליום נעים? הכול מחכה לכם כאן.')
+    lines.push('בואו נמצא משהו נחמד לעשות עכשיו.')
+    lines.push('איזה כיף שאתם כאן! מה מתחשק לכם?')
+  }
+  return lines
+}
+
 export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
   const isAdmin = profile?.role === 'admin'
@@ -90,6 +110,10 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
   const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
   const othersOnline = onlineCount > 1
   const occ = getOccasion(now)   // הזדמנות היום — חג עברי או יום בשבוע
+  // משפט פתיחה מתחלף (נבחר פעם אחת לכניסה), מותאם למגדר
+  const subLines = heroLines(profile?.gender)
+  const [lineIdx] = useState(() => Math.floor(Math.random() * 12))
+  const subLine = subLines[lineIdx % subLines.length]
 
   // נגן תחנת רדיו ישירות מהבית
   const playStationFromStore = useRadioStore(s => s.playStation)
@@ -229,7 +253,6 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="time">{timeStr}</div>
               <div className="meta">{dateStr}</div>
             </div>
-            {othersOnline && <div className="live"><span className="d" />{onlineCount} מחוברים</div>}
             <button className="icon-btn" aria-label="התראות" onClick={openNotifications}>
               {unseenCount > 0 && <span className="ndot" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>
@@ -269,11 +292,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
           <section className="hero">
             <div className="g-label">{greet}</div>
             <h1>{userName}</h1>
-            <p className="sub">
-              {othersOnline
-                ? <>יש עכשיו <b>{onlineCount} אנשים</b> מחוברים ופנויים לשיחה.</>
-                : 'מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.'}
-            </p>
+            <p className="sub">{subLine}</p>
           </section>
 
           {/* Greeting spotlight (primary) */}
@@ -420,6 +439,10 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <span className="name">בְּ<b>יחד</b></span>
               <span className="slogan">כל מה שאתם צריכים!</span>
             </div>
+            <div className="m-clock">
+              <div className="t">{timeStr}</div>
+              <div className="d">{dateStr}</div>
+            </div>
             <button className="m-bell" aria-label="התראות" onClick={openNotifications}>
               {unseenCount > 0 && <span className="nd" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>
@@ -428,15 +451,14 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
 
           <div className="m-greet">
             <button className="m-av" aria-label="תפריט פרופיל" onClick={() => setMenuOpen(true)}>
-              <Avatar name={userName} size={58} color="#6B3A4F" photoURL={profile?.photoURL || null} />
+              <Avatar name={userName} size={78} color="#6B3A4F" photoURL={profile?.photoURL || null} />
             </button>
             <div>
               <div className="gl">{greet}</div>
               <h1>{userName}</h1>
             </div>
           </div>
-          <p className="m-sub">{othersOnline ? <>יש עכשיו <b>{onlineCount} אנשים</b> מחוברים ופנויים לשיחה.</> : 'מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.'}</p>
-          {!isAdmin && othersOnline && <div className="m-live"><span className="d" />יש כעת {onlineCount} מחוברים</div>}
+          <p className="m-sub">{subLine}</p>
           {isAdmin && (
             <div className="admin-live">
               <span className="d" />
@@ -720,18 +742,21 @@ const LUX_CSS = `
 .lux-hub .m-brand{ display:flex; align-items:center; gap:11px; }
 .lux-hub .m-brand .mark{ width:42px; height:42px; border-radius:12px; flex:none; display:grid; place-items:center; background:linear-gradient(150deg, var(--gold), var(--gold-deep)); color:#fff8ee; box-shadow:var(--glow); }
 .lux-hub .m-brand .mark svg{ width:24px; height:24px; }
-.lux-hub .m-brand .bwrap{ display:flex; flex-direction:column; line-height:1.05; flex:1; }
+.lux-hub .m-brand .bwrap{ display:flex; flex-direction:column; line-height:1.05; flex:1; min-width:0; }
+.lux-hub .m-clock{ flex:none; text-align:center; line-height:1.12; }
+.lux-hub .m-clock .t{ font-size:1.02rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+.lux-hub .m-clock .d{ font-size:.68rem; color:var(--ink-faint); white-space:nowrap; margin-top:1px; }
 .lux-hub .m-brand .name{ font-weight:700; font-size:1.3rem; }
 .lux-hub .m-brand .name b{ color:var(--gold-2); }
-.lux-hub .m-brand .slogan{ font-size:.74rem; color:var(--ink-faint); margin-top:2px; }
+.lux-hub .m-brand .slogan{ font-size:.74rem; color:var(--ink-faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lux-hub .m-bell{ width:42px; height:42px; border-radius:50%; border:1px solid var(--hair); background:var(--surface); color:var(--gold-2); display:grid; place-items:center; position:relative; flex:none; }
 .lux-hub .m-bell svg{ width:21px; height:21px; }
 .lux-hub .m-bell .nd{ position:absolute; top:8px; right:9px; width:9px; height:9px; border-radius:50%; background:var(--terra); box-shadow:0 0 0 2.5px var(--bg-2); }
-.lux-hub .m-greet{ display:flex; align-items:center; gap:14px; margin-top:22px; }
-.lux-hub .m-greet .m-av{ width:58px; height:58px; flex:none; border-radius:50%; padding:0; background:none; box-shadow:0 0 0 2px var(--gold), var(--glow); overflow:hidden; }
+.lux-hub .m-greet{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-top:22px; }
+.lux-hub .m-greet .m-av{ width:78px; height:78px; flex:none; border-radius:50%; padding:0; background:none; box-shadow:0 0 0 2px var(--gold), var(--glow); overflow:hidden; margin-bottom:10px; }
 .lux-hub .m-greet .gl{ font-size:.92rem; color:var(--gold-2); letter-spacing:2px; font-weight:600; }
-.lux-hub .m-greet h1{ font-weight:700; font-size:1.95rem; margin:2px 0 0; line-height:1; }
-.lux-hub .m-sub{ margin:14px 2px 0; font-size:1rem; color:var(--ink-soft); line-height:1.45; }
+.lux-hub .m-greet h1{ font-weight:700; font-size:2.1rem; margin:2px 0 0; line-height:1; }
+.lux-hub .m-sub{ margin:14px 6px 0; font-size:1rem; color:var(--ink-soft); line-height:1.45; text-align:center; }
 .lux-hub .m-sub b{ color:var(--ink); font-weight:700; }
 .lux-hub .m-live{ display:flex; align-items:center; gap:9px; margin-top:16px; padding:11px 16px; border-radius:14px; background:rgba(94,115,85,.12); border:1px solid rgba(94,115,85,.4); color:#4c6045; font-weight:600; font-size:.98rem; }
 .lux-hub .m-live .d{ width:9px; height:9px; border-radius:50%; background:#7a9663; box-shadow:0 0 8px 1px rgba(122,150,99,.7); }
