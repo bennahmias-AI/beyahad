@@ -253,6 +253,16 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             </div>
           )}
 
+          {/* באנר אדמין — ספירת מחוברים בזמן אמת (גלוי רק למנהל) */}
+          {isAdmin && (
+            <div className="admin-live">
+              <span className="d" />
+              {onlineCount <= 1
+                ? 'אתה מחובר — מחכים שעוד יצטרפו'
+                : <>יש כעת <b>{onlineCount}</b> אנשים מחוברים</>}
+            </div>
+          )}
+
           {/* Hero */}
           <section className="hero">
             <div className="g-label">{greet}</div>
@@ -397,12 +407,6 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             ))}
           </section>
 
-          {isAdmin && (
-            <div style={{ textAlign: 'center', marginTop: 26, fontSize: '.8rem', color: 'var(--ink-faint)' }}>
-              {onlineCount <= 1 ? 'אתה מחובר — מחכים שעוד יצטרפו' : `${onlineCount} אנשים מחוברים כעת`}
-            </div>
-          )}
-
           <div style={{ height: 30 }} />
         </div>
         </div>{/* /lux-desk */}
@@ -430,7 +434,15 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             </div>
           </div>
           <p className="m-sub">{othersOnline ? <>יש עכשיו <b>{onlineCount} אנשים</b> מחוברים ופנויים לשיחה.</> : 'מה תרצו לעשות עכשיו? הכול כאן, במקום אחד.'}</p>
-          {othersOnline && <div className="m-live"><span className="d" />יש כעת {onlineCount} מחוברים</div>}
+          {!isAdmin && othersOnline && <div className="m-live"><span className="d" />יש כעת {onlineCount} מחוברים</div>}
+          {isAdmin && (
+            <div className="admin-live">
+              <span className="d" />
+              {onlineCount <= 1
+                ? 'אתה מחובר — מחכים שעוד יצטרפו'
+                : <>יש כעת <b>{onlineCount}</b> אנשים מחוברים</>}
+            </div>
+          )}
 
           <button className="m-spot" onClick={onGoGreeting}>
             <div className="row">
@@ -573,6 +585,11 @@ const LUX_CSS = `
 .lux-hub .live{ display:flex; align-items:center; gap:9px; padding:9px 15px; border-radius:999px;
   background:rgba(94,115,85,.13); border:1px solid rgba(94,115,85,.42); color:#4c6045; font-weight:600; font-size:.92rem; }
 .lux-hub .live .d{ width:9px; height:9px; border-radius:50%; background:#7a9663; box-shadow:0 0 8px 1px rgba(122,150,99,.7); }
+.lux-hub .admin-live{ display:flex; align-items:center; justify-content:center; gap:10px; margin:20px 0 0; padding:13px 18px; border-radius:16px; background:linear-gradient(135deg, rgba(94,115,85,.16), rgba(79,107,74,.10)); border:1px solid rgba(94,115,85,.45); color:#4c6045; font-weight:600; font-size:1.02rem; text-align:center; }
+.lux-hub .admin-live b{ font-weight:700; color:#3c4f37; }
+.lux-hub .admin-live .d{ width:11px; height:11px; border-radius:50%; background:#7a9663; animation:adminPulse 1.6s infinite; flex:none; }
+@keyframes adminPulse{ 0%{ box-shadow:0 0 0 0 rgba(122,150,99,.55); } 70%{ box-shadow:0 0 0 10px rgba(122,150,99,0); } 100%{ box-shadow:0 0 0 0 rgba(122,150,99,0); } }
+@media (prefers-reduced-motion: reduce){ .lux-hub .admin-live .d{ animation:none; } }
 .lux-hub .icon-btn{ width:50px; height:50px; border-radius:50%; border:1px solid var(--hair); background:var(--surface);
   color:var(--gold-2); display:grid; place-items:center; position:relative; flex:none; }
 .lux-hub .icon-btn svg{ width:23px; height:23px; }
