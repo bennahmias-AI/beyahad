@@ -18,6 +18,7 @@ import { useRadioStore } from '../stores/radioStore.js'
 import { searchStations } from '../services/radio.js'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { SEED_RECIPES } from '../data/seedRecipes.js'
+import { getOccasion } from '../occasion.js'
 
 const Arrow = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m14 6-6 6 6 6" /></svg>
@@ -88,6 +89,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
   const dateStr = `${weekday} · ${now.getDate()} ב${now.toLocaleDateString('he-IL', { month: 'long' })}`
   const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
   const othersOnline = onlineCount > 1
+  const occ = getOccasion(now)   // הזדמנות היום — חג עברי או יום בשבוע
 
   // נגן תחנת רדיו ישירות מהבית
   const playStationFromStore = useRadioStore(s => s.playStation)
@@ -282,7 +284,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               </div>
               <div className="gc-body">
                 <div className="kick">הכי אישי</div>
-                <h2>צרו ברכה אישית ומרגשת</h2>
+                <h2>צרו ברכה אישית<span className="occ">{occ.label}</span></h2>
                 <p>ברכה יפה למשפחה ולחברים — בלחיצה אחת, מוכנה לשליחה לכל מי שאוהבים.</p>
                 <div className="chips"><span>יום הולדת שמח</span><span>שבת שלום</span><span>מזל טוב</span><span>חג שמח</span></div>
               </div>
@@ -449,7 +451,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="badge gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /><path d="M12 11.2c-.8-1.2-2.8-1-2.8.6 0 1.2 1.6 2.1 2.8 3.1 1.2-1 2.8-1.9 2.8-3.1 0-1.6-2-1.8-2.8-.6Z" fill="currentColor" stroke="none" /></svg></div>
               <div>
                 <div className="kick">הכי אישי</div>
-                <h3>צרו ברכה אישית</h3>
+                <h3>צרו ברכה אישית<span className="occ">{occ.label}</span></h3>
               </div>
             </div>
             <p>ברכה יפה ומרגשת למשפחה ולחברים — בלחיצה אחת, מוכנה לשליחה.</p>
@@ -681,6 +683,7 @@ const LUX_CSS = `
 .lux-hub .greet-card .badge{ width:86px; height:86px; border-radius:24px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.25), 0 0 30px -6px rgba(0,0,0,.4); }
 .lux-hub .greet-card .gc-body{ flex:1; position:relative; z-index:1; min-width:0; }
 .lux-hub .greet-card .kick{ font-size:.86rem; letter-spacing:4px; color:#f3dcab; font-weight:700; }
+.lux-hub .greet-card .occ{ display:block; color:#f3dcab; font-weight:700; font-size:1.35rem; margin-top:4px; }
 .lux-hub .greet-card h2{ font-weight:700; font-size:clamp(1.8rem,3.6vw,2.5rem); margin:7px 0 0; line-height:1.05; color:#fff; }
 .lux-hub .greet-card p{ margin:11px 0 0; font-size:1.1rem; line-height:1.5; opacity:.92; }
 .lux-hub .greet-card .chips{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
@@ -742,6 +745,7 @@ const LUX_CSS = `
 .lux-hub .m-spot .badge{ width:60px; height:60px; border-radius:18px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.25); }
 .lux-hub .m-spot .kick{ font-size:.76rem; letter-spacing:3px; color:#f3dcab; font-weight:700; }
 .lux-hub .m-spot h3{ font-weight:700; font-size:1.5rem; margin:4px 0 0; line-height:1.1; color:#fff; }
+.lux-hub .m-spot .occ{ display:block; color:#f3dcab; font-weight:700; font-size:1.05rem; margin-top:3px; }
 .lux-hub .m-spot p{ margin:12px 0 0; font-size:.98rem; line-height:1.5; opacity:.92; position:relative; z-index:1; }
 .lux-hub .m-spot .chips{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; position:relative; z-index:1; }
 .lux-hub .m-spot .chips span{ font-size:.85rem; padding:6px 13px; border-radius:999px; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.24); }

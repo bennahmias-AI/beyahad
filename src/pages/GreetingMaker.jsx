@@ -21,6 +21,7 @@ import { logActivity } from '../services/firebase.js'
 import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
+import { getOccasion } from '../occasion.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
 const bgDataCache = {}
@@ -360,7 +361,8 @@ export default function GreetingMaker({ onBack, onHome }) {
   const { profile } = useUserStore()
   const [step, setStep] = useState('text')
 
-  const [text, setText] = useState('')
+  // טקסט התחלתי — הברכה המתאימה להיום (חג עברי או יום בשבוע). ניתן לשינוי.
+  const [text, setText] = useState(() => getOccasion().text)
 
   // תבנית הברירה — מתבצעת בתוך DesignStep (במקום של לחיצה ידנית בלשונית תבניות)
   const [templateId, setTemplateId] = useState('t01')
@@ -642,6 +644,8 @@ function DesignStep({
 
   // מיקום הטקסט הראשי (היסט מברירת המחדל, בפיקסלי SVG בטווח 1080)
   const [mainPos, setMainPos] = useState({ dx: 0, dy: 0 })
+  // מכפיל הגדלה ידני לטקסט הראשי (צביטה דו-אצבעית) — 1 = גודל רגיל
+  const [mainScale, setMainScale] = useState(1)
   // איזה בלוק נבחר/נגרר: 'main' | אינדקס טקסט נוסף | null
   const [selected, setSelected] = useState(null)
 
@@ -665,7 +669,10 @@ function DesignStep({
   }
   const zone = (tpl && tpl.textZone) || 'center'
   const mainCenterY0 = zone === 'top' ? H * 0.27 : zone === 'bottom' ? H * 0.72 : H * 0.50
-  const extraFont = Math.max(34, Math.round(mainFont * 0.5))
+  // גודל בסיס לטקסט המשני (לפני הגדלת-הצביטה של הטקסט הראשי)
+  const extraFontBase = Math.max(34, Math.round(mainFont * 0.5))
+  // הגדלה/הקטנה ידנית בצביטה דו-אצבעית (כמו בקאנווה) — מכפיל על גודל הבסיס
+  mainFont = Math.max(24, Math.min(260, Math.round(mainFont * mainScale)))
 
   // בונה בלוק טקסט: שורות גלושות סביב מרכז (centerX, centerY)
   const makeBlock = (kind, idx, str, fontPx, centerX, centerY) => {
@@ -682,7 +689,8 @@ function DesignStep({
   blocks.push(makeBlock('main', -1, text, mainFont, W / 2 + mainPos.dx, mainCenterY0 + mainPos.dy))
   ;(extraTexts || []).forEach((ex, i) => {
     if (!ex || !((ex.text || '').trim())) return
-    blocks.push(makeBlock('extra', i, ex.text, extraFont, W / 2 + (ex.dx || 0), H * 0.66 + i * 132 + (ex.dy || 0)))
+    const ef = Math.max(20, Math.min(220, Math.round(extraFontBase * (ex.scale || 1))))
+    blocks.push(makeBlock('extra', i, ex.text, ef, W / 2 + (ex.dx || 0), H * 0.66 + i * 132 + (ex.dy || 0)))
   })
 
   // ── גרירה ──────────────────────────────────────
@@ -691,6 +699,8 @@ function DesignStep({
   // בחצי התחתון = גוררים את השם.
   const previewRef = useRef(null)
   const dragRef = useRef(null)
+  const pointersRef = useRef(new Map())   // pointerId → {x,y} — לזיהוי צביטה
+  const pinchRef = useRef(null)           // { target, startDist, startScale }
 
   const clampPos = (v) => Math.max(-470, Math.min(470, v))
 
@@ -729,6 +739,54 @@ function DesignStep({
     }
   }
   const onDragEnd = () => { dragRef.current = null }
+
+  // צביטה דו-אצבעית להגדלה/הקטנה (כמו בקאנווה)
+  const scaleOf = (key) => key === 'main' ? mainScale : ((extraTexts[key] || {}).scale || 1)
+  const applyScale = (key, val) => {
+    const v = Math.max(0.4, Math.min(3, val))
+    if (key === 'main') setMainScale(v)
+    else setExtraTexts(prev => prev.map((x, j) => j === key ? { ...x, scale: v } : x))
+  }
+  const pinchDist = () => {
+    const pts = [...pointersRef.current.values()]
+    if (pts.length < 2) return 0
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+  }
+  const onPointerDownH = (e) => {
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointersRef.current.size === 1) {
+      onDragStart(e.clientX, e.clientY)
+    } else if (pointersRef.current.size === 2) {
+      dragRef.current = null // עוברים ממצב גרירה למצב צביטה
+      let key = selected
+      if (key == null && previewRef.current) {
+        const pts = [...pointersRef.current.values()]
+        const rect = previewRef.current.getBoundingClientRect()
+        const mx = ((pts[0].x + pts[1].x) / 2 - rect.left) * (1080 / rect.width)
+        const my = ((pts[0].y + pts[1].y) / 2 - rect.top) * (1080 / rect.height)
+        const b = blockAt(mx, my)
+        key = b ? (b.kind === 'main' ? 'main' : b.idx) : 'main'
+        setSelected(key)
+      }
+      pinchRef.current = { target: key, startDist: pinchDist() || 1, startScale: scaleOf(key) }
+    }
+  }
+  const onPointerMoveH = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const ratio = pinchDist() / (pinchRef.current.startDist || 1)
+      applyScale(pinchRef.current.target, pinchRef.current.startScale * ratio)
+    } else if (dragRef.current) {
+      onDragMove(e.clientX, e.clientY)
+    }
+  }
+  const onPointerUpH = (e) => {
+    pointersRef.current.delete(e.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
+    if (pointersRef.current.size === 0) onDragEnd()
+  }
 
   const svg = buildCardSVG({ blocks, selected, cardName, senderVerb, palette, font, bg, ink, effId })
 
@@ -955,10 +1013,10 @@ function DesignStep({
           position: 'relative',
           touchAction: 'none', cursor: 'grab',
         }}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientX, e.clientY) }}
-          onPointerMove={e => onDragMove(e.clientX, e.clientY)}
-          onPointerUp={onDragEnd}
-          onPointerCancel={onDragEnd}
+          onPointerDown={onPointerDownH}
+          onPointerMove={onPointerMoveH}
+          onPointerUp={onPointerUpH}
+          onPointerCancel={onPointerUpH}
         >
           {/* SVG מוטמע inline (לא כ-<img>) — כך הגרפיקה יורשת
               את הפונטים שהוזרקו לדף. SVG בתוך <img> מרונדר
@@ -976,7 +1034,7 @@ function DesignStep({
         alignItems: 'center', padding: '0 16px 8px',
         fontSize: 12, fontWeight: 600, color: 'var(--ink-3)',
       }}>
-        <span>👆 געו בטקסט וגררו לכל מקום</span>
+        <span>👆 געו וגררו · צביטה בשתי אצבעות להגדלה</span>
       </div>
 
       {/* ─── סרגל לשוניות תחתון ─── */}
