@@ -8,11 +8,17 @@
 //                    בחירת תמונה מתבצעת אחרי האימות (OnboardingPhoto).
 //
 // הפרופיל נכתב עם onboarded:false; שלב התמונה מסיים ל-onboarded:true.
+//
+// UX: לחיצה על "שליחת קוד" עוברת מיד למסך הקוד והשליחה רצה ברקע
+// (אחרת היתה תקיעה של ~20-40 שניות על הטופס עד שה-SMS נשלח).
+// במסך הקוד יש סטופר של 60 שניות; "שליחת קוד נוסף" לחיץ רק בסיומו.
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { sendOtp, verifyOtp, createOrUpdateUser } from '../services/firebase.js'
 import { colors } from '../design-system/index.js'
 import AppLogo from '../components/AppLogo.jsx'
+
+const RESEND_SECONDS = 60
 
 // המרת מספר ישראלי ל-E.164 (‎+972‎). מקבל 05X-XXXXXXX / 05XXXXXXXX / ‎+972…‎
 function normalizePhone(raw) {
@@ -40,8 +46,12 @@ const AUTH_ERRORS = {
 export default function AuthPage() {
   const [mode, setMode]   = useState('login')   // 'login' | 'register'
   const [step, setStep]   = useState('form')    // 'form' | 'otp'
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false) // לכפתור האימות
+  const [sending, setSending] = useState(false) // שליחת ה-SMS רצה ברקע
+  const [resendIn, setResendIn] = useState(0)   // סטופר אחורה לשליחה חוזרת
   const [error, setError] = useState('')
+
+  const timerRef = useRef(null)
 
   // שדות
   const [name, setName]         = useState('')
@@ -52,12 +62,50 @@ export default function AuthPage() {
   const [phone, setPhone]       = useState('')
   const [code, setCode]         = useState('')
 
+  // ניקוי הטיימר ביציאה מהרכיב
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current) }, [])
+
+  function stopTimer() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+  }
+
+  // מתחיל סטופר של 60 שניות אחורה (לשליחת קוד נוסף)
+  function startResendTimer() {
+    stopTimer()
+    setResendIn(RESEND_SECONDS)
+    timerRef.current = setInterval(() => {
+      setResendIn(s => {
+        if (s <= 1) { stopTimer(); return 0 }
+        return s - 1
+      })
+    }, 1000)
+  }
+
+  // שולח את ה-SMS ברקע (לא חוסם את המסך). שגיאה מוצגת במסך הקוד.
+  function fireSendOtp(e164) {
+    setSending(true)
+    sendOtp(e164)
+      .catch(e => {
+        console.error('sendOtp error:', e)
+        setError(AUTH_ERRORS[e.code] || 'לא הצלחנו לשלוח קוד — בדקו את המספר ונסו שוב')
+      })
+      .finally(() => setSending(false))
+  }
+
   function resetTo(newMode) {
+    stopTimer()
     setMode(newMode); setStep('form'); setError(''); setCode('')
+    setResendIn(0); setSending(false)
+  }
+
+  function backToForm() {
+    stopTimer()
+    setStep('form'); setError(''); setCode(''); setResendIn(0); setSending(false)
   }
 
   // שלב 1 — שליחת קוד. בהרשמה מאמתים תחילה את כל הפרטים.
-  async function handleSendCode() {
+  // עוברים מיד למסך הקוד; השליחה עצמה רצה ברקע (בלי תקיעה).
+  function handleSendCode() {
     setError('')
     if (mode === 'register') {
       if (!name.trim())     { setError('נא להזין שם פרטי'); return }
@@ -68,16 +116,10 @@ export default function AuthPage() {
     const e164 = normalizePhone(phone)
     if (!isValidILPhone(e164)) { setError('נא להזין מספר טלפון נייד תקין (למשל 050-1234567)'); return }
 
-    setLoading(true)
-    try {
-      await sendOtp(e164)
-      setStep('otp')
-    } catch (e) {
-      console.error('sendOtp error:', e)
-      setError(AUTH_ERRORS[e.code] || 'לא הצלחנו לשלוח קוד — בדקו את המספר ונסו שוב')
-    } finally {
-      setLoading(false)
-    }
+    setError(''); setCode('')
+    setStep('otp')          // מעבר מיידי
+    startResendTimer()
+    fireSendOtp(e164)       // שליחה ברקע
   }
 
   // שלב 2 — אימות הקוד. בהרשמה כותבים את הפרופיל (onboarded:false).
@@ -102,6 +144,7 @@ export default function AuthPage() {
         if (email.trim()) data.email = email.trim()
         await createOrUpdateUser(uid, data)
       }
+      stopTimer()
       // משתמש חוזר (login) — useAuth יטען את הפרופיל ויכניס פנימה.
     } catch (e) {
       console.error('verifyOtp error:', e)
@@ -111,17 +154,12 @@ export default function AuthPage() {
     // לא מכבים loading בהצלחה — המסך מתחלף ברגע שהמשתמש מחובר.
   }
 
-  async function handleResend() {
+  // שליחת קוד נוסף — לחיץ רק כשהסטופר הגיע ל-0.
+  function handleResend() {
+    if (resendIn > 0 || sending) return
     setError(''); setCode('')
-    const e164 = normalizePhone(phone)
-    setLoading(true)
-    try {
-      await sendOtp(e164)
-    } catch (e) {
-      setError(AUTH_ERRORS[e.code] || 'לא הצלחנו לשלוח קוד חדש')
-    } finally {
-      setLoading(false)
-    }
+    startResendTimer()
+    fireSendOtp(normalizePhone(phone))
   }
 
   return (
@@ -222,8 +260,8 @@ export default function AuthPage() {
 
           {error && <ErrorBox>{error}</ErrorBox>}
 
-          <PrimaryButton loading={loading} onClick={handleSendCode}>
-            {loading ? 'שולח קוד...' : 'שליחת קוד ב-SMS →'}
+          <PrimaryButton loading={false} onClick={handleSendCode}>
+            שליחת קוד ב-SMS →
           </PrimaryButton>
         </div>
       )}
@@ -231,9 +269,15 @@ export default function AuthPage() {
       {/* ── שלב הקוד ── */}
       {step === 'otp' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ fontSize: 15, color: colors.ink2, textAlign: 'center', marginBottom: 4 }}>
-            שלחנו קוד למספר <span style={{ direction: 'ltr', unicodeBidi: 'embed', fontWeight: 700 }}>{normalizePhone(phone)}</span>
+          <div style={{ fontSize: 15, color: colors.ink2, textAlign: 'center', marginBottom: 0 }}>
+            שולחים קוד למספר <span style={{ direction: 'ltr', unicodeBidi: 'embed', fontWeight: 700 }}>{normalizePhone(phone)}</span>
           </div>
+          <div style={{ fontSize: 13.5, color: colors.ink3, textAlign: 'center', marginTop: -6, marginBottom: 2 }}>
+            {sending
+              ? 'שולח את הקוד… ה-SMS עשוי להגיע תוך עד דקה'
+              : 'אם לא הגיע — אפשר לשלוח קוד נוסף בעוד רגע'}
+          </div>
+
           <FormField label="קוד אימות">
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               placeholder="הזינו קוד" inputMode="numeric" dir="ltr" maxLength={6}
@@ -247,11 +291,16 @@ export default function AuthPage() {
           </PrimaryButton>
 
           <div style={{ textAlign: 'center', display: 'flex', gap: 16, justifyContent: 'center', marginTop: 4 }}>
-            <button onClick={handleResend} disabled={loading}
-              style={{ color: colors.burgundy, fontWeight: 700, fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}>
-              שליחת קוד חדש
+            <button onClick={handleResend} disabled={resendIn > 0 || sending}
+              style={{
+                color: (resendIn > 0 || sending) ? colors.ink3 : colors.burgundy,
+                fontWeight: 700, fontSize: 14, background: 'none', border: 'none',
+                cursor: (resendIn > 0 || sending) ? 'default' : 'pointer',
+                minHeight: 'unset', opacity: (resendIn > 0 || sending) ? 0.65 : 1,
+              }}>
+              {resendIn > 0 ? `שליחת קוד נוסף (${resendIn})` : 'שליחת קוד נוסף'}
             </button>
-            <button onClick={() => { setStep('form'); setError(''); setCode('') }}
+            <button onClick={backToForm}
               style={{ color: colors.ink3, fontWeight: 700, fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}>
               החלפת מספר
             </button>
