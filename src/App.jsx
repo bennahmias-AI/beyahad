@@ -41,7 +41,7 @@ import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
-  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, getUser, logActivity,
+  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, isUserOnline, getUser, logActivity,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
@@ -283,22 +283,20 @@ export default function App() {
   async function handleVideoCall(friend, audioOnly = false) {
     if (!authUser?.uid || !friend?.otherUid) return
     setCallError('')
+    // בודקים שהחבר מחובר — אחרת אין טעם לצלצל
+    const online = await isUserOnline(friend.otherUid)
+    if (!online) {
+      setCallError(`${friend.otherName} לא מחובר/ת כרגע — אפשר לשלוח הודעה במקום`)
+      setTimeout(() => setCallError(''), 4000)
+      return
+    }
     try {
-      // שולפים את פרטי החבר — תמונה + העדפת קבלת שיחות
+      // שולפים את תמונת הפרופיל של החבר (להצגה במסך השיחה)
       let otherPhoto = null
-      let callsEnabled = true
       try {
         const u = await getUser(friend.otherUid)
         otherPhoto = u?.photoURL || null
-        callsEnabled = u?.callsEnabled !== false   // ברירת מחדל: מאופשר
       } catch {}
-      // כיבה שיחות נכנסות בהגדרות — לא מצלצלים, מציעים לשלוח הודעה
-      if (!callsEnabled) {
-        setCallError(`${friend.otherName} כיבה/תה שיחות נכנסות — אפשר לשלוח הודעה במקום`)
-        setTimeout(() => setCallError(''), 4000)
-        return
-      }
-      // סגנון וואטסאפ: מתקשרים גם אם לא מחובר — נשלחת התראת push שמעירה אותו לפתוח ולענות
       const from = { uid: authUser.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
       const to = { uid: friend.otherUid, name: friend.otherName }
       const { callId, room } = await startVideoCall({ from, to, audioOnly })

@@ -22,7 +22,7 @@ import {
 } from '../utils/accessibility.js'
 import { isStandalone, isIOS, canPrompt, subscribe, promptInstall } from '../utils/pwaInstall.js'
 import {
-  IconBackRTL, IconSpeaker, IconText, IconBell, IconHeart, IconBook, IconPhone,
+  IconBackRTL, IconSpeaker, IconText, IconBell, IconHeart, IconBook,
 } from '../icons/index.jsx'
 import TermsModal from '../components/TermsModal.jsx'
 import HomeButton from '../components/HomeButton.jsx'
@@ -44,7 +44,6 @@ export default function SettingsPage({ onBack, onHome }) {
         <InstallAppSection />
         <AccessibilitySection />
         <NotificationsSection uid={authUser?.uid} />
-        <CallsSection uid={authUser?.uid} />
         <PrivacySection uid={authUser?.uid} />
         <TermsSection />
         <DeleteAccountSection uid={authUser?.uid} />
@@ -414,53 +413,6 @@ const VISIBILITY_FIELDS = [
 ]
 
 const DEFAULT_VISIBILITY = { lastName: true, photo: true, phone: false }
-
-// מקטע שיחות — האם חברים יכולים להתקשר אליי (גם כשהאפליקציה סגורה).
-// ברירת מחדל: מאופשר (callsEnabled לא מוגדר = מאופשר).
-function CallsSection({ uid }) {
-  const { profile, setProfile } = useUserStore()
-  const [on, setOn] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setOn(profile?.callsEnabled !== false)
-  }, [profile?.callsEnabled])
-
-  const toggle = async () => {
-    const next = !on
-    setOn(next)
-    setSaving(true)
-    try {
-      await createOrUpdateUser(uid, { callsEnabled: next })
-      const fresh = await getUser(uid)
-      if (fresh) setProfile(fresh)
-    } catch (e) {
-      console.error('save callsEnabled error:', e)
-      setOn(!next)   // החזרה בכשל
-    }
-    setSaving(false)
-  }
-
-  return (
-    <>
-      <SectionTitle
-        icon={<IconPhone size={22} color="#7E2C2E" />}
-        title="שיחות"
-        subtitle="שיחות וידאו וקול מחברים"
-      />
-      <div style={cardStyle}>
-        <ToggleRow
-          title="קבלת שיחות מחברים"
-          desc={on
-            ? 'מופעל — חברים יכולים להתקשר אליך, ותקבל התראה גם כשהאפליקציה סגורה'
-            : 'כבוי — חברים לא יוכלו להתקשר אליך. עדיין אפשר לכתוב הודעות'}
-          on={on}
-          onToggle={() => !saving && toggle()}
-        />
-      </div>
-    </>
-  )
-}
 
 function PrivacySection({ uid }) {
   const { profile, setProfile } = useUserStore()
