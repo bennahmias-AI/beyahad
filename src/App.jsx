@@ -43,6 +43,7 @@ import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, getUser, logActivity, ensureFcmTokenFresh,
 } from './services/firebase.js'
+import { initNativePush, isNativeApp } from './services/nativePush.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
 
@@ -124,6 +125,11 @@ export default function App() {
   // לא ייפסקו כשהטוקן מתיישן (במקום לכבות ולהדליק ידנית).
   useEffect(() => {
     if (!authUser?.uid) return
+    // אפליקציה נייטיב — מסלול התראות נייטיב (ערוץ + צלצול); בדפדפן ממשיכים כרגיל
+    if (isNativeApp()) {
+      initNativePush(authUser.uid)
+      return
+    }
     ensureFcmTokenFresh(authUser.uid)
     const onVis = () => { if (document.visibilityState === 'visible') ensureFcmTokenFresh(authUser.uid) }
     document.addEventListener('visibilitychange', onVis)

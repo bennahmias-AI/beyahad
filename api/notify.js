@@ -3,13 +3,20 @@
 // שולח התראות Push (FCM) — Vercel serverless function.
 //
 // הלקוח קורא ל-POST /api/notify אחרי אירוע (שיחה / הודעה / הזמנה למשחק),
-// והשרת שולח push לכל המכשירים השמורים של הנמען (users/{uid}.fcmTokens).
+// והשרת שולח push לכל המכשירים השמורים של הנמען.
 //
-// סוג ההתראה + הגדרות הצליל של הנמען קובעים אם תהיה עם צליל:
+// שני סוגי מכשירים, כל אחד עם פורמט שונה:
+//   • דפדפן (PWA)   — users/{uid}.fcmTokens       → data-only; ה-Service
+//                     Worker (firebase-messaging-sw.js) מציג את ההתראה.
+//   • אפליקציה נייטיב — users/{uid}.fcmTokensNative → notification + ערוץ;
+//                     שיחה => ערוץ "calls" עם צלצול (ringtone.ogg).
+//
+// סוג ההתראה + הגדרות הצליל של הנמען קובעים אם תהיה עם צליל (בדפדפן):
 //   call   -> לפי soundCalls    (ברירת מחדל: עם צליל)
 //   chat   -> לפי soundMessages (ברירת מחדל: עם צליל)
 //   invite -> לפי soundGames    (ברירת מחדל: עם צליל)
 //   אחר    -> שקט (רק בפעמון)
+// בנייטיב הצליל נקבע ע"י הערוץ (וכן ע"י הגדרות המערכת של המשתמש).
 //
 // משתני סביבה נדרשים (ב-Vercel וב-.env):
 //   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
@@ -55,8 +62,9 @@ export default async function handler(req, res) {
     if (!snap.exists) return res.status(200).json({ ok: false, reason: 'no-user' })
 
     const user = snap.data() || {}
-    const tokens = Array.isArray(user.fcmTokens) ? user.fcmTokens : []
-    if (user.notificationsEnabled === false || tokens.length === 0) {
+    const webTokens    = Array.isArray(user.fcmTokens)       ? user.fcmTokens       : []
+    const nativeTokens = Array.isArray(user.fcmTokensNative) ? user.fcmTokensNative : []
+    if (user.notificationsEnabled === false || (webTokens.length === 0 && nativeTokens.length === 0)) {
       return res.status(200).json({ ok: false, reason: 'no-tokens-or-disabled' })
     }
 
@@ -70,44 +78,80 @@ export default async function handler(req, res) {
     else if (type === 'invite') sound = soundGames
     const silent = sound ? '0' : '1'
 
-    // data-only — ה-Service Worker (firebase-messaging-sw.js) מציג את ההתראה
-    const message = {
-      tokens,
-      data: {
-        type:  String(type),
-        title: String(title || 'ביחד'),
-        body:  String(body || ''),
-        url:   String(url || '/'),
-        tag:   String(tag || type),
-        silent,
-      },
-      android: { priority: 'high' },
-      webpush: { headers: { Urgency: 'high', TTL: '600' } },
-    }
+    const messaging = admin.messaging(app)
 
-    const resp = await admin.messaging(app).sendEachForMulticast(message)
-
-    // ניקוי tokens שכבר לא תקפים (מכשיר שהוסר / הרשאה בוטלה)
-    const invalid = []
-    resp.responses.forEach((r, i) => {
-      if (!r.success) {
-        const code = (r.error && r.error.code) || ''
-        if (code.includes('registration-token-not-registered') ||
-            code.includes('invalid-registration-token') ||
-            code.includes('invalid-argument')) {
-          invalid.push(tokens[i])
+    // עוזר: ניקוי טוקנים שכבר לא תקפים (מכשיר שהוסר / הרשאה בוטלה) ממערך נתון
+    const cleanupInvalid = async (responses, tokensArr, field) => {
+      const invalid = []
+      responses.forEach((r, i) => {
+        if (!r.success) {
+          const code = (r.error && r.error.code) || ''
+          if (code.includes('registration-token-not-registered') ||
+              code.includes('invalid-registration-token') ||
+              code.includes('invalid-argument')) {
+            invalid.push(tokensArr[i])
+          }
         }
+      })
+      if (invalid.length) {
+        try {
+          await db.collection('users').doc(toUid).update({
+            [field]: admin.firestore.FieldValue.arrayRemove(...invalid),
+          })
+        } catch (e) { console.error('token cleanup failed:', field, e) }
       }
-    })
-    if (invalid.length) {
-      try {
-        await db.collection('users').doc(toUid).update({
-          fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalid),
-        })
-      } catch (e) { console.error('token cleanup failed:', e) }
     }
 
-    return res.status(200).json({ ok: true, sent: resp.successCount, failed: resp.failureCount })
+    let sent = 0, failed = 0
+
+    // ───── דפדפן (PWA) — data-only; ה-Service Worker מציג את ההתראה ─────
+    if (webTokens.length) {
+      const webMessage = {
+        tokens: webTokens,
+        data: {
+          type:  String(type),
+          title: String(title || 'ביחד'),
+          body:  String(body || ''),
+          url:   String(url || '/'),
+          tag:   String(tag || type),
+          silent,
+        },
+        android: { priority: 'high' },
+        webpush: { headers: { Urgency: 'high', TTL: '600' } },
+      }
+      const resp = await messaging.sendEachForMulticast(webMessage)
+      sent += resp.successCount; failed += resp.failureCount
+      await cleanupInvalid(resp.responses, webTokens, 'fcmTokens')
+    }
+
+    // ───── אפליקציה נייטיב — notification + ערוץ; שיחה => "calls" עם צלצול ─────
+    if (nativeTokens.length) {
+      const channelId = type === 'call' ? 'calls' : 'messages'
+      const nativeMessage = {
+        tokens: nativeTokens,
+        notification: {
+          title: String(title || 'ביחד'),
+          body:  String(body || ''),
+        },
+        data: {
+          type: String(type),
+          url:  String(url || '/'),
+          tag:  String(tag || type),
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId,            // הערוץ קובע את הצליל (ringtone.ogg לערוץ calls)
+            tag: String(tag || type),
+          },
+        },
+      }
+      const resp = await messaging.sendEachForMulticast(nativeMessage)
+      sent += resp.successCount; failed += resp.failureCount
+      await cleanupInvalid(resp.responses, nativeTokens, 'fcmTokensNative')
+    }
+
+    return res.status(200).json({ ok: true, sent, failed })
   } catch (e) {
     console.error('notify error:', e)
     return res.status(500).json({ error: e.message })

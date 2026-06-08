@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "705995824315",
+    "project_id": "bennah-960eb",
+    "storage_bucket": "bennah-960eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:705995824315:android:ed10b96405faa5ceda1d9e",
+        "android_client_info": {
+          "package_name": "com.beyahad.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_F8MkRzJNfGOfHxHDGeMJtEYr8hDBBIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

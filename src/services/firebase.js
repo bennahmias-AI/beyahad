@@ -2210,6 +2210,21 @@ export async function ensureFcmTokenFresh(uid) {
 
 // מאזין להודעות שמגיעות כשהאפליקציה פתוחה (foreground).
 // מחזיר פונקציית unsubscribe. ה-cb מקבל את ה-payload.
+// שומר FCM token של האפליקציה הנייטיב (Capacitor/Android) בשדה נפרד
+// מ-fcmTokens של הדפדפן. השליחה לטוקנים האלה שונה (notification payload
+// + ערוץ נייטיב עם צלצול), ולכן notify.js מטפל בהם בנפרד.
+export async function saveNativeFcmToken(uid, token) {
+  if (!uid || !token) return
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      fcmTokensNative: arrayUnion(token),
+      notificationsEnabled: true,
+    })
+  } catch (e) {
+    console.error('saveNativeFcmToken error:', e)
+  }
+}
+
 export async function onForegroundMessage(cb) {
   const messaging = await getMessagingIfSupported()
   if (!messaging) return () => {}
