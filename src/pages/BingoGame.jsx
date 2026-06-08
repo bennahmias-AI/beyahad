@@ -310,7 +310,7 @@ function CalledStrip({ called }) {
 function BingoShell({ onBack, onHome, isOnline, chatNode, children }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
-      <div className="screen-header" style={{ background: 'transparent' }}>
+      <div className="screen-header" style={{ background: 'transparent', position: 'static' }}>
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
