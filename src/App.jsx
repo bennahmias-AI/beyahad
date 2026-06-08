@@ -41,7 +41,7 @@ import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
 import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
-  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, getUser, logActivity,
+  PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, getUser, logActivity, ensureFcmTokenFresh,
 } from './services/firebase.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
@@ -119,6 +119,16 @@ export default function App() {
   useEffect(() => {
     if (!authUser) setAdminVerified(false)
   }, [authUser])
+
+  // רענון אוטומטי של ה-FCM token — בעלייה ובכל חזרה לחזית, כדי שההתראות
+  // לא ייפסקו כשהטוקן מתיישן (במקום לכבות ולהדליק ידנית).
+  useEffect(() => {
+    if (!authUser?.uid) return
+    ensureFcmTokenFresh(authUser.uid)
+    const onVis = () => { if (document.visibilityState === 'visible') ensureFcmTokenFresh(authUser.uid) }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [authUser?.uid])
 
   // מעדכן isDesktop בעת שינוי רוחב חלון (משפיע רק על נתיב הלא-מחובר)
   useEffect(() => {

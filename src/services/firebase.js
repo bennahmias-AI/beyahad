@@ -2184,6 +2184,30 @@ export async function disableNotifications(uid) {
   }
 }
 
+// מרענן אוטומטית את ה-FCM token — אם ההרשאה כבר ניתנה.
+// פותר התיישנות של הטוקן/המנוי בלי שהמשתמש יכבה וידליק ידנית. שקט, best-effort.
+// משתמש באותו scope ייעודי כמו enableNotifications, כדי לא להתנגש עם sw.js.
+let _lastTokenRefresh = 0
+export async function ensureFcmTokenFresh(uid) {
+  if (!uid) return
+  const now = Date.now()
+  if (now - _lastTokenRefresh < 4 * 60 * 1000) return   // לכל היותר אחת ל-4 דקות
+  _lastTokenRefresh = now
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+    if (!VAPID_KEY) return
+    const messaging = await getMessagingIfSupported()
+    if (!messaging) return
+    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: '/firebase-cloud-messaging-push-scope',
+    })
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg })
+    if (token) {
+      await updateDoc(doc(db, 'users', uid), { fcmTokens: arrayUnion(token), notificationsEnabled: true })
+    }
+  } catch (e) { /* best-effort — לא חוסם */ }
+}
+
 // מאזין להודעות שמגיעות כשהאפליקציה פתוחה (foreground).
 // מחזיר פונקציית unsubscribe. ה-cb מקבל את ה-payload.
 export async function onForegroundMessage(cb) {
