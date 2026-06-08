@@ -2138,7 +2138,9 @@ export async function enableNotifications(uid) {
 
   try {
     // רושמים את ה-service worker של FCM (נפרד מ-SW ה-PWA)
-    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: '/firebase-cloud-messaging-push-scope',
+    })
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg,
@@ -2165,7 +2167,7 @@ export async function disableNotifications(uid) {
     let token = null
     if (messaging && VAPID_KEY) {
       try {
-        const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')
+        const swReg = await navigator.serviceWorker.getRegistration('/firebase-cloud-messaging-push-scope')
         token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg || undefined })
       } catch {}
     }
