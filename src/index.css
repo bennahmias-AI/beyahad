@@ -291,6 +291,20 @@ html[data-reduce-motion="on"] *::after {
 .hub-multicol { display: contents; }
 
 /* ============================================================
+   TABLET LAYER (600px-1023px) -- tablets / iPad portrait ONLY.
+   Phones (<600px) and desktop (>=1024px) stay byte-for-byte
+   identical. The app fills the whole screen instead of a
+   narrow 430px column with wasted side margins.
+   ============================================================ */
+@media (min-width: 600px) and (max-width: 1023px) {
+  .app-shell {
+    max-width: none;
+    width: 100%;
+  }
+  .lux-hub .lux-mob { padding-left: 26px; padding-right: 26px; }
+}
+
+/* ============================================================
    DESKTOP LAYER (min-width: 1024px) -- DESKTOP ONLY.
    Every rule here applies only on wide screens. Below 1024px
    nothing here is active, so mobile stays byte-for-byte identical.
