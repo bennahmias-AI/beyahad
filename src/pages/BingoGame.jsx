@@ -310,7 +310,7 @@ function CalledStrip({ called }) {
 function BingoShell({ onBack, onHome, isOnline, chatNode, children }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
-      <div className="screen-header" style={{ background: '#5A1D1E', position: 'sticky', top: 0, zIndex: 30, boxShadow: '0 2px 10px rgba(0,0,0,.35)' }}>
+      <div className="screen-header" style={{ background: 'transparent' }}>
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
@@ -794,6 +794,7 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
   const [friends, setFriends] = useState([])
   const [invited, setInvited] = useState({})
   const [profileMap, setProfileMap] = useState({})
+  const [onlineMap, setOnlineMap] = useState({})
 
   useEffect(() => {
     if (!me.uid) return
@@ -809,6 +810,11 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
       return watchUser(f.otherUid, u => {
         const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ')
         setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null } }))
+        const seen = u?.lastSeenAt
+        const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
+        const fresh = seenMs && (Date.now() - seenMs) < 2 * 60 * 1000
+        const isOnline = Boolean(fresh) && ['available', 'busy'].includes(u?.status)
+        setOnlineMap(prev => ({ ...prev, [f.otherUid]: isOnline }))
       })
     })
     return () => unsubs.forEach(u => u && u())
@@ -816,6 +822,7 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
 
   const inRoom = new Set(players.map(p => p.uid))
   const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
+    .sort((a, b) => (onlineMap[b.otherUid] ? 1 : 0) - (onlineMap[a.otherUid] ? 1 : 0))
 
   const pick = (f) => {
     setInvited(prev => ({ ...prev, [f.otherUid]: true }))
@@ -838,8 +845,13 @@ function BingoInvitePicker({ me, players, onInvite, onClose }) {
               const dispName = prof?.name || f.otherName
               return (
               <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Avatar name={dispName} size={46} photoURL={prof?.photoURL} />
-                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
+                <Avatar name={dispName} size={46} online={onlineMap[f.otherUid]} photoURL={prof?.photoURL} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="h-display" style={{ fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: onlineMap[f.otherUid] ? 'var(--success)' : 'var(--ink-3)' }}>
+                    {onlineMap[f.otherUid] ? 'מחובר עכשיו' : 'לא מחובר'}
+                  </div>
+                </div>
                 <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
                   background: invited[f.otherUid] ? 'var(--success)' : 'var(--burgundy)',
                   color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
