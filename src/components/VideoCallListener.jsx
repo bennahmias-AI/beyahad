@@ -47,23 +47,32 @@ export default function VideoCallListener({ onAccept }) {
     if (!call) return
     let ctx
     let stopped = false
-    const beep = () => {
+    const playRing = () => {
       if (stopped) return
       try {
         ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain); gain.connect(ctx.destination)
-        osc.frequency.value = 660
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.05)
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5)
-        osc.start()
-        osc.stop(ctx.currentTime + 0.55)
+        const now = ctx.currentTime
+        // פעימה אחת — אקורד כפול (כמו צליל חיוג קלאסי)
+        const pulse = (start, freq) => {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.type = 'sine'
+          osc.frequency.value = freq
+          osc.connect(gain); gain.connect(ctx.destination)
+          gain.gain.setValueAtTime(0.0001, start)
+          gain.gain.exponentialRampToValueAtTime(0.2, start + 0.04)
+          gain.gain.setValueAtTime(0.2, start + 0.32)
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.42)
+          osc.start(start)
+          osc.stop(start + 0.45)
+        }
+        // "רינג-רינג" — שתי פעימות של אקורד כפול
+        pulse(now, 440); pulse(now, 480)
+        pulse(now + 0.6, 440); pulse(now + 0.6, 480)
       } catch (e) { /* ignore */ }
     }
-    beep()
-    ringRef.current = setInterval(beep, 1800)
+    playRing()
+    ringRef.current = setInterval(playRing, 2400)
     return () => {
       stopped = true
       if (ringRef.current) clearInterval(ringRef.current)

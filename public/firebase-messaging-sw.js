@@ -60,7 +60,7 @@ messaging.onBackgroundMessage((payload) => {
     renotify: urgent,
     requireInteraction: isCall,
     silent,
-    vibrate: urgent ? [200, 100, 200] : undefined,
+    vibrate: isCall ? [500, 250, 500, 250, 500, 250, 500] : (urgent ? [200, 100, 200] : undefined),
     data: {
       ...data,
       url: data.url || '/',
