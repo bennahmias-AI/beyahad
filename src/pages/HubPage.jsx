@@ -51,6 +51,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
   const { profile, authUser, setProfile } = useUserStore()
   const isAdmin = profile?.role === 'admin'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [brandMenuOpen, setBrandMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [cancelingDeletion, setCancelingDeletion] = useState(false)
   const [onlineCount, setOnlineCount] = useState(0)
@@ -240,7 +241,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
 
         {/* ───── Top bar ───── */}
         <header className="bar">
-          <div className="brand">
+          <div className="brand" onClick={() => setBrandMenuOpen(true)} style={{ cursor: 'pointer' }}>
             <span className="logo-slot"><AppLogo size={46} rounded={12} bg="#7E2C2E" bgDeep="#5A1D1E" /></span>
             <div className="bwrap">
               <span className="name">בְּ<b>יחד</b></span>
@@ -434,10 +435,12 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
 
         <div className="lux-mob">
           <div className="m-brand">
+            <div onClick={() => setBrandMenuOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, cursor: 'pointer' }}>
             <span className="logo-slot"><AppLogo size={42} rounded={11} bg="#7E2C2E" bgDeep="#5A1D1E" /></span>
             <div className="bwrap">
               <span className="name">בְּ<b>יחד</b></span>
               <span className="slogan">כל מה שאתם צריכים!</span>
+            </div>
             </div>
             <div className="m-clock">
               <div className="t">{timeStr}</div>
@@ -560,6 +563,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
           onSignOut={async () => { setMenuOpen(false); try { await signOut() } catch (e) { console.error(e) } }}
         />
       )}
+      {brandMenuOpen && <BrandMenu onClose={() => setBrandMenuOpen(false)} />}
     </>
   )
 }
@@ -855,6 +859,55 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSettings, o
           <span style={{ fontSize: 24 }}>🚪</span>
           <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--danger)' }}>התנתק</span>
         </button>
+        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
+      </div>
+    </div>
+  )
+}
+
+// ── תפריט "ביחד" (לחיצה על הלוגו) — פרטיות / הדרכה / שיתוף ──
+function BrandMenu({ onClose }) {
+  const [note, setNote] = useState('')
+  const APP_URL = 'https://beyahad-gamma.vercel.app'
+
+  const openPrivacy = () => {
+    try { window.open(APP_URL + '/privacy.html', '_blank') } catch {}
+  }
+  const shareApp = async () => {
+    const data = { title: 'ביחד', text: 'בואו להצטרף אליי באפליקציית ביחד 🧡', url: APP_URL }
+    try {
+      if (navigator.share) { await navigator.share(data); return }
+    } catch { return }
+    try {
+      await navigator.clipboard.writeText(APP_URL)
+      setNote('הקישור הועתק! אפשר להדביק בוואטסאפ ולשלוח. ✓')
+    } catch {
+      setNote('שתפו את הקישור: ' + APP_URL)
+    }
+  }
+
+  const Row = ({ emoji, title, sub, onClick }) => (
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
+      <span style={{ fontSize: 24 }}>{emoji}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
+        {sub && <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>{sub}</span>}
+      </span>
+      <IconBackRTL size={20} color="#8389A4" />
+    </button>
+  )
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(20,23,42,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-app)', borderRadius: '24px 24px 0 0', padding: '22px 20px calc(22px + env(safe-area-inset-bottom))', width: '100%', maxWidth: 430, direction: 'rtl' }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--line-strong)', margin: '0 auto 18px' }} />
+        <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 16 }}>ביחד</div>
+        <Row emoji="📄" title="מדיניות פרטיות" onClick={openPrivacy} />
+        <Row emoji="🎬" title="סרטון הדרכה" sub="בקרוב" onClick={() => setNote('סרטון ההדרכה יתווסף כאן בקרוב 🎬')} />
+        <Row emoji="📤" title="שיתוף האפליקציה" onClick={shareApp} />
+        {note && (
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'break-all' }}>{note}</div>
+        )}
         <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
       </div>
     </div>

@@ -17,7 +17,7 @@ import HomeButton from '../components/HomeButton.jsx'
 import { useUserStore } from '../stores/userStore.js'
 import { playSound } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
-import { ChatPanel, ChatToast, ChatFab } from '../components/GameChat.jsx'
+import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import {
   createRummikubRoom, joinRummikubRoom, startRummikubGame,
@@ -672,6 +672,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
   // תפריט (☰) — אפס מהלך + יציאה
   const menuItems = (
     <>
+      <RummiMenuItem label="💬 צ'אט" onClick={() => { setMenuOpen(false); setChatOpen(true) }} />
       {isMyTurn && !winner && <RummiMenuItem label="↩ אפס מהלך" onClick={() => { handleResetDraft(); setMenuOpen(false) }} />}
       <RummiMenuItem label="↩ יציאה מהמשחק" onClick={() => { setMenuOpen(false); handleLeave() }} />
     </>
@@ -735,8 +736,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
         )}
       </div>
 
-      {/* כפתור צ'אט צף + התראה (כמו ב"מלך הזירה") */}
-      <ChatFab chat={chatMsgs} open={chatOpen} onOpen={() => setChatOpen(true)} bg="linear-gradient(180deg,#6b4528,#4a2e16)" border="#C9A24A" color="#F0D9A0" ringColor="#1c1108" />
+      {/* צ'אט — נפתח מתפריט ה-☰ למעלה; התראה צפה על הודעה חדשה */}
       <ChatToast msgs={chatMsgs} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />
       {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendRummikubChat} />}
 
