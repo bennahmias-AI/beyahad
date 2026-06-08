@@ -79,3 +79,19 @@ export async function initNativePush(uid) {
     console.warn('native push register error:', e)
   }
 }
+
+// אתחול מראה נייטיב: דוחף את התוכן אל מתחת לשורת הסטטוס של הטלפון
+// (אחרת התוכן נדבק לשעה/סוללה שבראש המסך). נייטיב בלבד — הווב לא מושפע.
+let _uiInited = false
+export async function initNativeUI() {
+  if (!isNativeApp() || _uiInited) return
+  _uiInited = true
+  try {
+    const { StatusBar, Style } = await import('@capacitor/status-bar')
+    await StatusBar.setOverlaysWebView({ overlay: false }) // ה-WebView מתחיל מתחת לשורת הסטטוס
+    await StatusBar.setStyle({ style: Style.Light })        // אייקונים כהים (מתאים לרקע בהיר)
+    await StatusBar.setBackgroundColor({ color: '#F6F0E3' })// קרם — תואם את רקע האפליקציה
+  } catch (e) {
+    console.warn('initNativeUI error:', e)
+  }
+}

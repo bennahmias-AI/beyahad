@@ -12,6 +12,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { watchVideoCall, endVideoCall, deleteVideoCall } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import { playOutgoingRing } from '../utils/sounds.js'
 
 export default function OutgoingCallScreen({ call, otherName, otherPhoto, audioOnly = false, onConnected, onEnded }) {
   const [status, setStatus] = useState('ringing')  // ringing | declined | no-answer
@@ -52,6 +53,14 @@ export default function OutgoingCallScreen({ call, otherName, otherPhoto, audioO
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
     // eslint-disable-next-line
   }, [])
+
+  // צליל חיוג יוצא — מתנגן בלולאה כל עוד "מצלצל" (קולי ווידאו כאחד)
+  useEffect(() => {
+    if (status !== 'ringing') return
+    playOutgoingRing()
+    const id = setInterval(playOutgoingRing, 3000)
+    return () => clearInterval(id)
+  }, [status])
 
   const handleCancel = async () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)

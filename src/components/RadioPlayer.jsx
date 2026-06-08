@@ -10,6 +10,7 @@
 // מתחבר לכתובת הסטרים, מנגן/עוצר, מכוון ווליום.
 // ─────────────────────────────────────────────────────────────
 import { useRef, useEffect, useState } from 'react'
+import { MediaSession } from '@capgo/capacitor-media-session'
 import { useRadioStore } from '../stores/radioStore.js'
 import { reportClick } from '../services/radio.js'
 import { IconPlay, IconPause, IconX, IconHeart } from '../icons/index.jsx'
@@ -64,6 +65,41 @@ export default function RadioPlayer() {
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
   }, [volume])
+
+  // רישום פעולות הבקרה פעם אחת — נגן / השהה / עצירה. נרשם לפני הניגון
+  // כדי שכל הכפתורים (כולל עצירה) יופיעו בהתראה.
+  useEffect(() => {
+    const register = async () => {
+      try {
+        await MediaSession.setActionHandler({ action: 'play' }, () => setPlaying(true))
+        await MediaSession.setActionHandler({ action: 'pause' }, () => setPlaying(false))
+        await MediaSession.setActionHandler({ action: 'stop' }, () => stop())
+      } catch (e) { /* ignore */ }
+    }
+    register()
+  }, [setPlaying, stop])
+
+  // בקרת מדיה של המערכת — מטא-דאטה ומצב ניגון (כמו ספוטיפיי/יוטיוב),
+  // כדי שאפשר לשלוט ברדיו ולעצור אותו גם כשהאפליקציה ברקע.
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!station) {
+          await MediaSession.setPlaybackState({ playbackState: 'none' })
+          return
+        }
+        await MediaSession.setMetadata({
+          title: station.name || 'רדיו',
+          artist: 'ביחד · רדיו',
+          artwork: station.favicon
+            ? [{ src: station.favicon, sizes: '512x512', type: 'image/png' }]
+            : [],
+        })
+        await MediaSession.setPlaybackState({ playbackState: playing ? 'playing' : 'paused' })
+      } catch (e) { /* ignore */ }
+    }
+    run()
+  }, [station?.id, playing])
 
   return (
     <>

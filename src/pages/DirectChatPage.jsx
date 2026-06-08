@@ -17,6 +17,7 @@ import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
 import VoiceMessage from '../components/VoiceMessage.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine, IconHomeLine } from '../icons/index.jsx'
+import { playMessageSent } from '../utils/sounds.js'
 
 export default function DirectChatPage({ friend, onBack, onHome, onVideoCall, onCallFriend, onPlayFriend }) {
   const { authUser, profile } = useUserStore()
@@ -66,6 +67,7 @@ export default function DirectChatPage({ friend, onBack, onHome, onVideoCall, on
     const text = draft.trim()
     if (!text || !myUid || !otherUid) return
     setDraft('')
+    playMessageSent()
     try {
       await sendDirectMessage({
         fromUid: myUid,

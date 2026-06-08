@@ -21,6 +21,7 @@ import {
   getAccessibilitySettings, setAccessibilitySetting,
 } from '../utils/accessibility.js'
 import { isStandalone, isIOS, canPrompt, subscribe, promptInstall } from '../utils/pwaInstall.js'
+import { isNativeApp } from '../services/nativePush.js'
 import {
   IconBackRTL, IconSpeaker, IconText, IconBell, IconHeart, IconBook, IconPhone,
 } from '../icons/index.jsx'
@@ -374,7 +375,12 @@ function NotificationsSection({ uid }) {
         subtitle="עדכונים על שיחות, הודעות והזמנות"
       />
       <div style={cardStyle}>
-        {supported === false ? (
+        {isNativeApp() ? (
+          <div style={{ fontSize: 14, color: 'var(--success)', fontWeight: 700, lineHeight: 1.6, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 20 }}>✓</span>
+            <span>התראות מופעלות באפליקציה — תקבלו התראה על שיחות, הודעות והזמנות, גם כשהאפליקציה סגורה.</span>
+          </div>
+        ) : supported === false ? (
           <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.5 }}>
             המכשיר או הדפדפן הזה לא תומך בהתראות. באייפון — יש להתקין קודם את האפליקציה למסך הבית.
           </div>

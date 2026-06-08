@@ -1,5 +1,11 @@
 {
   "appId": "com.beyahad.app",
   "appName": "Beyahad",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["phone"]
+    }
+  }
 }

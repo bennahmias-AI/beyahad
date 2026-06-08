@@ -17,6 +17,7 @@ import {
   watchIncomingCalls, acceptVideoCall, declineVideoCall, watchUser,
 } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
+import { getAudioCtx } from '../utils/audioUnlock.js'
 
 export default function VideoCallListener({ onAccept }) {
   const { authUser } = useUserStore()
@@ -45,12 +46,12 @@ export default function VideoCallListener({ onAccept }) {
   // צליל צלצול — ביפ עדין חוזר כל עוד יש שיחה נכנסת
   useEffect(() => {
     if (!call) return
-    let ctx
     let stopped = false
     const playRing = () => {
       if (stopped) return
       try {
-        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
+        const ctx = getAudioCtx()
+        if (!ctx) return
         const now = ctx.currentTime
         // פעימה אחת — אקורד כפול (כמו צליל חיוג קלאסי)
         const pulse = (start, freq) => {
@@ -76,7 +77,6 @@ export default function VideoCallListener({ onAccept }) {
     return () => {
       stopped = true
       if (ringRef.current) clearInterval(ringRef.current)
-      if (ctx) { try { ctx.close() } catch (e) {} }
     }
   }, [call?.id])
 

@@ -43,7 +43,7 @@ import {
   joinParliamentSession, fetchLiveKitToken, setPresence,
   PARLIAMENT_ROOM, SINGING_ROOM, startVideoCall, getUser, logActivity, ensureFcmTokenFresh,
 } from './services/firebase.js'
-import { initNativePush, isNativeApp } from './services/nativePush.js'
+import { initNativePush, initNativeUI, isNativeApp } from './services/nativePush.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
 
@@ -114,6 +114,11 @@ export default function App() {
   // ── נגישות — מחילים את העדפות המשתמש (גודל טקסט/ניגודיות/אנימציות) בעליית האפליקציה ──
   useEffect(() => {
     applyAccessibilityFromStorage()
+  }, [])
+
+  // ── מראה נייטיב — דוחף את התוכן מתחת לשורת הסטטוס (נייטיב בלבד; הווב לא מושפע) ──
+  useEffect(() => {
+    initNativeUI()
   }, [])
 
   // איפוס אימות המנהל כשמתנתקים — כל כניסה חדשה דורשת גורם שני מחדש
@@ -227,6 +232,27 @@ export default function App() {
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  // ── כפתור החזרה החומרתי של אנדרואיד (אפליקציה נייטיב) ──
+  // ב-Capacitor כפתור/מחוות החזרה לא מפעילים popstate אוטומטית — הם סוגרים
+  // את האפליקציה. כאן רושמים מאזין נייטיב שמפעיל את אותה לוגיקת
+  // החזרה הקיימת (history.back → onPopState → resolveBackTarget): מסך אחד
+  // אחורה בכל לחיצה. בעמוד הבית (ולא באמצע שיחה) — יציאה מהאפליקציה.
+  useEffect(() => {
+    if (!isNativeApp()) return
+    let handle
+    import('@capacitor/app').then(({ App: CapApp }) =>
+      CapApp.addListener('backButton', () => {
+        const { page: cur, inCall } = backNavRef.current
+        if (cur === 'hub' && !inCall) {
+          CapApp.exitApp()
+        } else {
+          window.history.back()
+        }
+      })
+    ).then(h => { handle = h }).catch(() => {})
+    return () => { try { handle && handle.remove() } catch {} }
   }, [])
 
   function goHome() {

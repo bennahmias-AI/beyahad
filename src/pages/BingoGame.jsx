@@ -158,7 +158,7 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
 // ════════════════════════════════════════════════════════
 // כרטיס הבינגו — 5×5 עם כותרת B-I-N-G-O
 // ════════════════════════════════════════════════════════
-function BingoCard({ card, markedSet, calledSet, winningLine, onCellTap, disabled }) {
+function BingoCard({ card, markedSet, calledSet, winningLine, onCellTap, onBingo, disabled }) {
   const winSet = new Set(winningLine || [])
   return (
     <div style={{
@@ -183,10 +183,31 @@ function BingoCard({ card, markedSet, calledSet, winningLine, onCellTap, disable
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5, direction: 'ltr' }}>
         {card.map((cell, idx) => {
           const isFree = idx === FREE_INDEX
-          const marked = isFree || markedSet.has(idx)
+          // המשבצת האמצעית = כפתור הבינגו הזהוב (לחיצה = צעקת בינגו)
+          if (isFree) {
+            return (
+              <button
+                key={idx}
+                onClick={() => !disabled && onBingo && onBingo()}
+                disabled={disabled}
+                aria-label="בינגו"
+                style={{
+                  aspectRatio: '1', borderRadius: 12, border: 'none',
+                  fontWeight: 800, fontFamily: "'Suez One', serif",
+                  fontSize: 'clamp(12px, 4vw, 18px)', letterSpacing: '.5px',
+                  cursor: disabled ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(180deg,#F2CE6A,#C9A24A)',
+                  color: '#3E1213', opacity: disabled ? 0.5 : 1,
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.45), 0 3px 7px rgba(0,0,0,.3)',
+                }}
+              >BINGO</button>
+            )
+          }
+          const marked = markedSet.has(idx)
           const isWin = winSet.has(idx)
-          // ניתן לסמן רק אם המספר כבר נקרא (או חופשי)
-          const callable = !isFree && cell.n != null && calledSet.has(cell.n)
+          // ניתן לסמן רק אם המספר כבר נקרא
+          const callable = cell.n != null && calledSet.has(cell.n)
           return (
             <button
               key={idx}
@@ -210,12 +231,8 @@ function BingoCard({ card, markedSet, calledSet, winningLine, onCellTap, disable
                 transition: 'all .15s',
               }}
             >
-              {isFree ? (
-                <span style={{ fontSize: 'clamp(11px,3.5vw,15px)', lineHeight: 1.1 }}>חופשי ⭐</span>
-              ) : (
-                cell.n
-              )}
-              {marked && !isFree && (
+              {cell.n}
+              {marked && (
                 <span style={{
                   position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontSize: '1.6em', color: 'rgba(255,255,255,.35)',
@@ -293,7 +310,7 @@ function CalledStrip({ called }) {
 function BingoShell({ onBack, onHome, isOnline, chatNode, children }) {
   return (
     <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
-      <div className="screen-header" style={{ background: 'transparent' }}>
+      <div className="screen-header" style={{ background: '#5A1D1E', position: 'sticky', top: 0, zIndex: 30, boxShadow: '0 2px 10px rgba(0,0,0,.35)' }}>
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
           <IconBackRTL size={24} color="#E8C879" />
@@ -415,17 +432,14 @@ function SoloGameScreen({ onBack, onHome, onExit }) {
 
       <BingoCard
         card={card} markedSet={marked} calledSet={calledSet}
-        winningLine={winningLine} onCellTap={toggleMark} disabled={won}
+        winningLine={winningLine} onCellTap={toggleMark} onBingo={callBingo} disabled={won}
       />
 
-      {/* כפתורים */}
+      {/* כפתורים — צעקת הבינגו עברה למשבצת האמצעית בכרטיס */}
       <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
         {!won && (
-          <>
-            <BingoButton label="🎉 בינגו!" variant="gold" onClick={callBingo} />
-            <BingoButton label={paused ? '▶ המשך' : '⏸ עצור'} variant="ghost"
-              onClick={() => setPaused(p => !p)} style={{ flex: '0 0 36%' }} />
-          </>
+          <BingoButton label={paused ? '▶ המשך' : '⏸ עצור'} variant="ghost"
+            onClick={() => setPaused(p => !p)} />
         )}
         {won && (
           <BingoButton label="🔄 משחק חדש" variant="gold" onClick={restart} />
@@ -1030,18 +1044,12 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
 
       <BingoCard
         card={myCard} markedSet={marked} calledSet={calledSet}
-        winningLine={winningLine} onCellTap={toggleMark} disabled={!!winner}
+        winningLine={winningLine} onCellTap={toggleMark} onBingo={callBingo} disabled={!!winner}
       />
 
-      {/* כפתור בינגו — המספרים עולים אוטומטית, אז אין צורך ב-"מספר הבא" */}
       {!winner && (
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <BingoButton label="🎉 בינגו!" variant="gold" onClick={callBingo} />
-        </div>
-      )}
-      {!winner && (
-        <div style={{ textAlign: 'center', color: CREAM, fontSize: 13, marginTop: 10, opacity: .75 }}>
-          המספרים עולים אוטומטית — סמנו ולחצו "בינגו!" כשתשלימו שורה
+        <div style={{ textAlign: 'center', color: CREAM, fontSize: 13, marginTop: 14, opacity: .8 }}>
+          המספרים עולים אוטומטית — סמנו, וכשתשלימו שורה לחצו על משבצת ה-BINGO הזהובה באמצע הכרטיס 🎉
         </div>
       )}
 

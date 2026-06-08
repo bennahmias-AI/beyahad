@@ -9,6 +9,8 @@ import {
   EmailAuthProvider,
   linkWithCredential,
   reauthenticateWithCredential,
+  PhoneAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth'
 import {
   getFirestore,
@@ -23,6 +25,7 @@ import {
 import {
   getMessaging, getToken, onMessage, isSupported as isMessagingSupported,
 } from 'firebase/messaging'
+import { Capacitor } from '@capacitor/core'
 
 // מאגר המתכונים לדוגמה (מקור אמת אחד, משמש גם את סקריפט התמונות)
 import { SEED_RECIPES, SEED_AUTHORS } from '../data/seedRecipes.js'
@@ -55,7 +58,66 @@ export function setupRecaptcha(containerId) {
   return window.recaptchaVerifier
 }
 
+// אימות טלפון נייטיב (Capacitor)
+// בתוך האפליקציה הנייטיב, reCAPTCHA של הדפדפן לא עובד; לכן משתמשים
+// בתוסף @capacitor-firebase/authentication שמבצע אימות מכשיר דרך Play
+// Integrity ושולח SMS. מקבלים ממנו verificationId, ואז מתחברים ל-JS SDK
+// עם PhoneAuthProvider.credential — כך שמצב ההתחברות (auth) נשאר מקור
+// האמת היחיד של האפליקציה (בדיוק כמו בדפדפן).
+function isNativePlatform() {
+  try { return Capacitor?.isNativePlatform?.() === true } catch { return false }
+}
+
+let _nativeVerificationId = null
+
+async function sendOtpNative(phoneE164) {
+  const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication')
+  _nativeVerificationId = null
+  return new Promise((resolve, reject) => {
+    let sentHandle, failHandle, settled = false, timer = null
+    const cleanup = async () => {
+      if (timer) clearTimeout(timer)
+      try { await sentHandle?.remove?.() } catch {}
+      try { await failHandle?.remove?.() } catch {}
+    }
+    const finish = async (fn) => { if (settled) return; settled = true; await cleanup(); fn() }
+    timer = setTimeout(() => {
+      const err = new Error('timeout'); err.code = 'auth/too-many-requests'
+      finish(() => reject(err))
+    }, 60000)
+    FirebaseAuthentication.addListener('phoneCodeSent', (event) => {
+      _nativeVerificationId = event?.verificationId || null
+      finish(() => resolve({ ok: true }))
+    }).then(h => { sentHandle = h })
+    FirebaseAuthentication.addListener('phoneVerificationFailed', (event) => {
+      const err = new Error(event?.message || 'verification-failed')
+      err.code = 'auth/invalid-phone-number'
+      finish(() => reject(err))
+    }).then(h => { failHandle = h })
+    FirebaseAuthentication.signInWithPhoneNumber({ phoneNumber: phoneE164 })
+      .then((result) => {
+        if (result?.verificationId && !_nativeVerificationId) {
+          _nativeVerificationId = result.verificationId
+          finish(() => resolve({ ok: true }))
+        }
+      })
+      .catch((e) => finish(() => reject(e)))
+  })
+}
+
+async function verifyOtpNative(code) {
+  if (!_nativeVerificationId) {
+    const err = new Error('no-verification-id'); err.code = 'auth/missing-verification-code'
+    throw err
+  }
+  const credential = PhoneAuthProvider.credential(_nativeVerificationId, code)
+  return await signInWithCredential(auth, credential)
+}
+
 export async function sendOtp(phone) {
+  // אפליקציה נייטיב — דרך התוסף הנייטיב (בלי reCAPTCHA)
+  if (isNativePlatform()) return sendOtpNative(phone)
+  // דפדפן — reCAPTCHA בלתי-נראה (כמו קודם).
   // יוצרים את ה-RecaptchaVerifier פעם אחת בלבד ומשתמשים בו מחדש.
   // יצירה חוזרת על אותו אלמנט זורקת "reCAPTCHA has already been rendered in this element".
   if (!window.recaptchaVerifier) {
@@ -69,6 +131,7 @@ export async function sendOtp(phone) {
 }
 
 export async function verifyOtp(code) {
+  if (isNativePlatform()) return verifyOtpNative(code)
   return window.confirmationResult.confirm(code)
 }
 
