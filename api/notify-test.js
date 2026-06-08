@@ -2,16 +2,15 @@
 // ─────────────────────────────────────────────────────────────
 // ⚠️ כלי אבחון זמני להתראות Push. למחוק אחרי שמסיימים!
 //
-// בודק את כל שרשרת השליחה ומחזיר תשובה קריאה בדפדפן (JSON), בלי
-// לחשוף סודות. השליחה האמיתית עוברת באותו מנגנון כמו api/notify.js.
-//
 // שימוש (פותחים בדפדפן):
 //   /api/notify-test?t=beyahad-diag-7731
-//       → בודק נוכחות משתני סביבה + אתחול Admin SDK + אימות מול Firestore
+//       → בודק משתני סביבה + Admin SDK + Firestore
 //   /api/notify-test?t=beyahad-diag-7731&uid=UID
-//       → גם מצב ה-tokens של משתמש מסוים (כמה, והאם ההתראות מופעלות)
+//       → גם מצב ה-tokens (כמה, סיומת כל אחד, והאם מופעל)
 //   /api/notify-test?t=beyahad-diag-7731&uid=UID&send=1
-//       → שולח התראת בדיקה אמיתית למשתמש הזה, ומחזיר מה הצליח/נכשל
+//       → שולח התראת בדיקה (data-only — כמו ההתראות הרגילות היום)
+//   /api/notify-test?t=beyahad-diag-7731&uid=UID&send=1&notif=1
+//       → שולח התראה שאנדרואיד מציג בעצמו (notification payload)
 // ─────────────────────────────────────────────────────────────
 import admin from 'firebase-admin'
 
@@ -76,27 +75,41 @@ export default async function handler(req, res) {
         out.steps['4_user'] = {
           notificationsEnabled: u.notificationsEnabled,
           tokenCount: tokens.length,
+          // סיומת של כל token — כדי לראות אם מכשיר חדש (טלפון) נוסף לרשימה
+          tokensTail: tokens.map(t => '...' + String(t).slice(-12)),
         }
 
         if (req.query.send === '1') {
           if (!tokens.length) {
             out.steps['5_send'] = 'SKIPPED — no tokens for this user'
           } else {
+            const useNotif = req.query.notif === '1'
+            const title = useNotif ? 'בדיקה (תצוגת מערכת) ✓' : 'בדיקה (data) ✓'
+            const body  = 'אם קיבלת את ההתראה הזו — זה עובד!'
+
             const message = {
               tokens,
               data: {
-                type: 'system',
-                title: 'בדיקת התראות ✓',
-                body: 'אם קיבלת את ההתראה הזו — השליחה עובדת!',
-                url: '/',
-                tag: 'diag',
-                silent: '0',
+                type: 'system', title, body, url: '/', tag: 'diag', silent: '0',
               },
               android: { priority: 'high' },
-              webpush: { headers: { Urgency: 'high', TTL: '600' } },
+              webpush: {
+                headers: { Urgency: 'high', TTL: '600' },
+                // notif=1 → אנדרואיד/הדפדפן מציגים את ההתראה בעצמם, בלי תלות בקוד הרקע
+                ...(useNotif ? {
+                  notification: {
+                    title, body,
+                    icon: '/icon-192.png',
+                    badge: '/icon-192.png',
+                    lang: 'he', dir: 'rtl',
+                  },
+                  fcm_options: { link: '/' },
+                } : {}),
+              },
             }
             const resp = await admin.messaging(app).sendEachForMulticast(message)
             out.steps['5_send'] = {
+              method: useNotif ? 'notification-payload (system-displayed)' : 'data-only (app-displayed)',
               successCount: resp.successCount,
               failureCount: resp.failureCount,
               errorCodes: resp.responses.filter(r => !r.success).map(r => (r.error && r.error.code) || 'unknown'),
