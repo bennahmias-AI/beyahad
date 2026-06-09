@@ -166,7 +166,7 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
   }
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl' }}>
+    <div className="scroll-area rise-in" style={{ direction: 'rtl' }}>
       {/* ── Header ─────────────────────────────────── */}
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">

@@ -127,7 +127,7 @@ export default function RadioPage({ onBack, onHome, registerBack }) {
   }
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl', paddingBottom: station ? 90 : 0 }}>
+    <div className="scroll-area rise-in" style={{ direction: 'rtl', paddingBottom: station ? 90 : 0 }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={() => { if (!handleBackStep()) onBack() }} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />

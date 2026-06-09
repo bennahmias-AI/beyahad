@@ -158,7 +158,7 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
   }
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl' }}>
+    <div className="scroll-area rise-in" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />

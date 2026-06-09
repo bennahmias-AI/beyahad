@@ -338,3 +338,32 @@ html[data-reduce-motion="on"] *::after {
 @media (min-width: 1600px) {
   .hub-multicol { column-count: 4; }
 }
+
+/* ============================================================
+   הנפשת כניסה גלובלית — דהייה + עלייה רכה מלמטה.
+   שימוש:
+     • .rise-in        — על אלמנט בודד (כותרת/כרטיס) — עולה בכניסה.
+     • .rise-stagger   — על מיכל (grid/רשימה) — כל ילד עולה מעט אחרי הקודם.
+   מכבד prefers-reduced-motion — מי שכיבה הנפשות במכשיר לא מקבל תנועה.
+   ============================================================ */
+@keyframes bkRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise-in { animation: bkRise 0.45s ease-out both; }
+.rise-stagger > * { animation: bkRise 0.45s ease-out both; }
+.rise-stagger > *:nth-child(1)  { animation-delay: 0s }
+.rise-stagger > *:nth-child(2)  { animation-delay: .04s }
+.rise-stagger > *:nth-child(3)  { animation-delay: .08s }
+.rise-stagger > *:nth-child(4)  { animation-delay: .12s }
+.rise-stagger > *:nth-child(5)  { animation-delay: .16s }
+.rise-stagger > *:nth-child(6)  { animation-delay: .20s }
+.rise-stagger > *:nth-child(7)  { animation-delay: .24s }
+.rise-stagger > *:nth-child(8)  { animation-delay: .28s }
+.rise-stagger > *:nth-child(9)  { animation-delay: .32s }
+.rise-stagger > *:nth-child(10) { animation-delay: .36s }
+.rise-stagger > *:nth-child(11) { animation-delay: .40s }
+.rise-stagger > *:nth-child(12) { animation-delay: .44s }
+@media (prefers-reduced-motion: reduce) {
+  .rise-in, .rise-stagger > * { animation: none !important; }
+}

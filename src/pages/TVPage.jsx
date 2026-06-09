@@ -107,7 +107,7 @@ export default function TVPage({ onBack, onHome }) {
     : ilBase
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl', paddingBottom: 20 }}>
+    <div className="scroll-area rise-in" style={{ direction: 'rtl', paddingBottom: 20 }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />

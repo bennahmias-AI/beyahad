@@ -16,13 +16,13 @@
 
 // ברכות לפי יום בשבוע (0=ראשון ... 6=שבת)
 const WEEKDAY = [
-  { label: 'ליום ראשון', text: 'יום ראשון מבורך' },
-  { label: 'ליום שני', text: 'יום שני מבורך' },
-  { label: 'ליום שלישי', text: 'יום שלישי מבורך' },
-  { label: 'ליום רביעי', text: 'יום רביעי מבורך' },
-  { label: 'ליום חמישי', text: 'יום חמישי מבורך' },
-  { label: 'לשבת', text: 'שבת שלום ומבורכת' },   // שישי — לקראת שבת
-  { label: 'לשבת', text: 'שבת שלום ומבורכת' },   // שבת
+  { id: 'YOM_RISHON',   label: 'ליום ראשון', text: 'יום ראשון מבורך' },
+  { id: 'YOM_SHENI',    label: 'ליום שני', text: 'יום שני מבורך' },
+  { id: 'YOM_SHLISHI',  label: 'ליום שלישי', text: 'יום שלישי מבורך' },
+  { id: 'YOM_RVII',     label: 'ליום רביעי', text: 'יום רביעי מבורך' },
+  { id: 'YOM_CHAMISHI', label: 'ליום חמישי', text: 'יום חמישי מבורך' },
+  { id: 'SHABAT',       label: 'לשבת', text: 'שבת שלום ומבורכת' },   // שישי — לקראת שבת
+  { id: 'SHABAT',       label: 'לשבת', text: 'שבת שלום ומבורכת' },   // שבת
 ]
 
 // מחזיר { month (שם אנגלי), day (מספר) } לפי הלוח העברי, או null אם נכשל.
@@ -44,27 +44,27 @@ function hebrewHoliday(date) {
   const is = (stem) => m.includes(stem)
 
   // ראש השנה — א׳–ב׳ תשרי (וערב = כ״ט אלול)
-  if (is('tishr') && (d === 1 || d === 2)) return { label: 'לראש השנה', text: 'שנה טובה ומתוקה' }
-  if (is('elul') && d === 29) return { label: 'לראש השנה', text: 'שנה טובה ומתוקה' }
+  if (is('tishr') && (d === 1 || d === 2)) return { id: 'ROSH_HASHANA', label: 'לראש השנה', text: 'שנה טובה ומתוקה' }
+  if (is('elul') && d === 29) return { id: 'ROSH_HASHANA', label: 'לראש השנה', text: 'שנה טובה ומתוקה' }
   // יום כיפור — ערב (ט׳) ויום (י׳) תשרי
-  if (is('tishr') && (d === 9 || d === 10)) return { label: 'ליום כיפור', text: 'גמר חתימה טובה' }
+  if (is('tishr') && (d === 9 || d === 10)) return { id: 'YOM_KIPUR', label: 'ליום כיפור', text: 'גמר חתימה טובה' }
   // סוכות — י״ד (ערב) עד כ״א תשרי
-  if (is('tishr') && d >= 14 && d <= 21) return { label: 'לסוכות', text: 'חג סוכות שמח' }
+  if (is('tishr') && d >= 14 && d <= 21) return { id: 'SUKOT', label: 'לסוכות', text: 'חג סוכות שמח' }
   // שמחת תורה — כ״ב תשרי
-  if (is('tishr') && d === 22) return { label: 'לשמחת תורה', text: 'חג שמח' }
+  if (is('tishr') && d === 22) return { id: 'SUKOT', label: 'לשמחת תורה', text: 'חג שמח' }
   // חנוכה — כ״ד כסלו (ערב) עד ג׳ טבת
-  if (is('kislev') && d >= 24) return { label: 'לחנוכה', text: 'חנוכה שמח ומואר' }
-  if (is('tevet') && d <= 3) return { label: 'לחנוכה', text: 'חנוכה שמח ומואר' }
+  if (is('kislev') && d >= 24) return { id: 'CHANUKA', label: 'לחנוכה', text: 'חנוכה שמח ומואר' }
+  if (is('tevet') && d <= 3) return { id: 'CHANUKA', label: 'לחנוכה', text: 'חנוכה שמח ומואר' }
   // ט״ו בשבט
   if (is('shevat') && d === 15) return { label: 'לט״ו בשבט', text: 'ט״ו בשבט שמח' }
   // פורים — י״ג–ט״ו אדר (בשנה מעוברת: אדר ב׳ בלבד, לא אדר א׳)
   const isAdar2 = is('adar') && m.includes('ii')
   const isAdarPlain = m.trim() === 'adar'
-  if ((isAdarPlain || isAdar2) && d >= 13 && d <= 15) return { label: 'לפורים', text: 'פורים שמח' }
+  if ((isAdarPlain || isAdar2) && d >= 13 && d <= 15) return { id: 'PURIM', label: 'לפורים', text: 'פורים שמח' }
   // פסח — י״ד (ערב) עד כ״א ניסן
-  if (is('nisan') && d >= 14 && d <= 21) return { label: 'לפסח', text: 'חג פסח כשר ושמח' }
+  if (is('nisan') && d >= 14 && d <= 21) return { id: 'PESACH', label: 'לפסח', text: 'חג פסח כשר ושמח' }
   // שבועות — ערב (ה׳) ויום (ו׳) סיוון
-  if (is('sivan') && (d === 5 || d === 6)) return { label: 'לשבועות', text: 'חג שבועות שמח' }
+  if (is('sivan') && (d === 5 || d === 6)) return { id: 'SHAVUOT', label: 'לשבועות', text: 'חג שבועות שמח' }
 
   return null
 }

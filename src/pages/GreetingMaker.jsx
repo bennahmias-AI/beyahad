@@ -17,11 +17,12 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { logActivity } from '../services/firebase.js'
+import { logActivity, createOrUpdateUser } from '../services/firebase.js'
 import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
 import { getOccasion } from '../occasion.js'
+import { GREETING_GROUPS, READY_OCCASIONS, occasionsByGroup, findOccasion, fillName, randomGreeting } from '../data/readyGreetings.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
 const bgDataCache = {}
@@ -52,6 +53,24 @@ function loadBgAsDataURL(url) {
 
 const MAX_TEXT = 120
 const MAX_NAME = 30
+
+// ═══════════════════════════════════════════════════════════════
+// מכסת "ברכה מהירה" — עד 3 ברכות ביום לכל קטגוריה (ללא פרימיום).
+// נשמר לפי המשתמש (לא לפי מכשיר) במסמך המשתמש — כשדה מחרוזת
+// (greetingQuotaJSON) כדי שמיזוג Firestore לא ידביק מפתחות מאתמול.
+// מבנה: { date: 'YYYY-M-D', cats: { <מזהה קטגוריה>: [אינדקסים שהוצגו] } }
+// מתאפס אוטומטית כשמשתנה התאריך.
+function greetingTodayKey() {
+  const d = new Date()
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+}
+function readQuotaCats(profile) {
+  try {
+    const q = JSON.parse(profile?.greetingQuotaJSON || '{}')
+    if (q.date !== greetingTodayKey()) return {}
+    return q.cats || {}
+  } catch { return {} }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // פונטים
@@ -359,7 +378,7 @@ const PRESET_GREETINGS = {
 // ═══════════════════════════════════════════════════════════════
 export default function GreetingMaker({ onBack, onHome }) {
   const { profile } = useUserStore()
-  const [step, setStep] = useState('text')
+  const [step, setStep] = useState('choose')
 
   // טקסט התחלתי — הברכה המתאימה להיום (חג עברי או יום בשבוע). ניתן לשינוי.
   const [text, setText] = useState(() => getOccasion().text)
@@ -377,7 +396,11 @@ export default function GreetingMaker({ onBack, onHome }) {
   // בלוקי טקסט נוספים שהמשתמש מוסיף — מופיעים מתחת לטקסט הראשי
   const [extraTexts, setExtraTexts] = useState([])
 
-  const goBack = () => step === 'design' ? setStep('text') : onBack()
+  const goBack = () => {
+    if (step === 'design') { setStep('text'); return }
+    if (step === 'text' || step === 'bank') { setStep('choose'); return }
+    onBack()
+  }
 
   // מרכיב את השם מהפרופיל — שם פרטי + שם משפחה (אם יש)
   const senderName = (() => {
@@ -390,9 +413,63 @@ export default function GreetingMaker({ onBack, onHome }) {
   // פועל האיחול לפי מגדר — אישה "מאחלת", אחרת "מאחל" (ברירת מחדל למשתמשים ישנים ללא מגדר)
   const senderVerb = profile?.gender === 'female' ? 'מאחלת' : 'מאחל'
 
+  // פרימיום (או אדמין) — ללא הגבלה על מספר הברכות
+  const isPremium = profile?.role === 'premium' || profile?.role === 'admin'
+  // המכסה שנוצלה היום (לפי קטגוריה) — מתעדכן חי מהפרופיל
+  const quotaCats = readQuotaCats(profile)
+  // שמירת המכסה לקטגוריה (best-effort — לא חוסם את המשתמש)
+  const persistQuota = (catId, arr) => {
+    const uid = useUserStore.getState().authUser?.uid
+    if (!uid) return
+    const cats = { ...readQuotaCats(useUserStore.getState().profile), [catId]: arr }
+    createOrUpdateUser(uid, { greetingQuotaJSON: JSON.stringify({ date: greetingTodayKey(), cats }) }).catch(() => {})
+  }
+  // מעבר לעיצוב אישי באותה קטגוריה — ממלא טקסט מתאים כך שהרקע יתאים אוטומטית
+  const goPersonalForOccasion = (occ) => {
+    let t = ''
+    try { t = fillName(randomGreeting(occ.id).text || '', '') } catch {}
+    setText(t || occ.label)
+    setStep('design')
+  }
+
   return (
-    <div className="scroll-area" style={{ direction: 'rtl' }}>
-      {step === 'text' ? (
+    <div className="scroll-area rise-in" style={{ direction: 'rtl' }}>
+      {step === 'choose' && (
+        <>
+          <div className="screen-header">
+            <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
+              <IconBackRTL size={24} color="#1B2540" />
+            </button>
+            <HomeButton onClick={onHome} />
+            <div className="screen-header__title">ברכות</div>
+          </div>
+          <ChooseStep
+            onDesign={() => { setText(getOccasion().text); setStep('text') }}
+            onReady={() => setStep('bank')}
+          />
+        </>
+      )}
+
+      {step === 'bank' && (
+        <>
+          <div className="screen-header">
+            <button className="screen-header__back" onClick={goBack} aria-label="חזרה">
+              <IconBackRTL size={24} color="#1B2540" />
+            </button>
+            <HomeButton onClick={onHome} />
+            <div className="screen-header__title">ברכה מהמאגר</div>
+          </div>
+          <BankStep
+            senderName={senderName} senderVerb={senderVerb}
+            isPremium={isPremium}
+            quotaCats={quotaCats}
+            onPersistQuota={persistQuota}
+            onCreatePersonal={goPersonalForOccasion}
+          />
+        </>
+      )}
+
+      {step === 'text' && (
         <>
           <div className="screen-header">
             <button className="screen-header__back" onClick={goBack} aria-label="חזרה">
@@ -408,7 +485,9 @@ export default function GreetingMaker({ onBack, onHome }) {
             />
           </div>
         </>
-      ) : (
+      )}
+
+      {step === 'design' && (
         <DesignStep
           onBack={goBack}
           text={text} setText={setText}
@@ -512,7 +591,7 @@ function TextStep({ text, setText, onNext }) {
 // STEP 2 — מסך עיצוב בסגנון Canva
 // ═══════════════════════════════════════════════════════════════
 function DesignStep({
-  onBack, text, setText, senderName, senderVerb = 'מאחל',
+  onBack, locked = false, lockedCategory = null, text, setText, senderName, senderVerb = 'מאחל',
   showSender, setShowSender,
   templateId, setTemplateId,
   paletteId, setPaletteId, fontId, setFontId, sizeId, setSizeId,
@@ -636,6 +715,10 @@ function DesignStep({
     if (didInitialApply.current) return
     didInitialApply.current = true
     applyTemplate(templateId)
+    if (locked && lockedCategory) {
+      const opts = BACKGROUNDS.filter(b => b.category === lockedCategory)
+      if (opts.length) setBgId(opts[Math.floor(Math.random() * opts.length)].id)
+    }
     // צבע כתב התחלתי אקראי וקריא (לעולם לא לבן) — משתנה בכל כניסה למסך העיצוב
     const rc = randomReadableColor()
     setCustomColor(rc)
@@ -1013,10 +1096,10 @@ function DesignStep({
           position: 'relative',
           touchAction: 'none', cursor: 'grab',
         }}
-          onPointerDown={onPointerDownH}
-          onPointerMove={onPointerMoveH}
-          onPointerUp={onPointerUpH}
-          onPointerCancel={onPointerUpH}
+          onPointerDown={locked ? undefined : onPointerDownH}
+          onPointerMove={locked ? undefined : onPointerMoveH}
+          onPointerUp={locked ? undefined : onPointerUpH}
+          onPointerCancel={locked ? undefined : onPointerUpH}
         >
           {/* SVG מוטמע inline (לא כ-<img>) — כך הגרפיקה יורשת
               את הפונטים שהוזרקו לדף. SVG בתוך <img> מרונדר
@@ -1030,7 +1113,7 @@ function DesignStep({
 
       {/* רמז מונדרני — להזכיר למשתמש שהתצוגה ניתנת לגרירה */}
       <div style={{
-        flexShrink: 0, display: 'flex', gap: 6, justifyContent: 'center',
+        flexShrink: 0, display: locked ? 'none' : 'flex', gap: 6, justifyContent: 'center',
         alignItems: 'center', padding: '0 16px 8px',
         fontSize: 12, fontWeight: 600, color: 'var(--ink-3)',
       }}>
@@ -1040,6 +1123,7 @@ function DesignStep({
       {/* ─── סרגל לשוניות תחתון ─── */}
       <div style={{
         flexShrink: 0,
+        display: locked ? 'none' : 'block',
         background: 'var(--surface)',
         borderTop: '1px solid var(--line)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1068,7 +1152,7 @@ function DesignStep({
       </div>
 
       {/* ─── רצועת בחירות — נפתחת מעל הסרגל לפי הלשונית הפעילה ─── */}
-      {activeTab && (
+      {!locked && activeTab && (
         <EditStrip
           title={TABS.find(t => t.id === activeTab)?.label}
           onClose={() => setActiveTab(null)}
@@ -2156,4 +2240,463 @@ function buildCardSVG({ blocks, selected, cardName, senderVerb = 'מאחל', pal
   <text x="${W / 2}" y="${by}" font-family="'Huninn', sans-serif" font-size="${fs}" font-weight="600" fill="#FBF7EE" text-anchor="middle" direction="rtl" letter-spacing="0.5">${credit}</text>`
   })()}
 </svg>`
+}
+
+// ════════ מסך כניסה + מסך המאגר (ברכה מהירה) ════════
+// שיתוף/שמירה של תמונת ברכה מוכנה (קובץ סטטי)
+async function shareReadyImage(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const file = new File([blob], 'ברכה.jpg', { type: blob.type || 'image/jpeg' })
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'ברכה מאפליקציית ביחד' })
+      return
+    }
+    if (navigator.share) { await navigator.share({ title: 'ברכה מאפליקציית ביחד' }); return }
+  } catch (e) { if (e?.name === 'AbortError') return }
+  downloadReadyImage(url)
+}
+function downloadReadyImage(url) {
+  const a = document.createElement('a')
+  a.href = url; a.download = 'ברכה.jpg'
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+}
+
+// טעינת תמונה
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image()
+    im.crossOrigin = 'anonymous'
+    im.onload = () => resolve(im)
+    im.onerror = reject
+    im.src = src
+  })
+}
+
+// מרכיב תמונת מאגר + שכבות שלנו: שם המאחל (אופציונלי) + קרדיט (תמיד)
+async function composeReadyImage(url, senderLine) {
+  const img = await loadImg(url)
+  const W = img.naturalWidth || 1024
+  const H = img.naturalHeight || 1024
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0, W, H)
+
+  const scale = W / 1080
+  injectAllFonts()
+  try {
+    await document.fonts.load(`700 ${Math.round(28 * scale)}px 'M PLUS Rounded 1c'`, 'מאחל')
+    await document.fonts.load(`600 ${Math.round(21 * scale)}px 'Huninn'`, 'ברכה')
+    await document.fonts.ready
+  } catch (e) { /* ממשיכים */ }
+
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.direction = 'rtl'
+
+  // שם המאחל (אם מוצג)
+  if (senderLine) {
+    const sf = Math.round(28 * scale)
+    ctx.font = `700 ${sf}px "M PLUS Rounded 1c", sans-serif`
+    const sw = ctx.measureText(senderLine).width
+    drawPill(ctx, W / 2, H - Math.round(80 * scale), sw, sf, 'rgba(251,247,238,0.82)')
+    ctx.fillStyle = '#1B1B1B'
+    ctx.fillText(senderLine, W / 2, H - Math.round(80 * scale))
+  }
+
+  // קרדיט שיווקי (תמיד)
+  const credit = 'ברכה זו נוצרה באמצעות אפליקציית ביחד'
+  const cf = Math.round(21 * scale)
+  ctx.font = `600 ${cf}px "Huninn", sans-serif`
+  const cw = ctx.measureText(credit).width
+  drawPill(ctx, W / 2, H - Math.round(40 * scale), cw, cf, 'rgba(24,18,16,0.46)')
+  ctx.fillStyle = '#FBF7EE'
+  ctx.fillText(credit, W / 2, H - Math.round(40 * scale))
+
+  const dataUrl = canvas.toDataURL('image/png')
+  const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'))
+  return { dataUrl, blob }
+}
+
+// צופה תמונה מוכנה — מרכיב את השכבות שלנו, מציג תצוגה מקדימה, ומאפשר שיתוף/שמירה
+function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← חזרה לגלריה', footerControls = null }) {
+  const [showSender, setShowSender] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [composed, setComposed] = useState(null)
+  const blobRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setComposed(null); blobRef.current = null
+    const senderLine = (showSender && senderName) ? `${senderVerb}: ${senderName}` : ''
+    composeReadyImage(url, senderLine)
+      .then(({ dataUrl, blob }) => { if (!cancelled) { setComposed(dataUrl); blobRef.current = blob } })
+      .catch(() => { if (!cancelled) { setComposed(url); blobRef.current = null } })
+    return () => { cancelled = true }
+  }, [url, showSender, senderName, senderVerb])
+
+  const doShare = async () => {
+    setBusy(true)
+    try {
+      const blob = blobRef.current
+      if (blob) {
+        const file = new File([blob], 'ברכה.png', { type: 'image/png' })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'ברכה מאפליקציית ביחד' })
+        } else if (navigator.share) {
+          await navigator.share({ title: 'ברכה מאפליקציית ביחד' })
+        } else {
+          await shareReadyImage(url)
+        }
+      } else {
+        await shareReadyImage(url)
+      }
+    } catch (e) { if (e?.name !== 'AbortError') console.error(e) }
+    setBusy(false)
+  }
+
+  const doSave = () => {
+    if (blobRef.current) {
+      const u = URL.createObjectURL(blobRef.current)
+      const a = document.createElement('a')
+      a.href = u; a.download = 'ברכה.png'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(u), 1000)
+    } else {
+      downloadReadyImage(url)
+    }
+  }
+
+  return (
+    <div style={{ padding: '8px 16px 32px' }}>
+      <img src={composed || url} alt="" style={{ width: '100%', borderRadius: 16, display: 'block', boxShadow: 'var(--shadow-md)' }} />
+      {senderName ? (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 2px 8px', fontSize: 16, fontWeight: 600, color: 'var(--ink-2)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={showSender} onChange={e => setShowSender(e.target.checked)} style={{ width: 20, height: 20 }} />
+          להציג את שמי כמאחל ({senderName})
+        </label>
+      ) : null}
+      <div style={{ display: 'flex', gap: 10, marginTop: senderName ? 6 : 16 }}>
+        <button className="big-btn big-btn--primary" disabled={busy || !composed} style={{ flex: 1, opacity: (busy || !composed) ? 0.6 : 1 }} onClick={doShare}>
+          שיתוף
+        </button>
+        <button className="big-btn" disabled={!composed} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', opacity: composed ? 1 : 0.6 }} onClick={doSave}>
+          שמירה
+        </button>
+      </div>
+      {footerControls}
+      <button onClick={onBack} style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 10, cursor: 'pointer' }}>
+        {backLabel}
+      </button>
+    </div>
+  )
+}
+
+// כרטיס בחירה בסגנון המתכונים — תמונת שער + שכבת גרדיאנט כהה + כותרת/תיאור.
+// אם התמונה חסרה/נכשלת — נופלים יפה לגרדיאנט הצבע (fallbackGrad) עם אייקון.
+function ChooseCard({ img, fallbackGrad, icon, title, subtitle, onClick }) {
+  const [imgOk, setImgOk] = useState(Boolean(img))
+  const showImg = img && imgOk
+  return (
+    <button onClick={onClick} style={{
+      border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+      borderRadius: 20, overflow: 'hidden', position: 'relative',
+      width: '100%', aspectRatio: '1 / 1.08', boxShadow: 'var(--shadow-md)',
+      background: fallbackGrad, display: 'block',
+    }}>
+      {showImg && (
+        <img
+          src={img}
+          alt={title}
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
+      {/* שכבת כהה תחתונה לקריאות + תוכן (מסודר בטור) */}
+      <div style={{
+        position: 'absolute', inset: 0, padding: '16px 16px',
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 6, textAlign: 'right',
+        background: showImg
+          ? 'linear-gradient(to top, rgba(20,23,42,.85) 0%, rgba(20,23,42,.3) 50%, rgba(20,23,42,0) 100%)'
+          : 'linear-gradient(to top, rgba(20,23,42,.34) 0%, rgba(20,23,42,0) 60%)',
+      }}>
+        <span style={{ display: 'block', color: '#fff', fontSize: 19, fontWeight: 900, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,.5)' }}>{title}</span>
+        <span style={{ display: 'block', color: 'rgba(255,255,255,.92)', fontSize: 13, fontWeight: 600, lineHeight: 1.35, textShadow: '0 1px 3px rgba(0,0,0,.5)' }}>{subtitle}</span>
+      </div>
+    </button>
+  )
+}
+
+// אייקון קו קטן לכל קבוצה (ימים=שמש, חגים=להבה, איחולים=פרח)
+function GroupIcon({ id }) {
+  const p = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flexShrink: 0 } }
+  if (id === 'days') return (
+    <svg {...p}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19" />
+    </svg>
+  )
+  if (id === 'holidays') return (
+    <svg {...p}>
+      <path d="M12 3c1.2 2.5 4 3.8 4 7.5A4 4 0 0 1 8 10.5C8 9 8.7 8 9.5 7.3c.3 1 1.2 1.7 1.8 1.7C10.5 7 10.8 4.8 12 3Z" />
+    </svg>
+  )
+  return (
+    <svg {...p}>
+      <circle cx="12" cy="12" r="2.4" />
+      <circle cx="12" cy="6.6" r="2" />
+      <circle cx="12" cy="17.4" r="2" />
+      <circle cx="6.6" cy="12" r="2" />
+      <circle cx="17.4" cy="12" r="2" />
+    </svg>
+  )
+}
+
+function ChooseStep({ onDesign, onReady }) {
+  // אייקונים לבנים גדולים (אותם אייקונים כמו קודם, בלבן על התמונה)
+  const sparkleIcon = (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z" />
+      <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
+    </svg>
+  )
+  const paletteIcon = (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="13.5" cy="6.5" r=".7" fill="#fff" stroke="none" />
+      <circle cx="17.5" cy="10.5" r=".7" fill="#fff" stroke="none" />
+      <circle cx="8.5" cy="7.5" r=".7" fill="#fff" stroke="none" />
+      <circle cx="6.5" cy="12.5" r=".7" fill="#fff" stroke="none" />
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.83-.44-1.12-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67H16c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z" />
+    </svg>
+  )
+  return (
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '12px 20px 32px' }}>
+      <p style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 14px', fontWeight: 500 }}>
+        איך תרצו ליצור את הברכה?
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <ChooseCard
+        onClick={onReady}
+        img="/choose/bank.jpg"
+        fallbackGrad="linear-gradient(135deg,#7E2C2E,#5A1D1E)"
+        title="ברכה מהירה מהמאגר"
+        subtitle="בוחרים אירוע ובוחרים ברכה יפה ומוכנה לשיתוף"
+      />
+      <ChooseCard
+        onClick={onDesign}
+        img="/choose/design.jpg"
+        fallbackGrad="linear-gradient(135deg,#2C5566,#173846)"
+        title="ברכה בעיצוב אישי"
+        subtitle="כותבים ומעצבים בעצמכם — טקסט, רקע, צבעים"
+      />
+      </div>
+    </div>
+  )
+}
+
+// גלריית האופציה האקראית לקטגוריה — מציגה ברכה אחת אקראית בכל פעם,
+// עם כפתור "תראה לי עוד אופציה", מגבלת 3 ליום (ללא פרימיום),
+// ניווט בין האופציות שכבר הוצגו, והצעת מעבר לעיצוב אישי.
+function OccasionGallery({ occ, count, isPremium, savedShown, senderName, senderVerb, onPersist, onBackToList, onCreatePersonal }) {
+  const DAILY_LIMIT = 3
+  // shown = אינדקסים (1-based) שכבר הוצגו היום. null = עוד לא הוצגה הראשונה.
+  const [shown, setShown] = useState(() => (savedShown && savedShown.length) ? savedShown.slice() : null)
+  const [pos, setPos] = useState(() => (savedShown && savedShown.length) ? savedShown.length - 1 : 0)
+
+  // בוחר אינדקס חדש אקראי שלא הוצג עדיין; null אם נגמרו התמונות
+  const pickNew = (current) => {
+    if (!count || count <= 0) return null
+    const used = new Set(current)
+    if (used.size >= count) return null
+    let idx = 0, guard = 0
+    do { idx = 1 + Math.floor(Math.random() * count); guard++ } while (used.has(idx) && guard < 60)
+    return used.has(idx) ? null : idx
+  }
+
+  // חשיפת האופציה הראשונה בכניסה (אם עוד לא הוצגה היום). תלוי ב-count
+  // כדי לעבוד גם כשה-manifest נטען אחרי הרנדור הראשון.
+  useEffect(() => {
+    if (shown !== null) return
+    if (!count || count <= 0) return
+    const first = pickNew([])
+    if (first == null) return
+    const arr = [first]
+    setShown(arr); setPos(0)
+    if (!isPremium) onPersist(occ.id, arr)
+  }, [count])
+
+  const revealed = shown ? shown.length : 0
+  const limitReached = !isPremium && revealed >= DAILY_LIMIT
+  const noMore = count > 0 && revealed >= count
+  const canMore = !limitReached && !noMore
+
+  const showAnother = () => {
+    if (!canMore || !shown) return
+    const idx = pickNew(shown)
+    if (idx == null) return
+    const arr = [...shown, idx]
+    setShown(arr); setPos(arr.length - 1)
+    if (!isPremium) onPersist(occ.id, arr)
+  }
+
+  const navBtn = (disabled) => ({
+    padding: '8px 14px', borderRadius: 10, border: '1px solid var(--line)',
+    background: 'var(--surface)', color: disabled ? 'var(--ink-3)' : 'var(--ink)',
+    fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
+    cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
+  })
+
+  if (count === 0) {
+    return (
+      <div style={{ padding: '8px 16px 32px' }}>
+        <button onClick={onBackToList} style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: '4px 0 14px', cursor: 'pointer' }}>
+          ← {occ.label}
+        </button>
+        <p style={{ textAlign: 'center', color: 'var(--ink-3)', fontSize: 17, fontWeight: 600, padding: '50px 16px', lineHeight: 1.6 }}>
+          ברכות לקטגוריה זו יתווספו בקרוב
+        </p>
+      </div>
+    )
+  }
+  if (!shown) return null
+
+  const url = `/ready/${occ.id}/${shown[pos]}.jpg`
+
+  const controls = (
+    <div style={{ marginTop: 16 }}>
+      {/* ניווט בין האופציות שכבר הוצגו */}
+      {shown.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 12 }}>
+          <button onClick={() => setPos(p => Math.max(0, p - 1))} disabled={pos === 0} style={navBtn(pos === 0)}>‹ הקודמת</button>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink-2)' }}>{pos + 1} / {shown.length}</span>
+          <button onClick={() => setPos(p => Math.min(shown.length - 1, p + 1))} disabled={pos === shown.length - 1} style={navBtn(pos === shown.length - 1)}>הבאה ›</button>
+        </div>
+      )}
+
+      {/* כפתור עוד אופציה */}
+      {canMore && (
+        <button onClick={showAnother} className="big-btn" style={{ width: '100%', background: 'var(--surface)', border: '1.5px solid var(--burgundy)', color: 'var(--burgundy)' }}>
+          🔀 תראה לי עוד אופציה{!isPremium ? ` · ${DAILY_LIMIT - revealed} נותרו היום` : ''}
+        </button>
+      )}
+
+      {/* הגעת לסף היומי — הצעה לעיצוב אישי */}
+      {limitReached && (
+        <div style={{ marginTop: 4, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '16px 18px', textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>הגעת לסף היומי</div>
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 14 }}>
+            ראית 3 ברכות בקטגוריה זו היום. לא אהבת? אפשר ליצור ברכה אישית ומיוחדת משלך.
+          </div>
+          <button onClick={() => onCreatePersonal(occ)} className="big-btn big-btn--primary" style={{ width: '100%' }}>
+            קח אותי לשם ←
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <ReadyViewer
+      url={url}
+      senderName={senderName}
+      senderVerb={senderVerb}
+      onBack={onBackToList}
+      backLabel={`← ${occ.label}`}
+      footerControls={controls}
+    />
+  )
+}
+
+function BankStep({ senderName, senderVerb, isPremium, quotaCats, onPersistQuota, onCreatePersonal }) {
+  const [groupId, setGroupId] = useState('days')
+  const [occ, setOcc] = useState(null)        // אירוע שנבחר ואושר → גלריה
+  const [selectedOcc, setSelectedOcc] = useState(null) // אירוע מסומן (לפני לחיצת המשך)
+  const [counts, setCounts] = useState({})    // כמה תמונות יש בכל אירוע (מ-manifest)
+  const occasions = occasionsByGroup(groupId)
+  const autoRef = useRef(false)               // בחירת היום האוטומטית — פעם אחת
+
+  useEffect(() => {
+    fetch('/ready/manifest.json')
+      .then(r => r.json())
+      .then(data => {
+        setCounts(data)
+        // בחירת היום אוטומטית — מסמן את הקבוצה והאירוע של היום
+        // (ללא פתיחת הגלריה — כמו בעיצוב אישי שמנחת על היום)
+        if (!autoRef.current) {
+          autoRef.current = true
+          const todayId = getOccasion().id
+          const todayOcc = todayId ? findOccasion(todayId) : null
+          if (todayOcc) { setGroupId(todayOcc.group); setSelectedOcc(todayOcc) }
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // ── גלריית האופציה האקראית לאירוע ──
+  if (occ) {
+    const n = counts[occ.id] ?? (occ.readyCount || 0)
+    return (
+      <OccasionGallery
+        occ={occ}
+        count={n}
+        isPremium={isPremium}
+        savedShown={(quotaCats && quotaCats[occ.id]) || []}
+        senderName={senderName}
+        senderVerb={senderVerb}
+        onPersist={onPersistQuota}
+        onBackToList={() => setOcc(null)}
+        onCreatePersonal={onCreatePersonal}
+      />
+    )
+  }
+
+  // ── בחירת קבוצה + אירוע ──
+  return (
+    <div style={{ padding: '8px 20px 36px' }}>
+      <p style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 14px', fontWeight: 500 }}>
+        בחרו את סוג הברכה:
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {GREETING_GROUPS.map(g => (
+          <button key={g.id} onClick={() => { setGroupId(g.id); setSelectedOcc(null) }} style={{
+            flex: 1, padding: '12px 8px', borderRadius: 12,
+            background: groupId === g.id ? 'var(--burgundy)' : 'var(--surface)',
+            color: groupId === g.id ? 'white' : 'var(--ink-2)',
+            border: groupId === g.id ? 'none' : '1px solid var(--line)',
+            fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {g.label}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {occasions.map(o => {
+          const isSel = selectedOcc?.id === o.id
+          return (
+          <button key={o.id} onClick={() => setSelectedOcc(o)} style={{
+            padding: '18px 12px', borderRadius: 14,
+            background: isSel ? 'var(--burgundy-soft)' : 'var(--surface)',
+            border: isSel ? '2px solid var(--burgundy)' : '1px solid var(--line)',
+            color: isSel ? 'var(--burgundy)' : 'var(--ink)', fontSize: 17, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+          }}>{o.label}</button>
+          )
+        })}
+      </div>
+
+      {/* כפתור המשך — פותח את הגלריה של האירוע המסומן */}
+      <button
+        onClick={() => { if (selectedOcc) setOcc(selectedOcc) }}
+        disabled={!selectedOcc}
+        className="big-btn big-btn--primary"
+        style={{ width: '100%', marginTop: 20, opacity: selectedOcc ? 1 : 0.5 }}
+      >
+        המשך ←
+      </button>
+    </div>
+  )
 }
