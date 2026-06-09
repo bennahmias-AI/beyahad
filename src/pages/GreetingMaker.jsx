@@ -23,6 +23,7 @@ import HomeButton from '../components/HomeButton.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
 import { getOccasion } from '../occasion.js'
 import { GREETING_GROUPS, READY_OCCASIONS, occasionsByGroup, findOccasion, fillName, randomGreeting } from '../data/readyGreetings.js'
+import { saveImageBlob, shareImageBlob } from '../utils/saveImage.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
 const bgDataCache = {}
@@ -978,13 +979,13 @@ function DesignStep({
     try {
       await ensureFontLoaded()
       const blob = await renderPNG()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'ברכה-אישית.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      const res = await saveImageBlob(blob, 'ברכה-אישית.png')
       logGreeting('greeting_save')
-      setMsg('✓ נשמר!')
+      if (res.ok) {
+        setMsg(res.where === 'gallery' ? '✓ נשמר לגלריה!' : '✓ נשמר!')
+      } else {
+        setMsg('שגיאה בשמירה')
+      }
       setTimeout(() => setMsg(''), 2000)
     } catch (e) {
       console.error(e); setMsg('שגיאה בשמירה')
@@ -997,16 +998,18 @@ function DesignStep({
     try {
       await ensureFontLoaded()
       const blob = await renderPNG()
-      const file = new File([blob], 'ברכה-אישית.png', { type: 'image/png' })
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: text, text })
-      } else if (navigator.share) {
-        await navigator.share({ title: text, text })
-      } else {
+      const res = await shareImageBlob(blob, 'ברכה-אישית.png', text)
+      if (res.ok) {
+        logGreeting('greeting_share')
+      } else if (res.notSupported) {
+        // דפדפן ללא תמיכה בשיתוף — פתיחת וואטסאפ עם הטקסט
         const t = encodeURIComponent(text + '\n\nנוצר באמצעות אפליקציית ביחד')
         window.open(`https://wa.me/?text=${t}`, '_blank')
+        logGreeting('greeting_share')
+      } else {
+        setMsg('שיתוף נכשל')
+        setTimeout(() => setMsg(''), 2000)
       }
-      logGreeting('greeting_share')
     } catch (e) {
       if (e?.name !== 'AbortError') { console.error(e); setMsg('שיתוף נכשל') }
     }
@@ -2248,19 +2251,22 @@ async function shareReadyImage(url) {
   try {
     const res = await fetch(url)
     const blob = await res.blob()
-    const file = new File([blob], 'ברכה.jpg', { type: blob.type || 'image/jpeg' })
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'ברכה מאפליקציית ביחד' })
-      return
-    }
-    if (navigator.share) { await navigator.share({ title: 'ברכה מאפליקציית ביחד' }); return }
+    const r = await shareImageBlob(blob, 'ברכה.jpg', 'ברכה מאפליקציית ביחד')
+    if (r.ok || r.notSupported === false) return
   } catch (e) { if (e?.name === 'AbortError') return }
   downloadReadyImage(url)
 }
-function downloadReadyImage(url) {
-  const a = document.createElement('a')
-  a.href = url; a.download = 'ברכה.jpg'
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+async function downloadReadyImage(url) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    await saveImageBlob(blob, 'ברכה.jpg')
+  } catch (e) {
+    // גיבוי אחרון — הורדת דפדפן ישירה
+    const a = document.createElement('a')
+    a.href = url; a.download = 'ברכה.jpg'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  }
 }
 
 // טעינת תמונה
@@ -2315,8 +2321,10 @@ async function composeReadyImage(url, senderLine) {
   ctx.fillStyle = '#FBF7EE'
   ctx.fillText(credit, W / 2, H - Math.round(40 * scale))
 
-  const dataUrl = canvas.toDataURL('image/png')
-  const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'))
+  // JPEG (לא PNG) — לתמונה צילומית זה קטן ומהיר במידה רבה מ-PNG,
+  // וכך השמירה/שיתוף/הצגת השם מהירים בהרבה (במיוחד באפליקציה).
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+  const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/jpeg', 0.9))
   return { dataUrl, blob }
 }
 
@@ -2342,14 +2350,8 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
     try {
       const blob = blobRef.current
       if (blob) {
-        const file = new File([blob], 'ברכה.png', { type: 'image/png' })
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'ברכה מאפליקציית ביחד' })
-        } else if (navigator.share) {
-          await navigator.share({ title: 'ברכה מאפליקציית ביחד' })
-        } else {
-          await shareReadyImage(url)
-        }
+        const res = await shareImageBlob(blob, 'ברכה.jpg', 'ברכה מאפליקציית ביחד')
+        if (!res.ok && res.notSupported) await shareReadyImage(url)
       } else {
         await shareReadyImage(url)
       }
@@ -2357,13 +2359,9 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
     setBusy(false)
   }
 
-  const doSave = () => {
+  const doSave = async () => {
     if (blobRef.current) {
-      const u = URL.createObjectURL(blobRef.current)
-      const a = document.createElement('a')
-      a.href = u; a.download = 'ברכה.png'
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(u), 1000)
+      await saveImageBlob(blobRef.current, 'ברכה.jpg')
     } else {
       downloadReadyImage(url)
     }

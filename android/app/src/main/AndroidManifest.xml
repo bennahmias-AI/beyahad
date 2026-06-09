@@ -36,6 +36,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- כתיבה לאחסון — נדרש לשמירת ברכות לגלריה באנדרואיד 9 ומטה -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
     <!-- מצלמה ומיקרופון — נדרש לשיחות ווידאו (LiveKit) ב-WebView הנייטיב -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
