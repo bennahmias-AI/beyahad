@@ -22,6 +22,7 @@ import { IconBackRTL, IconHeart, IconCamera, IconEye, IconBasket, IconChef, Icon
 import HomeButton from '../components/HomeButton.jsx'
 import { RECIPE_CATEGORIES, categoryOf } from '../data/recipeCategories.js'
 import { CategoryIcon } from '../icons/recipeCategoryIcons.jsx'
+import ModalPortal from '../components/ModalPortal.jsx'
 
 const ACCENT = '#7E2C2E'
 const ACCENT_DEEP = '#5A1D1E'
@@ -637,6 +638,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
   const hintStyle = { fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 8 }
 
   return (
+    <ModalPortal>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(20,23,42,0.55)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
@@ -747,6 +749,7 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }
 
@@ -774,6 +777,7 @@ function RecipeDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
   }
 
   return (
+    <ModalPortal>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(20,23,42,0.55)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
@@ -919,5 +923,6 @@ function RecipeDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }

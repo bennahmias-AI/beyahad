@@ -20,6 +20,7 @@ import {
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart, IconEye, IconEdit, IconTrash, IconSearch } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
+import ModalPortal from '../components/ModalPortal.jsx'
 
 const ACCENT = '#B89048'
 const ACCENT_DEEP = '#8A6A2E'
@@ -649,6 +650,7 @@ function TipComposer({ onClose, onSubmit, editPost = null }) {
   const labelStyle = { fontSize: 15, fontWeight: 800, color: 'var(--ink)', display: 'block', marginBottom: 6, marginTop: 18 }
 
   return (
+    <ModalPortal>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(20,23,42,0.55)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
@@ -709,6 +711,7 @@ function TipComposer({ onClose, onSubmit, editPost = null }) {
         </div>
       </div>
     </div>
+    </ModalPortal>
   )
 }
 
@@ -727,6 +730,7 @@ function TipDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
   }
 
   return (
+    <ModalPortal>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(20,23,42,0.55)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
@@ -796,5 +800,6 @@ function TipDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
         )}
       </div>
     </div>
+    </ModalPortal>
   )
 }

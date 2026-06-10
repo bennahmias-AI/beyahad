@@ -28,6 +28,14 @@ service cloud.firestore {
       allow delete: if isAdmin() || request.auth.uid == uid;
     }
 
+    // ── קודי אימות במייל ──
+    // אוסף רגיש: מכיל hash של קודי כניסה חד-פעמיים. אף לקוח לא ניגש
+    // אליו — רק ה-Admin SDK בשרת (api/send-email-code, verify-email-code),
+    // שעוקף את הכללים. חוסמים הכול כדי שלא יהיה דליפה/זיוף מצד הלקוח.
+    match /emailCodes/{key} {
+      allow read, write: if false;
+    }
+
     // גלריית תמונות אישית — כל מחובר יכול לראות; רק הבעלים או מנהל עורך.
     match /users/{uid}/gallery/{photoId} {
       allow read: if request.auth != null;

@@ -11,6 +11,7 @@ import {
   reauthenticateWithCredential,
   PhoneAuthProvider,
   signInWithCredential,
+  signInWithCustomToken,
 } from 'firebase/auth'
 import {
   getFirestore,
@@ -133,6 +134,52 @@ export async function sendOtp(phone) {
 export async function verifyOtp(code) {
   if (isNativePlatform()) return verifyOtpNative(code)
   return window.confirmationResult.confirm(code)
+}
+
+// ─── אימות במייל (ערוץ חלופי ל-SMS) ───
+// מנגנון נפרד מ-Firebase Phone Auth: שרת מייצר קוד, שולח במייל
+// (דרך Resend), מאמת ומחזיר custom token שאיתו מתחברים.
+// עובד רק בדפדפן/PWA (Vercel) — ה-endpoints תחת /api.
+
+// שולח קוד אימות למייל. מחזיר { ok } או { ok:false, reason }.
+//   reason: 'bad-email' = מייל לא תקין / 'too-soon' = נשלח לפני פחות מ-30 שניות.
+export async function sendEmailCode(email) {
+  if (!email) return { ok: false, reason: 'bad-email' }
+  try {
+    const res = await fetch('/api/send-email-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: String(email).trim() }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, reason: data.reason || 'error' }
+    return { ok: true }
+  } catch (e) {
+    console.error('sendEmailCode error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מאמת קוד שהגיע במייל ומתחבר (signInWithCustomToken).
+// מחזיר { ok, uid } או { ok:false, reason }.
+//   reason: 'wrong-code' / 'expired' / 'too-many-attempts' / 'used' / 'no-code'.
+export async function verifyEmailCode(email, code) {
+  if (!email || !code) return { ok: false, reason: 'missing' }
+  try {
+    const res = await fetch('/api/verify-email-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: String(email).trim(), code: String(code).trim() }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.ok) return { ok: false, reason: data.reason || 'error' }
+    // מתחברים עם ה-custom token שהשרת החזיר
+    await signInWithCustomToken(auth, data.token)
+    return { ok: true, uid: data.uid }
+  } catch (e) {
+    console.error('verifyEmailCode error:', e)
+    return { ok: false, reason: 'error' }
+  }
 }
 
 export const signOut = () => fbSignOut(auth)
