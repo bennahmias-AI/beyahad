@@ -826,8 +826,11 @@ export async function toggleRecipeCooked(postId, uid) {
   }
 }
 
-// updateCommunityPost — עדכון פוסט קיים (רק המחבר יוכל — נאכף גם בצד הלקוח וגם בכללים)
-export async function updateCommunityPost(postId, { title, body, recipe, photos, category }) {
+// updateCommunityPost — עדכון פוסט קיים.
+// resetApproval=true → מחזיר את הפוסט ל"ממתין לאישור" (משתמש רגיל שעורך).
+// אדמין שעורך מעביר resetApproval=false כדי שהפוסט יישאר מאושר.
+// (הרשאות נאכפות גם בכללי Firestore: מחבר או אדמין.)
+export async function updateCommunityPost(postId, { title, body, recipe, photos, category, resetApproval = false }) {
   const fields = {}
   if (title != null) fields.title = String(title).trim()
   if (body != null) fields.body = String(body).trim()
@@ -840,6 +843,7 @@ export async function updateCommunityPost(postId, { title, body, recipe, photos,
       cookTime: (recipe.cookTime || '').trim(),
     }
   }
+  if (resetApproval) fields.approved = false   // עריכת משתמש רגיל → חוזר לאישור
   fields.updatedAt = serverTimestamp()
   try {
     await updateDoc(doc(db, 'communityPosts', postId), fields)

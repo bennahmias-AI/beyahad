@@ -49,23 +49,33 @@ function browserDownload(blob, filename) {
 // ═══════════════════════════════════════════════════════════════
 // שמירה
 // ═══════════════════════════════════════════════════════════════
-async function nativeSaveToGallery(blob, filename) {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem')
-  const base64 = await blobToBase64(blob)
-  // ExternalStorage → /storage/emulated/0/ ; תחת Pictures/ביחד כדי שיופיע בגלריה
-  await Filesystem.writeFile({
-    path: `Pictures/\u05d1\u05d9\u05d7\u05d3/${filename}`,
-    data: base64,
-    directory: Directory.ExternalStorage,
-    recursive: true,
-  })
-  return { ok: true, where: 'gallery' }
+// באנדרואיד מודרני אי-אפשר לכתוב ישירות ל-ExternalStorage בלי הרשאות
+// מיוחדות, ולכן שומרים ל-Documents (לא דורש הרשאה) — הקובץ נגיש
+// דרך אפליקציית הקבצים תחת "מסמכים/ביחד". אם השמירה נכשלת —
+// נופלים אוטומטית לשיתוף (כך שתמיד אפשר לשמור דרך וואטסאפ/גלריה).
+async function nativeSaveToGallery(blob, filename, title) {
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const base64 = await blobToBase64(blob)
+    await Filesystem.writeFile({
+      path: `\u05d1\u05d9\u05d7\u05d3/${filename}`,   // ביחד/<filename>
+      data: base64,
+      directory: Directory.Documents,
+      recursive: true,
+    })
+    return { ok: true, where: 'documents' }
+  } catch (e) {
+    console.error('nativeSave to Documents failed, falling back to share', e)
+    // נפילה לשיתוף — כך המשתמש עדיין יכול לשמור (לגלריה/וואטסאפ) דרך חלון השיתוף
+    const shareRes = await nativeShare(blob, filename, title)
+    return shareRes.ok ? { ok: true, where: 'share' } : { ok: false, error: e }
+  }
 }
 
-export async function saveImageBlob(blob, filename = '\u05d1\u05e8\u05db\u05d4.png') {
+export async function saveImageBlob(blob, filename = '\u05d1\u05e8\u05db\u05d4.png', title = '') {
   if (!blob) return { ok: false, error: 'no blob' }
   try {
-    if (isNative()) return await nativeSaveToGallery(blob, filename)
+    if (isNative()) return await nativeSaveToGallery(blob, filename, title)
     browserDownload(blob, filename)
     return { ok: true, where: 'download' }
   } catch (e) {

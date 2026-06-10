@@ -42,7 +42,7 @@ function loadBgAsDataURL(url) {
       canvas.height = img.naturalHeight
       canvas.getContext('2d').drawImage(img, 0, 0)
       try {
-        const dataUrl = canvas.toDataURL('image/png')
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
         bgDataCache[url] = dataUrl
         resolve(dataUrl)
       } catch (e) { reject(e) }
@@ -267,7 +267,7 @@ function buildBackgrounds() {
         category: cat.dir,
         categoryLabel: cat.label,
         match: cat.match || [],
-        url: `/backgrounds/${encodeURIComponent(cat.dir)}/${n}.${cat.ext}`,
+        url: `/backgrounds/${encodeURIComponent(cat.dir)}/${n}.jpg`,
         textZone: cat.textZone,
         ink: cat.ink,
         accent: cat.accent,
@@ -282,7 +282,7 @@ function buildBackgrounds() {
           category: cat.dir,
           categoryLabel: cat.label,
           match: cat.match || [],
-          url: `/backgrounds/${encodeURIComponent(FLOWERS_EXTRA.dir)}/${n}.${FLOWERS_EXTRA.ext}`,
+          url: `/backgrounds/${encodeURIComponent(FLOWERS_EXTRA.dir)}/${n}.jpg`,
           textZone: FLOWERS_EXTRA.textZone,
           ink: FLOWERS_EXTRA.ink,
           accent: FLOWERS_EXTRA.accent,
@@ -959,7 +959,7 @@ function DesignStep({
     ctx.fillText(credit, W / 2, H - 40)
 
     return new Promise((resolve, reject) => {
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png')
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.92)
     })
   }
 
@@ -979,10 +979,10 @@ function DesignStep({
     try {
       await ensureFontLoaded()
       const blob = await renderPNG()
-      const res = await saveImageBlob(blob, 'ברכה-אישית.png')
+      const res = await saveImageBlob(blob, 'ברכה-אישית.jpg', text)
       logGreeting('greeting_save')
       if (res.ok) {
-        setMsg(res.where === 'gallery' ? '✓ נשמר לגלריה!' : '✓ נשמר!')
+        setMsg(res.where === 'documents' ? '✓ נשמר במסמכים!' : res.where === 'share' ? '' : '✓ נשמר!')
       } else {
         setMsg('שגיאה בשמירה')
       }
@@ -998,7 +998,7 @@ function DesignStep({
     try {
       await ensureFontLoaded()
       const blob = await renderPNG()
-      const res = await shareImageBlob(blob, 'ברכה-אישית.png', text)
+      const res = await shareImageBlob(blob, 'ברכה-אישית.jpg', text)
       if (res.ok) {
         logGreeting('greeting_share')
       } else if (res.notSupported) {
@@ -2328,27 +2328,27 @@ async function composeReadyImage(url, senderLine) {
   return { dataUrl, blob }
 }
 
-// צופה תמונה מוכנה — מרכיב את השכבות שלנו, מציג תצוגה מקדימה, ומאפשר שיתוף/שמירה
+// צופה תמונה מוכנה — מציג את התמונה המקורית מיד (ללא עיבוד),
+// עם שם המאחל + קרדיט כשכבת CSS מעל התמונה (מיידי, אפס עיבוד).
+// הרכבת ה-canvas (composeReadyImage) רצה רק בלחיצת שמירה/שיתוף —
+// כך סימון/ביטול השם מיידיים גם באפליקציה.
 function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← חזרה לגלריה', footerControls = null }) {
   const [showSender, setShowSender] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [composed, setComposed] = useState(null)
-  const blobRef = useRef(null)
 
-  useEffect(() => {
-    let cancelled = false
-    setComposed(null); blobRef.current = null
-    const senderLine = (showSender && senderName) ? `${senderVerb}: ${senderName}` : ''
-    composeReadyImage(url, senderLine)
-      .then(({ dataUrl, blob }) => { if (!cancelled) { setComposed(dataUrl); blobRef.current = blob } })
-      .catch(() => { if (!cancelled) { setComposed(url); blobRef.current = null } })
-    return () => { cancelled = true }
-  }, [url, showSender, senderName, senderVerb])
+  const senderLine = (showSender && senderName) ? `${senderVerb}: ${senderName}` : ''
+
+  // מרכיב את התמונה הסופית (עם שם+קרדיט צרובים) — רק כשצריך
+  // (בלחיצה). מחזיר blob לשיתוף/שמירה.
+  const buildFinalBlob = async () => {
+    const { blob } = await composeReadyImage(url, senderLine)
+    return blob
+  }
 
   const doShare = async () => {
     setBusy(true)
     try {
-      const blob = blobRef.current
+      const blob = await buildFinalBlob()
       if (blob) {
         const res = await shareImageBlob(blob, 'ברכה.jpg', 'ברכה מאפליקציית ביחד')
         if (!res.ok && res.notSupported) await shareReadyImage(url)
@@ -2360,16 +2360,41 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
   }
 
   const doSave = async () => {
-    if (blobRef.current) {
-      await saveImageBlob(blobRef.current, 'ברכה.jpg')
-    } else {
-      downloadReadyImage(url)
-    }
+    setBusy(true)
+    try {
+      const blob = await buildFinalBlob()
+      if (blob) await saveImageBlob(blob, 'ברכה.jpg')
+      else await downloadReadyImage(url)
+    } catch (e) { console.error(e) }
+    setBusy(false)
   }
 
   return (
     <div style={{ padding: '8px 16px 32px' }}>
-      <img src={composed || url} alt="" style={{ width: '100%', borderRadius: 16, display: 'block', boxShadow: 'var(--shadow-md)' }} />
+      {/* התמונה המקורית — מוצגת מיד, ושם+קרדיט כשכבת CSS מעליה */}
+      <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', boxShadow: 'var(--shadow-md)' }}>
+        <img src={url} alt="" style={{ width: '100%', display: 'block' }} />
+        {/* שם המאחל */}
+        {senderLine && (
+          <div style={{
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+            bottom: '7.4%', maxWidth: '90%',
+            background: 'rgba(251,247,238,0.82)', color: '#1B1B1B',
+            fontWeight: 700, fontSize: 'clamp(11px, 3.2vw, 15px)',
+            padding: '4px 14px', borderRadius: 999, whiteSpace: 'nowrap',
+            fontFamily: "'M PLUS Rounded 1c', sans-serif",
+          }}>{senderLine}</div>
+        )}
+        {/* קרדיט שיווקי — תמיד */}
+        <div style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          bottom: '3.4%', maxWidth: '92%',
+          background: 'rgba(24,18,16,0.46)', color: '#FBF7EE',
+          fontWeight: 600, fontSize: 'clamp(9px, 2.4vw, 12px)',
+          padding: '3px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+          fontFamily: "'Huninn', sans-serif", letterSpacing: '0.3px',
+        }}>ברכה זו נוצרה באמצעות אפליקציית ביחד</div>
+      </div>
       {senderName ? (
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 2px 8px', fontSize: 16, fontWeight: 600, color: 'var(--ink-2)', cursor: 'pointer' }}>
           <input type="checkbox" checked={showSender} onChange={e => setShowSender(e.target.checked)} style={{ width: 20, height: 20 }} />
@@ -2377,11 +2402,11 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
         </label>
       ) : null}
       <div style={{ display: 'flex', gap: 10, marginTop: senderName ? 6 : 16 }}>
-        <button className="big-btn big-btn--primary" disabled={busy || !composed} style={{ flex: 1, opacity: (busy || !composed) ? 0.6 : 1 }} onClick={doShare}>
-          שיתוף
+        <button className="big-btn big-btn--primary" disabled={busy} style={{ flex: 1, opacity: busy ? 0.6 : 1 }} onClick={doShare}>
+          {busy ? 'מכין…' : 'שיתוף'}
         </button>
-        <button className="big-btn" disabled={!composed} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', opacity: composed ? 1 : 0.6 }} onClick={doSave}>
-          שמירה
+        <button className="big-btn" disabled={busy} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', opacity: busy ? 0.6 : 1 }} onClick={doSave}>
+          {busy ? 'מכין…' : 'שמירה'}
         </button>
       </div>
       {footerControls}

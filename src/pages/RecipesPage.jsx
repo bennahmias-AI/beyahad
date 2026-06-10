@@ -322,7 +322,9 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
           onClose={() => { setComposing(false); setEditingPost(null) }}
           onSubmit={async ({ title, recipe, photos, category }) => {
             if (editingPost) {
-              await updateCommunityPost(editingPost.id, { title, recipe, photos, category })
+              // עריכה: משתמש רגיל → חוזר לאישור; אדמין → נשאר מאושר
+              await updateCommunityPost(editingPost.id, { title, recipe, photos, category, resetApproval: !isAdmin })
+              if (!isAdmin) setNotice('המתכון עודכן ונשלח שוב לאישור מנהל.')
             } else {
               await createCommunityPost({
                 kind: 'recipe', title, recipe, photos, category,
@@ -341,6 +343,7 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
         <RecipeDetail
           post={liveOpenPost}
           myUid={authUser?.uid}
+          isAdmin={isAdmin}
           onClose={() => setOpenPost(null)}
           onEdit={() => { setEditingPost(liveOpenPost); setComposing(true); setOpenPost(null) }}
           onDelete={() => handleDelete(liveOpenPost)}
@@ -750,12 +753,13 @@ function RecipeComposer({ onClose, onSubmit, uid, editPost = null }) {
 // ════════════════════════════════════════════════════════
 // מסך צפייה במתכון
 // ════════════════════════════════════════════════════════
-function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
+function RecipeDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
   const likes = post.likes || []
   const cooked = post.cooked || []
   const iLiked = myUid && likes.includes(myUid)
   const iCooked = myUid && cooked.includes(myUid)
   const isMine = myUid && post.authorUid === myUid
+  const canManage = isMine || isAdmin
   const photos = post.photos || []
   const recipe = post.recipe || null
   const [photoIdx, setPhotoIdx] = useState(0)
@@ -901,8 +905,8 @@ function RecipeDetail({ post, myUid, onClose, onEdit, onDelete }) {
           </div>
           <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
 
-          {/* כפתורי עריכה/מחיקה — רק למתכון שלי */}
-          {isMine && (
+          {/* כפתורי עריכה/מחיקה — לבעלים או לאדמין */}
+          {canManage && (
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
               <button onClick={onEdit} className="big-btn" style={{
                 flex: 1, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line-strong)',
