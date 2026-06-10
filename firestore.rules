@@ -75,6 +75,16 @@ service cloud.firestore {
         || (request.auth != null
             && resource.data.authorUid == request.auth.uid);
     }
+    // ── דיווחים (reports) ──
+    // משתמש מחובר יוצר דיווח (עם reporterUid שלו עצמו). רק אדמין
+    // קורא/מעדכן/מוחק — כך שדיווחים פרטיים ומגיעים רק לניהול.
+    match /reports/{id} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.reporterUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     match /friendships/{id} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;

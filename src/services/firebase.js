@@ -257,6 +257,137 @@ export async function setUserBlocked(uid, blocked) {
   await updateDoc(doc(db, 'users', uid), { blocked: !!blocked, updatedAt: serverTimestamp() })
 }
 
+// ===== חסימה אישית בין משתמשים (blockedUsers) =====
+// בנפרד מ-blocked (חסימה גלובלית של אדמין), כל משתמש מחזיק רשימה אישית
+// blockedUsers: [uid...] של משתמשים שהוא בחר לחסום. משתמש חסום לא יופיע
+// לו ברשימות (קפה/חברים), ולא יוכל לשלוח לו הודעות/לדבר איתו.
+// הסינון בפועל נעשה בצד הלקוח (getAvailableUsers/watchAvailableUsers מקבלים
+// את הרשימה), והכלל ב-directChats מונע הודעות הדדיות.
+
+// חוסם משתמש אחר (מוסיף ל-blockedUsers של המשתמש המחובר).
+export async function blockUser(myUid, targetUid) {
+  if (!myUid || !targetUid || myUid === targetUid) return { ok: false, reason: 'bad-args' }
+  try {
+    await updateDoc(doc(db, 'users', myUid), {
+      blockedUsers: arrayUnion(targetUid),
+      updatedAt: serverTimestamp(),
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('blockUser error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מבטל חסימה אישית (מסיר מ-blockedUsers).
+export async function unblockUser(myUid, targetUid) {
+  if (!myUid || !targetUid) return { ok: false, reason: 'bad-args' }
+  try {
+    const snap = await getDoc(doc(db, 'users', myUid))
+    const list = (snap.exists() && snap.data().blockedUsers) || []
+    await updateDoc(doc(db, 'users', myUid), {
+      blockedUsers: list.filter(u => u !== targetUid),
+      updatedAt: serverTimestamp(),
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('unblockUser error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// בודק אם targetUid חסום ע"י המשתמש המחובר (בדיקה חד-פעמית).
+export async function isUserBlockedByMe(myUid, targetUid) {
+  if (!myUid || !targetUid) return false
+  try {
+    const snap = await getDoc(doc(db, 'users', myUid))
+    const list = (snap.exists() && snap.data().blockedUsers) || []
+    return list.includes(targetUid)
+  } catch (e) {
+    return false
+  }
+}
+
+// ===== דיווחים (reports) =====
+// משתמש מדווח על משתמש אחר או על תוכן פוגעני. הדיווח נשמר באוסף reports
+// שרק אדמין קורא (נאכף ב-firestore.rules). האדמין רואה את כל הדיווחים
+// בפאנל הניהול ויכול לטפל (לחסום משתמש / למחוק תוכן / לסמן כטופל).
+//   reports/{id}: { reporterUid, reporterName, targetType, targetId,
+//                   targetName, reason, note, status, createdAt }
+//   targetType: 'user' | 'tip' | 'recipe'
+//   reason: 'offensive' | 'harassment' | 'spam' | 'other'
+//   status: 'open' | 'resolved'
+export async function submitReport({ reporterUid, reporterName, targetType, targetId, targetName, reason, note }) {
+  if (!reporterUid || !targetType || !targetId) return { ok: false, reason: 'bad-args' }
+  try {
+    await addDoc(collection(db, 'reports'), {
+      reporterUid,
+      reporterName: reporterName || '',
+      targetType,
+      targetId,
+      targetName: targetName || '',
+      reason: reason || 'other',
+      note: String(note || '').slice(0, 500),
+      status: 'open',
+      createdAt: serverTimestamp(),
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('submitReport error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מאזין לכל הדיווחים (לפאנל הניהול) — החדשים קודם. רק אדמין (נאכף בכללים).
+export function watchReports(cb) {
+  return onSnapshot(collection(db, 'reports'), snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    list.sort((a, b) => {
+      const am = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0
+      const bm = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0
+      return bm - am
+    })
+    cb(list)
+  }, err => {
+    console.error('watchReports error:', err)
+    cb([])
+  })
+}
+
+// מסמן דיווח כטופל (status: 'resolved'). רק אדמין.
+export async function resolveReport(reportId) {
+  try {
+    await updateDoc(doc(db, 'reports', reportId), {
+      status: 'resolved',
+      resolvedAt: serverTimestamp(),
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('resolveReport error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מוחק דיווח לגמרי (אחרי טיפול). רק אדמין.
+export async function deleteReport(reportId) {
+  try {
+    await deleteDoc(doc(db, 'reports', reportId))
+    return { ok: true }
+  } catch (e) {
+    console.error('deleteReport error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מאזין למספר הדיווחים הפתוחים (status=='open') — למונה בפאנל. רק אדמין.
+export function watchOpenReportsCount(cb) {
+  const qy = query(collection(db, 'reports'), where('status', '==', 'open'))
+  return onSnapshot(qy, snap => cb(snap.size), err => {
+    console.error('watchOpenReportsCount error:', err)
+    cb(0)
+  })
+}
+
 // מגדיר/מעדכן מספר טלפון למשתמש קיים — דרך צד-שרת (Admin SDK).
 // מצמיד את הטלפון לחשבון ה-Auth הקיים, כך שכניסה ב-SMS תכניס אותו
 // לחשבון הזה (שומר על ה-uid, המידע וההרשאות). דורש שהקורא יהיה אדמין.
@@ -276,6 +407,29 @@ export async function adminSetUserPhone(uid, phone) {
     return data
   } catch (e) {
     console.error('adminSetUserPhone error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מגדיר/מעדכן מייל למשתמש קיים — דרך צד-שרת (Admin SDK). תאום
+// ל-adminSetUserPhone. מעדכן את המייל גם בחשבון ה-Auth וגם במסמך users,
+// כך שכניסה בקוד-מייל תמצא את המשתמש. דורש שהקורא יהיה אדמין.
+// מחזיר { ok, email } בהצלחה, או { ok:false, reason } בכשל.
+//   reason: 'email-taken' = המייל כבר שייך לחשבון אחר / 'bad-email' = מייל לא תקין.
+export async function adminSetUserEmail(uid, email) {
+  if (!uid || !email) return { ok: false, reason: 'missing' }
+  try {
+    const idToken = await auth.currentUser.getIdToken()
+    const res = await fetch('/api/set-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ uid, email }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, reason: data.reason || 'error' }
+    return data
+  } catch (e) {
+    console.error('adminSetUserEmail error:', e)
     return { ok: false, reason: 'error' }
   }
 }

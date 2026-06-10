@@ -7,13 +7,16 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { watchUser, getGallery } from '../services/firebase.js'
+import { useUserStore } from '../stores/userStore.js'
 import Avatar from '../components/Avatar.jsx'
 import Lightbox from '../components/Lightbox.jsx'
 import HomeButton from '../components/HomeButton.jsx'
+import BlockReportBar from '../components/BlockReportBar.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
 export default function FriendProfile({ friend, onBack, onHome }) {
   const uid = friend?.otherUid
+  const myUid = useUserStore(s => s.authUser?.uid)
   const [prof, setProf] = useState(null)
   const [gallery, setGallery] = useState([])
   const [lightbox, setLightbox] = useState(null)
@@ -76,6 +79,18 @@ export default function FriendProfile({ friend, onBack, onHome }) {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* כלי בטיחות — חסימה ודיווח (רק על חבר אמיתי, לא על עצמי) */}
+        {uid && uid !== myUid && (
+          <div style={{ width: '100%', marginTop: 24 }}>
+            <BlockReportBar
+              targetType="user"
+              targetId={uid}
+              targetName={fullName}
+              onBlocked={onBack}
+            />
           </div>
         )}
       </div>

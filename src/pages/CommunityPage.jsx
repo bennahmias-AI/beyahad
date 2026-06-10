@@ -20,6 +20,7 @@ import {
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart, IconEye, IconEdit, IconTrash, IconSearch } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
+import BlockReportBar from '../components/BlockReportBar.jsx'
 import ModalPortal from '../components/ModalPortal.jsx'
 
 const ACCENT = '#B89048'
@@ -797,6 +798,17 @@ function TipDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
               flex: 1, background: 'var(--surface)', color: 'var(--danger)', border: '1px solid var(--danger)',
             }}><IconTrash size={18} color="#C0392B" /> מחק</button>
           </div>
+        )}
+
+        {/* דיווח על תוכן — רק אם זה לא שלי */}
+        {!isMine && (
+          <BlockReportBar
+            targetType="tip"
+            targetId={post.id}
+            targetName={post.title}
+            showBlock={false}
+            compact
+          />
         )}
       </div>
     </div>

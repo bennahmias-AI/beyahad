@@ -16,6 +16,7 @@ import {
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
 import VoiceMessage from '../components/VoiceMessage.jsx'
 import Avatar from '../components/Avatar.jsx'
+import BlockReportBar from '../components/BlockReportBar.jsx'
 import { IconBackRTL, IconPhone, IconGamepad, IconVideoLine, IconHomeLine } from '../icons/index.jsx'
 import { playMessageSent } from '../utils/sounds.js'
 
@@ -28,6 +29,7 @@ export default function DirectChatPage({ friend, onBack, onHome, onVideoCall, on
   const [draft, setDraft] = useState('')
   const [prof, setProf] = useState(null)   // פרופיל חי של החבר (שם מלא + תמונה)
   const [online, setOnline] = useState(false)
+  const [showSafety, setShowSafety] = useState(false)   // תפריט חסימה/דיווח
   const scrollRef = useRef(null)
 
   // האזנה להודעות
@@ -180,8 +182,32 @@ export default function DirectChatPage({ friend, onBack, onHome, onVideoCall, on
           <HeaderAction icon={<IconVideoLine size={19} color="#fff" />} bg="#4F6B4A" label="שיחת וידאו" onClick={() => onVideoCall && onVideoCall(friend)} />
           <HeaderAction icon={<IconPhone size={19} color="#fff" />} bg="var(--success)" label="שיחת קפה" onClick={() => onCallFriend && onCallFriend(friend)} />
           <HeaderAction icon={<IconGamepad size={19} color="#fff" />} bg="var(--burgundy)" label="משחק" onClick={() => onPlayFriend && onPlayFriend(friend)} />
+          {/* תפריט בטיחות — חסימה/דיווח */}
+          <button onClick={() => setShowSafety(v => !v)} aria-label="אפשרויות בטיחות" title="אפשרויות" style={{
+            width: 42, height: 42, borderRadius: '50%', background: 'var(--surface-2)',
+            border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, fontSize: 22, fontWeight: 800, color: 'var(--ink-2)', lineHeight: 1,
+          }}>⋮</button>
         </div>
       </div>
+
+      {/* תפריט בטיחות — נפתח מתחת לכותרת */}
+      {showSafety && otherUid && (
+        <div style={{
+          background: 'var(--surface)', borderBottom: '1px solid var(--line)',
+          padding: '12px 16px', flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', marginBottom: 2 }}>
+            אם {fullName} מטריד/ה או מתנהג/ת לא יפה — אפשר לחסום או לדווח:
+          </div>
+          <BlockReportBar
+            targetType="user"
+            targetId={otherUid}
+            targetName={fullName}
+            onBlocked={onBack}
+          />
+        </div>
+      )}
 
       {/* הודעות */}
       <div ref={scrollRef} className="scroll-area" style={{ flex: 1, minHeight: 0, padding: '16px', overflowY: 'auto' }}>

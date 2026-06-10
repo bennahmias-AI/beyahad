@@ -13,7 +13,8 @@ import {
   watchPendingPosts, setPostApproval, deleteCommunityPost,
   getActivityInRange, getActivityLog, getActivityLogForUser,
   sendUserNotification, adminDeleteUser, sendDirectMessage,
-  adminSetUserPhone,
+  adminSetUserPhone, adminSetUserEmail,
+  watchReports, resolveReport, deleteReport, blockUser,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 
@@ -94,13 +95,15 @@ export default function AdminDashboardDesktop({ onExit }) {
   const [rangeData, setRangeData] = useState(null)
   const [log, setLog] = useState([])
   const [logLoading, setLogLoading] = useState(true)
+  const [reports, setReports] = useState([])   // דיווחי משתמשים
 
   useEffect(() => {
     if (!isAdmin) return
     const unsub = watchAllUsers(list => { setUsers(list); setLoading(false) })
     const unsubP = watchPendingPosts(setPending)
+    const unsubR = watchReports(setReports)
     getAllCommunityPosts().then(setPosts).catch(() => {})
-    return () => { unsub && unsub(); unsubP && unsubP() }
+    return () => { unsub && unsub(); unsubP && unsubP(); unsubR && unsubR() }
   }, [isAdmin])
 
   useEffect(() => {
@@ -141,6 +144,43 @@ export default function AdminDashboardDesktop({ onExit }) {
     const r = await adminSetUserPhone(uid, phone)
     setBusyUid(null)
     return r
+  }
+  // מעדכן מייל לחשבון הקיים (דרך צד-שרת). מחזיר את התוצאה לרכיב.
+  async function setEmail(uid, email) {
+    setBusyUid(uid)
+    const r = await adminSetUserEmail(uid, email)
+    setBusyUid(null)
+    return r
+  }
+
+  // ===== טיפול בדיווחים =====
+  // מסמן דיווח כטופל (ללא מחיקה — נשאר לתיעוד).
+  async function handleResolveReport(reportId) {
+    await resolveReport(reportId)
+  }
+  // מוחק דיווח לגמרי.
+  async function handleDeleteReport(reportId) {
+    if (!window.confirm('למחוק את הדיווח? לא ניתן לבטל.')) return
+    await deleteReport(reportId)
+  }
+  // חוסם גלובלית את המשתמש שדווח עליו (setUserBlocked), ומסמן את הדיווח כטופל.
+  async function blockReportedUser(report) {
+    if (report.targetType !== 'user') return
+    if (!window.confirm(`לחסום את ${report.targetName || 'המשתמש'}? הוא/היא לא יוכל/ת להשתמש באפליקציה.`)) return
+    try {
+      await setUserBlocked(report.targetId, true)
+      await resolveReport(report.id)
+    } catch (e) { console.error('blockReportedUser:', e); alert('החסימה נכשלה') }
+  }
+  // מוחק תוכן שדווח עליו (עצה/מתכון), ומסמן את הדיווח כטופל.
+  async function deleteReportedContent(report) {
+    if (report.targetType !== 'tip' && report.targetType !== 'recipe') return
+    const what = report.targetType === 'recipe' ? 'המתכון' : 'העצה'
+    if (!window.confirm(`למחוק את ${what} "${report.targetName || ''}"? לא ניתן לבטל.`)) return
+    try {
+      await deleteCommunityPost(report.targetId)
+      await resolveReport(report.id)
+    } catch (e) { console.error('deleteReportedContent:', e); alert('המחיקה נכשלה') }
   }
   async function approvePost(p) {
     setBusyPost(p.id)
@@ -252,6 +292,9 @@ export default function AdminDashboardDesktop({ onExit }) {
   })()
 
   const liveSelected = selectedUid ? (users.find(u => u.id === selectedUid) || null) : null
+
+  // דיווחים פתוחים בלבד (שעוד לא טופלו)
+  const openReports = reports.filter(r => r.status !== 'resolved')
 
   const q = search.trim().toLowerCase()
   const rank = { admin: 0, premium: 1, user: 2 }
@@ -390,6 +433,29 @@ export default function AdminDashboardDesktop({ onExit }) {
 
               {/* עמודה שמאל — דורש טיפול + יומן פעילות */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+                {/* דיווחים ממשתמשים */}
+                <div>
+                  <SectionTitle>
+                    דיווחים ממשתמשים
+                    {openReports.length > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', background: '#C0392B', borderRadius: 999, padding: '2px 9px', marginInlineStart: 8 }}>{openReports.length}</span>}
+                  </SectionTitle>
+                  {openReports.length === 0 ? (
+                    <div style={emptyBox}>אין דיווחים פתוחים 🎉</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {openReports.map(r => (
+                        <ReportRow
+                          key={r.id} r={r}
+                          onBlockUser={blockReportedUser}
+                          onDeleteContent={deleteReportedContent}
+                          onResolve={handleResolveReport}
+                          onDelete={handleDeleteReport}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* דורש טיפול */}
                 <div>
                   <SectionTitle>
@@ -438,6 +504,7 @@ export default function AdminDashboardDesktop({ onExit }) {
           onBlock={toggleBlock}
           onMessage={messageUser}
           onSetPhone={setPhone}
+          onSetEmail={setEmail}
           onDelete={deleteUser}
           onClose={() => setSelectedUid(null)}
         />
@@ -595,6 +662,50 @@ function PendingRow({ p, busy, onApprove, onReject }) {
   )
 }
 
+const REPORT_REASON_LABEL = {
+  offensive: 'תוכן פוגעני', harassment: 'הטרדה', spam: 'ספאם', other: 'אחר',
+}
+const REPORT_TYPE_LABEL = { user: 'משתמש', tip: 'עצה', recipe: 'מתכון' }
+
+// שורת דיווח בפאנל — מציגה מי דיווח, על מה/מי, הסיבה, וכפתורי טיפול.
+function ReportRow({ r, onBlockUser, onDeleteContent, onResolve, onDelete }) {
+  const ms = toMs(r.createdAt)
+  const when = ms ? new Date(ms).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+  const isUser = r.targetType === 'user'
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid #E0A8A8', borderRadius: 14, padding: '11px 13px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: '#C0392B', borderRadius: 6, padding: '1px 7px' }}>{REPORT_REASON_LABEL[r.reason] || r.reason}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink-2)', background: 'var(--surface-2)', borderRadius: 6, padding: '1px 7px' }}>{REPORT_TYPE_LABEL[r.targetType] || r.targetType}</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>{r.targetName || '—'}</span>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginBottom: r.note ? 4 : 8 }}>
+        דווח ע"י {r.reporterName || '—'} · <span style={{ direction: 'ltr', unicodeBidi: 'embed' }}>{when}</span>
+      </div>
+      {r.note && (
+        <div style={{ fontSize: 13, color: 'var(--ink-2)', background: 'var(--surface-2)', borderRadius: 8, padding: '6px 10px', marginBottom: 8, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{r.note}</div>
+      )}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {isUser ? (
+          <button onClick={() => onBlockUser(r)} style={reportBtn('#C0392B', true)}>🚫 חסום משתמש</button>
+        ) : (
+          <button onClick={() => onDeleteContent(r)} style={reportBtn('#C0392B', true)}>🗑️ מחק תוכן</button>
+        )}
+        <button onClick={() => onResolve(r.id)} style={reportBtn('#3E6B34', false)}>✓ טופל</button>
+        <button onClick={() => onDelete(r.id)} style={reportBtn('var(--ink-3)', false)}>הסר</button>
+      </div>
+    </div>
+  )
+}
+
+function reportBtn(color, filled) {
+  return {
+    fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+    border: filled ? 'none' : `1px solid ${color}`, borderRadius: 9, padding: '7px 11px',
+    background: filled ? color : 'var(--surface)', color: filled ? '#fff' : color,
+  }
+}
+
 function UserTableRow({ u, busy, onOpen, onRole, onBlock }) {
   const role = roleOf(u)
   const online = isOnline(u)
@@ -637,7 +748,7 @@ function UserTableRow({ u, busy, onOpen, onRole, onBlock }) {
 }
 
 // חלון פרטי משתמש — ממורכז (לא מלמטה כמו במובייל)
-function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onDelete, onClose }) {
+function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onSetEmail, onDelete, onClose }) {
   const role = roleOf(u)
   const online = isOnline(u)
   const genderText = u.gender === 'male' ? 'גבר' : u.gender === 'female' ? 'אישה' : (u.gender || '—')
@@ -647,6 +758,9 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onDe
   const [phoneInput, setPhoneInput] = useState(u.phone || '')
   const [phoneSaving, setPhoneSaving] = useState(false)
   const [phoneMsg, setPhoneMsg] = useState(null)
+  const [emailInput, setEmailInput] = useState(u.email || '')
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailMsg, setEmailMsg] = useState(null)
 
   async function savePhone() {
     const val = phoneInput.trim()
@@ -659,6 +773,19 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onDe
     else if (r && r.reason === 'not-admin') setPhoneMsg({ ok: false, text: 'אין הרשאת אדמין לפעולה הזו.' })
     else if (r && r.reason === 'bad-phone') setPhoneMsg({ ok: false, text: 'מספר לא תקין. הזן מספר ישראלי, למשל 0501234567.' })
     else setPhoneMsg({ ok: false, text: 'הפעולה נכשלה. ודא שהאתר פרוס (Vercel) ושיש חיבור.' })
+  }
+
+  async function saveEmail() {
+    const val = emailInput.trim()
+    if (!val) return
+    setEmailSaving(true); setEmailMsg(null)
+    const r = await onSetEmail(u.id, val)
+    setEmailSaving(false)
+    if (r && r.ok) setEmailMsg({ ok: true, text: `✓ המייל ${r.email} עודכן. אפשר להיכנס איתו + קוד במייל.` })
+    else if (r && r.reason === 'email-taken') setEmailMsg({ ok: false, text: 'המייל כבר משויך לחשבון אחר. בחר מייל אחר.' })
+    else if (r && r.reason === 'not-admin') setEmailMsg({ ok: false, text: 'אין הרשאת אדמין לפעולה הזו.' })
+    else if (r && r.reason === 'bad-email') setEmailMsg({ ok: false, text: 'מייל לא תקין. הזן כתובת תקינה, למשל name@gmail.com.' })
+    else setEmailMsg({ ok: false, text: 'הפעולה נכשלה. ודא שהאתר פרוס (Vercel) ושיש חיבור.' })
   }
 
   const rows = [
@@ -730,6 +857,25 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onDe
             <button onClick={savePhone} disabled={phoneSaving || !phoneInput.trim()} style={{ fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: phoneInput.trim() ? 'pointer' : 'default', border: 'none', borderRadius: 12, padding: '11px 18px', background: ACCENT, color: '#fff', opacity: (phoneSaving || !phoneInput.trim()) ? 0.5 : 1, whiteSpace: 'nowrap' }}>{phoneSaving ? 'שומר...' : 'שמור טלפון'}</button>
           </div>
           {phoneMsg && <div style={{ fontSize: 12.5, fontWeight: 700, color: phoneMsg.ok ? '#3E6B34' : '#C0392B', marginTop: 8, lineHeight: 1.5 }}>{phoneMsg.text}</div>}
+        </div>
+
+        {/* מייל לכניסה — עדכון מייל החשבון (כניסה בקוד-מייל) */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>✉️ כתובת מייל לכניסה</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+            מעדכן את המייל של המשתמש בחשבון. אחרי השמירה הוא יוכל להיכנס עם המייל הזה וקוד שנשלח אליו — לאותו חשבון.
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              placeholder="name@gmail.com"
+              inputMode="email"
+              style={{ flex: 1, boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 12, padding: '11px 12px', direction: 'ltr', textAlign: 'left', outline: 'none' }}
+            />
+            <button onClick={saveEmail} disabled={emailSaving || !emailInput.trim()} style={{ fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: emailInput.trim() ? 'pointer' : 'default', border: 'none', borderRadius: 12, padding: '11px 18px', background: ACCENT, color: '#fff', opacity: (emailSaving || !emailInput.trim()) ? 0.5 : 1, whiteSpace: 'nowrap' }}>{emailSaving ? 'שומר...' : 'שמור מייל'}</button>
+          </div>
+          {emailMsg && <div style={{ fontSize: 12.5, fontWeight: 700, color: emailMsg.ok ? '#3E6B34' : '#C0392B', marginTop: 8, lineHeight: 1.5 }}>{emailMsg.text}</div>}
         </div>
 
         {/* שליחת הודעה */}

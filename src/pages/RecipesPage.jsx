@@ -20,6 +20,7 @@ import {
 import Avatar from '../components/Avatar.jsx'
 import { IconBackRTL, IconHeart, IconCamera, IconEye, IconBasket, IconChef, IconPan, IconEdit, IconTrash, IconClock, IconSearch } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
+import BlockReportBar from '../components/BlockReportBar.jsx'
 import { RECIPE_CATEGORIES, categoryOf } from '../data/recipeCategories.js'
 import { CategoryIcon } from '../icons/recipeCategoryIcons.jsx'
 import ModalPortal from '../components/ModalPortal.jsx'
@@ -919,6 +920,17 @@ function RecipeDetail({ post, myUid, isAdmin, onClose, onEdit, onDelete }) {
                 flex: 1, background: 'var(--surface)', color: 'var(--danger)', border: '1px solid var(--danger)',
               }}><IconTrash size={18} color="#C0392B" /> מחק</button>
             </div>
+          )}
+
+          {/* דיווח על תוכן / חסימת המחבר — רק אם זה לא שלי */}
+          {!isMine && (
+            <BlockReportBar
+              targetType="recipe"
+              targetId={post.id}
+              targetName={post.title}
+              showBlock={false}
+              compact
+            />
           )}
         </div>
       </div>
