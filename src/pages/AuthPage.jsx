@@ -71,6 +71,7 @@ const EMAIL_ERRORS = {
 
 export default function AuthPage() {
   const [mode, setMode]   = useState('login')   // 'login' | 'register'
+  const [loginMethod, setLoginMethod] = useState('phone') // 'phone' | 'email' — בורר שיטת הכניסה
   const [step, setStep]   = useState('form')    // 'form' | 'otp'
   const [channel, setChannel] = useState('sms') // 'sms' | 'email' — הערוץ הפעיל לקוד
   const [loading, setLoading] = useState(false) // לכפתור האימות
@@ -363,28 +364,71 @@ export default function AuthPage() {
             </>
           )}
           {mode === 'login' && (
-            <FormField label="כתובת מייל (לכניסה במייל)" valid={vEmail}>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="miriam@gmail.com" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
-            </FormField>
+            <>
+              <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 16, background: colors.surface2 }}>
+                {[{ id: 'phone', label: '📱 טלפון' }, { id: 'email', label: '✉️ מייל' }].map(m => {
+                  const active = loginMethod === m.id
+                  return (
+                    <button key={m.id} type="button"
+                      onClick={() => { setLoginMethod(m.id); setError('') }}
+                      style={{
+                        flex: 1, padding: '12px 0', fontSize: 16, fontWeight: 700,
+                        borderRadius: 12, border: 'none',
+                        background: active ? colors.burgundy : 'transparent',
+                        color: active ? 'white' : colors.ink2,
+                        fontFamily: 'inherit', cursor: 'pointer', minHeight: 'unset',
+                        boxShadow: active ? `0 4px 12px -4px ${colors.burgundy}80` : 'none',
+                        transition: 'all 0.2s',
+                      }}>{m.label}</button>
+                  )
+                })}
+              </div>
+
+              {loginMethod === 'phone' ? (
+                <FormField label="מספר טלפון" valid={vPhone}>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                    placeholder="050-1234567" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                </FormField>
+              ) : (
+                <FormField label="כתובת מייל" valid={vEmail}>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="miriam@gmail.com" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                </FormField>
+              )}
+            </>
           )}
 
-          <FormField label="מספר טלפון" valid={vPhone}>
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="050-1234567" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
-          </FormField>
+          {mode === 'register' && (
+            <FormField label="מספר טלפון" valid={vPhone}>
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="050-1234567" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+            </FormField>
+          )}
 
           {error && <ErrorBox>{error}</ErrorBox>}
 
           {/* כפתורי שליחת קוד — SMS / מייל */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
-            <ChannelButton onClick={() => handleSendCode('sms')} accent={colors.burgundy}>
-              📱 שליחת קוד ב-SMS
-            </ChannelButton>
-            <ChannelButton onClick={() => handleSendCode('email')} accent={colors.teal} outline>
-              ✉️ שליחת קוד במייל
-            </ChannelButton>
-          </div>
+          {mode === 'login' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+              <ChannelButton
+                onClick={() => handleSendCode(loginMethod === 'phone' ? 'sms' : 'email')}
+                accent={colors.burgundy}>
+                {loginMethod === 'phone' ? 'שליחת קוד ב-SMS' : 'שליחת קוד למייל'}
+              </ChannelButton>
+              <div style={{ fontSize: 13.5, color: colors.ink3, textAlign: 'center' }}>
+                {loginMethod === 'phone' ? 'נשלח אליך קוד אימות בהודעת SMS' : 'נשלח אליך קוד אימות לכתובת המייל'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+              <ChannelButton onClick={() => handleSendCode('sms')} accent={colors.burgundy}>
+                📱 שליחת קוד ב-SMS
+              </ChannelButton>
+              <ChannelButton onClick={() => handleSendCode('email')} accent={colors.teal} outline>
+                ✉️ שליחת קוד במייל
+              </ChannelButton>
+            </div>
+          )}
         </div>
       )}
 
