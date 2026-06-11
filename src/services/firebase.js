@@ -143,10 +143,12 @@ export async function verifyOtp(code) {
 
 // שולח קוד אימות למייל. מחזיר { ok } או { ok:false, reason }.
 //   reason: 'bad-email' = מייל לא תקין / 'too-soon' = נשלח לפני פחות מ-30 שניות.
+// הקריאות הן לכתובת מלאה (לא יחסית) כדי שיעבדו גם בלוקאלהוסט וגם באפליקציה הנייטיב.
+const EMAIL_API_BASE = import.meta.env.VITE_API_BASE || 'https://beyahad-gamma.vercel.app'
 export async function sendEmailCode(email) {
   if (!email) return { ok: false, reason: 'bad-email' }
   try {
-    const res = await fetch('/api/send-email-code', {
+    const res = await fetch(`${EMAIL_API_BASE}/api/send-email-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: String(email).trim() }),
@@ -166,7 +168,7 @@ export async function sendEmailCode(email) {
 export async function verifyEmailCode(email, code) {
   if (!email || !code) return { ok: false, reason: 'missing' }
   try {
-    const res = await fetch('/api/verify-email-code', {
+    const res = await fetch(`${EMAIL_API_BASE}/api/verify-email-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: String(email).trim(), code: String(code).trim() }),
