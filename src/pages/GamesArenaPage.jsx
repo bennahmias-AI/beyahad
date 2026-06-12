@@ -22,6 +22,15 @@ import HomeButton from '../components/HomeButton.jsx'
 // players: '2' / '2-4' / '10' וכו'
 // emoji זמני — אחר כך נחליף באייקוני SVG מותאמים.
 const GAMES = [
+  {
+    id: 'monopoly',
+    name: 'מונופול',
+    description: 'מסביב לעולם - נוסטלגיה משנות ה-80', 
+    emoji: '🌍',
+    players: 'AI / 2-4 שחקנים',
+    color: '#2f73c9',
+    status: 'available',
+  },
   // ── פעילים — משחקים שבנינו ועובדים ───────────────────────
   {
     id: 'connect4',
@@ -112,7 +121,7 @@ const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
 const MULTI_PLAYER = ['rummikub', 'arena', 'bingo']
 
-export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoMonopoly, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -159,6 +168,10 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
     }
     if (game.id === 'chess' && onGoChess) {
       onGoChess()
+      return
+    }
+    if (game.id === 'monopoly' && onGoMonopoly) {
+      onGoMonopoly()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

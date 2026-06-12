@@ -23,6 +23,7 @@ import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, AddFriendButton, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 
 // ════════════════════════════════════════════════════════
 // פלטת עץ ופליז (משותף לעיצוב)
@@ -196,10 +197,28 @@ function afterMove(ns, player) {
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית
 // ════════════════════════════════════════════════════════
-export default function SheshBeshGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+export default function SheshBeshGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null, registerBack }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)
+  // חלון אישור יציאה ממשחק פעיל + תת-מסך רושם צעד-חזרה משלו
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const childBackRef = useRef(null)
+  const registerChildBack = useRef((fn) => { childBackRef.current = fn }).current
+  const inActiveGame = mode === 'ai' || mode === 'local' || ((mode === 'online-random' || mode === 'online-friend') && roomId)
+  const handleBackStep = () => {
+    if (childBackRef.current && childBackRef.current()) return true
+    if (confirmLeave) { setConfirmLeave(false); return true }
+    if (inActiveGame) { setConfirmLeave(true); return true }
+    if ((mode === 'online-random' || mode === 'online-friend') && !roomId) { setMode(null); return true }
+    return false
+  }
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, mode, roomId, confirmLeave])
+  const confirmLeaveNow = () => { setConfirmLeave(false); setRoomId(null); setMode(null) }
 
   useEffect(() => { if (initialRoomId) { setMode('online-friend'); setRoomId(initialRoomId) } }, [initialRoomId])
 
@@ -208,6 +227,7 @@ export default function SheshBeshGame({ onBack, onHome, initialRoomId, autoInvit
       <ModeSelectScreen
         onBack={onBack}
         onHome={onHome}
+        registerBack={registerChildBack}
         onSelectAI={(diff) => { setDifficulty(diff); setMode('ai') }}
         onSelectLocal={() => setMode('local')}
         onSelectOnlineRandom={() => setMode('online-random')}
@@ -218,23 +238,56 @@ export default function SheshBeshGame({ onBack, onHome, initialRoomId, autoInvit
   if (mode === 'online-random' || mode === 'online-friend') {
     if (!roomId) return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={onBack} onHome={onHome} onReady={(id) => setRoomId(id)} />
     return (
-      <OnlineGameScreen
-        roomId={roomId}
-        onBack={() => { setRoomId(null); setMode(null) }}
-        onHome={onHome}
-        onExit={onBack}
-        onFindOther={() => { setRoomId(null); setMode('online-random') }}
-      />
+      <>
+        <OnlineGameScreen
+          roomId={roomId}
+          onBack={() => { setRoomId(null); setMode(null) }}
+          onHome={onHome}
+          onExit={onBack}
+          onFindOther={() => { setRoomId(null); setMode('online-random') }}
+        />
+        {confirmLeave && (
+          <LeaveConfirmModal
+            title="לעזוב את המשחק?"
+            subtitle="המשחק הנוכחי יסתיים והיריב יקבל הודעה"
+            stayLabel="לא, להישאר במשחק"
+            leaveLabel="כן, לעזוב"
+            onStay={() => setConfirmLeave(false)}
+            onLeave={confirmLeaveNow}
+          />
+        )}
+      </>
     )
   }
-  return <LocalGameScreen mode={mode} difficulty={difficulty} onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
+  return (
+    <>
+      <LocalGameScreen mode={mode} difficulty={difficulty} onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={confirmLeaveNow}
+        />
+      )}
+    </>
+  )
 }
 
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [showDifficulty, setShowDifficulty] = useState(false)
+  // כפתור החזרה של אנדרואיד — ממסך הקושי חוזרים לבחירת המצב (צעד אחד)
+  useEffect(() => {
+    if (!registerBack) return
+    if (showDifficulty) registerBack(() => { setShowDifficulty(false); return true })
+    else registerBack(null)
+    return () => registerBack(null)
+  }, [registerBack, showDifficulty])
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">

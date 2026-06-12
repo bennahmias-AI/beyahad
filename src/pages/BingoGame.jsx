@@ -32,6 +32,7 @@ import {
   watchBingoRoom, leaveBingoRoom, findOrCreateBingoMatch, watchFriendships,
   sendGameInvite, watchUser, sendBingoChat,
 } from '../services/firebase.js'
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 
 // ── פלטה (בורגונדי — תואם לכרטיס בזירה) ──────────────────
 const BG_DEEP = 'linear-gradient(180deg,#5A1D1E 0%,#3E1213 100%)'
@@ -46,9 +47,24 @@ const COL_COLORS = ['#7E2C2E', '#B89048', '#4F6B4A', '#2C5566', '#6B3A4F']
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — ניתוב בין מצבי המשחק
 // ════════════════════════════════════════════════════════
-export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null, registerBack }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [roomId, setRoomId] = useState(initialRoomId || null)
+  // חלון אישור יציאה ממשחק פעיל
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const inActiveGame = mode === 'solo' || ((mode === 'online-random' || mode === 'online-friend') && roomId)
+  const handleBackStep = () => {
+    if (confirmLeave) { setConfirmLeave(false); return true }
+    if (inActiveGame) { setConfirmLeave(true); return true }
+    if ((mode === 'online-random' || mode === 'online-friend') && !roomId) { setMode(null); return true }
+    return false
+  }
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, mode, roomId, confirmLeave])
+  const confirmLeaveNow = () => { setConfirmLeave(false); setRoomId(null); setMode(null) }
 
   useEffect(() => {
     if (initialRoomId) { setMode('online-friend'); setRoomId(initialRoomId) }
@@ -71,16 +87,42 @@ export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFri
       return <OnlineLobby mode={mode} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onHome={onHome} onReady={(id) => setRoomId(id)} />
     }
     return (
-      <OnlineGameScreen
-        roomId={roomId}
-        onBack={() => { setRoomId(null); setMode(null) }}
-        onHome={onHome}
-        onExit={onBack}
-      />
+      <>
+        <OnlineGameScreen
+          roomId={roomId}
+          onBack={() => { setRoomId(null); setMode(null) }}
+          onHome={onHome}
+          onExit={onBack}
+        />
+        {confirmLeave && (
+          <LeaveConfirmModal
+            title="לעזוב את המשחק?"
+            subtitle="המשחק הנוכחי יסתיים והשחקנים יקבלו הודעה"
+            stayLabel="לא, להישאר במשחק"
+            leaveLabel="כן, לעזוב"
+            onStay={() => setConfirmLeave(false)}
+            onLeave={confirmLeaveNow}
+          />
+        )}
+      </>
     )
   }
 
-  return <SoloGameScreen onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
+  return (
+    <>
+      <SoloGameScreen onBack={() => setMode(null)} onHome={onHome} onExit={onBack} />
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={confirmLeaveNow}
+        />
+      )}
+    </>
+  )
 }
 
 // ════════════════════════════════════════════════════════

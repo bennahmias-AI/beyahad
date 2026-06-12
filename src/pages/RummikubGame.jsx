@@ -21,6 +21,7 @@ import {
   sortSetForDisplay, drawOrResolve, finalStandings, sortRack,
 } from '../utils/rummikubEngine.js'
 import RummikubOnline from './RummikubOnline.jsx'
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 
 // ── פלטת צבעים (תואמת לדמו שאושר) ──────────────────────
 const WOOD_DEEP   = 'linear-gradient(155deg,#5c3c22 0%,#43290f 55%,#321d0b 100%)'
@@ -34,11 +35,27 @@ const JOKER_COLOR = '#b8332f'
 // ════════════════════════════════════════════════════════
 // קומפוננטה ראשית — ניתוב בין מצבים
 // ════════════════════════════════════════════════════════
-export default function RummikubGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+export default function RummikubGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null, registerBack }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [numPlayers, setNumPlayers] = useState(2)
   const [roomId, setRoomId] = useState(initialRoomId || null)
+  // חלון אישור יציאה ממשחק + תת-מסך (הגדרות משחק) רושם צעד-חזרה משלו
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const childBackRef = useRef(null)
+  const registerChildBack = useRef((fn) => { childBackRef.current = fn }).current
+  const handleBackStep = () => {
+    if (childBackRef.current && childBackRef.current()) return true
+    if (confirmLeave) { setConfirmLeave(false); return true }
+    if (mode) { setConfirmLeave(true); return true }
+    return false
+  }
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, mode, confirmLeave])
+  const confirmLeaveNow = () => { setConfirmLeave(false); setRoomId(null); setMode(null) }
 
   useEffect(() => { if (initialRoomId) { setMode('online-friend'); setRoomId(initialRoomId) } }, [initialRoomId])
 
@@ -47,6 +64,7 @@ export default function RummikubGame({ onBack, onHome, initialRoomId, autoInvite
       <ModeSelectScreen
         onBack={onBack}
         onHome={onHome}
+        registerBack={registerChildBack}
         onSelectAI={(diff, n) => { setDifficulty(diff); setNumPlayers(n); setMode('ai') }}
         onSelectLocal={(n) => { setNumPlayers(n); setMode('local') }}
         onSelectOnlineRandom={(n) => { setNumPlayers(n); setMode('online-random') }}
@@ -57,24 +75,48 @@ export default function RummikubGame({ onBack, onHome, initialRoomId, autoInvite
 
   if (mode === 'ai' || mode === 'local') {
     return (
-      <LocalGameScreen
-        mode={mode} difficulty={difficulty} numPlayers={numPlayers}
-        onBack={() => setMode(null)} onHome={onHome} onExit={onBack}
-      />
+      <>
+        <LocalGameScreen
+          mode={mode} difficulty={difficulty} numPlayers={numPlayers}
+          onBack={() => setMode(null)} onHome={onHome} onExit={onBack}
+        />
+        {confirmLeave && (
+          <LeaveConfirmModal
+            title="לעזוב את המשחק?"
+            subtitle="המשחק הנוכחי יסתיים"
+            stayLabel="לא, להישאר במשחק"
+            leaveLabel="כן, לעזוב"
+            onStay={() => setConfirmLeave(false)}
+            onLeave={confirmLeaveNow}
+          />
+        )}
+      </>
     )
   }
 
   // אונליין — שחקן רנדומלי / שחק עם חברים
   return (
-    <RummikubOnline
-      mode={mode}
-      numPlayers={numPlayers}
-      initialRoomId={roomId}
-      autoInviteFriend={autoInviteFriend}
-      onBack={autoInviteFriend ? onBack : () => { setMode(null); setRoomId(null) }}
-      onHome={onHome}
-      onExit={onBack}
-    />
+    <>
+      <RummikubOnline
+        mode={mode}
+        numPlayers={numPlayers}
+        initialRoomId={roomId}
+        autoInviteFriend={autoInviteFriend}
+        onBack={autoInviteFriend ? onBack : () => { setMode(null); setRoomId(null) }}
+        onHome={onHome}
+        onExit={onBack}
+      />
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים והיריבים יקבלו הודעה"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={confirmLeaveNow}
+        />
+      )}
+    </>
   )
 }
 
@@ -113,9 +155,17 @@ function RummiHeader({ title, onBack, onHome, onMenu, menuOpen, menuItems }) {
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [step, setStep] = useState('mode')   // 'mode' | 'ai-setup' | 'local-setup'
   const [diff, setDiff] = useState('medium')
+
+  // כפתור החזרה של אנדרואיד — ממסך ההגדרות חוזרים לבחירת המצב (צעד אחד)
+  useEffect(() => {
+    if (!registerBack) return
+    if (step !== 'mode') registerBack(() => { setStep('mode'); return true })
+    else registerBack(null)
+    return () => registerBack(null)
+  }, [registerBack, step])
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>

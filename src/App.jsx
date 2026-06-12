@@ -32,6 +32,7 @@ import MillionaireGame from './pages/MillionaireGame.jsx'
 import RummikubGame from './pages/RummikubGame.jsx'
 import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
+import MonopolyGame from './pages/MonopolyGame.jsx'
 import AdminDashboard from './pages/AdminDashboardResponsive.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
@@ -187,6 +188,7 @@ export default function App() {
         return 'friends'
       case 'memory-game':
       case 'millionaire-game':
+      case 'monopoly-game':
         return 'games'
       case 'rummikub-game': setRummikubRoom(null); setPlayFriend(null); return 'games'
       case 'arena-game':    setArenaRoom(null);    setPlayFriend(null); return 'games'
@@ -211,22 +213,30 @@ export default function App() {
   useEffect(() => {
     // מלכודת התחלתית — כדי שלכפתור החזרה תהיה רשומה לצרוך כבר מהמסך הראשון
     try { window.history.pushState({ beyahad: true }, '') } catch {}
+    // דוחף מלכודת חדשה בטיק הבא — בכרום לאנדרואיד, pushState שנקרא סינכרונית
+    // בתוך popstate של מחוות חזרה נבלע לפעמים, ואז הלחיצה הבאה
+    // יוצאת מהאפליקציה במקום לחזור צעד נוסף.
+    const pushTrap = () => {
+      setTimeout(() => {
+        try { window.history.pushState({ beyahad: true }, '') } catch {}
+      }, 0)
+    }
     function onPopState() {
       const { page: cur, chatOrigin: origin, inCall } = backNavRef.current
       // באמצע שיחת וידאו/קול — לא קוטעים; דוחפים מלכודת חדשה ונשארים במסך
       if (inCall) {
-        try { window.history.pushState({ beyahad: true }, '') } catch {}
+        pushTrap()
         return
       }
       // אם המסך מנהל ניווט פנימי (כמו הרדיו) — צעד אחד אחורה בתוכו
       if (pageBackRef.current && pageBackRef.current()) {
-        try { window.history.pushState({ beyahad: true }, '') } catch {}
+        pushTrap()
         return
       }
       const target = resolveBackTarget(cur, origin)
       if (target != null) {
         setPage(target)
-        try { window.history.pushState({ beyahad: true }, '') } catch {}
+        pushTrap()
       }
       // target === null → עמוד הבית: לא דוחפים, לחיצת back נוספת תצא מהאפליקציה
     }
@@ -527,9 +537,11 @@ export default function App() {
           onGoRummikub={() => { setRummikubRoom(null); setGameMode(null); setPage('rummikub-game') }}
           onGoArena={() => { setArenaRoom(null); setPage('arena-game') }}
           onGoBingo={() => { setBingoRoom(null); setGameMode(null); setPage('bingo-game') }}
+          onGoMonopoly={() => setPage('monopoly-game')}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
+      {page === 'monopoly-game' && <MonopolyGame onBack={() => setPage('games')} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}
@@ -543,6 +555,7 @@ export default function App() {
           initialRoomId={rummikubRoom}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setRummikubRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -551,6 +564,7 @@ export default function App() {
         <ArenaGame
           initialRoomId={arenaRoom}
           autoInviteFriend={playFriend}
+          registerBack={registerPageBack}
           onBack={() => { setArenaRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -560,6 +574,7 @@ export default function App() {
           initialRoomId={bingoRoom}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setBingoRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -579,6 +594,7 @@ export default function App() {
           initialRoomId={checkersRoom}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setCheckersRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -588,6 +604,7 @@ export default function App() {
           initialRoomId={chessRoom}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setChessRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
@@ -597,6 +614,7 @@ export default function App() {
           initialRoomId={sheshbeshRoom}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setSheshbeshRoom(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />

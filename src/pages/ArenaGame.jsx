@@ -31,8 +31,7 @@ import {
   watchArenaRoom, leaveArenaRoom, findOrCreateArenaMatch, sendArenaChat,
   watchFriendships, sendGameInvite, watchUser,
 } from '../services/firebase.js'
-
-// ── פלטת צבעים — אווירת שעשועון (אוברגין/זהב, תואם המיליונר) ──
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 const BG_DEEP   = 'linear-gradient(180deg,#2A1438 0%,#1A0C25 100%)'
 const GOLD      = '#E8C879'
 const GOLD_DEEP = '#C9A24A'
@@ -82,11 +81,25 @@ function fmtPoints(n) {
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function ArenaGame({ onBack, initialRoomId, autoInviteFriend = null }) {
+export default function ArenaGame({ onBack, initialRoomId, autoInviteFriend = null, registerBack }) {
   const { authUser, profile } = useUserStore()
   const [mode, setMode] = useState(initialRoomId ? 'friend' : (autoInviteFriend ? 'friend' : null))
   const [numPlayers, setNumPlayers] = useState(2)
   const [roomId, setRoomId] = useState(initialRoomId || null)
+  // חלון אישור יציאה מחדר פעיל
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const handleBackStep = () => {
+    if (confirmLeave) { setConfirmLeave(false); return true }
+    if (roomId) { setConfirmLeave(true); return true }
+    if (mode) { setMode(null); return true }
+    return false
+  }
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, mode, roomId, confirmLeave])
+  const confirmLeaveNow = () => { setConfirmLeave(false); setRoomId(null); setMode(null) }
 
   useEffect(() => { if (initialRoomId) { setMode('friend'); setRoomId(initialRoomId) } }, [initialRoomId])
 
@@ -101,7 +114,21 @@ export default function ArenaGame({ onBack, initialRoomId, autoInviteFriend = nu
   if (!roomId) {
     return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={autoInviteFriend ? onBack : () => setMode(null)} onReady={(id) => setRoomId(id)} />
   }
-  return <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); setMode(null) }} onExit={onBack} />
+  return (
+    <>
+      <RoomScreen roomId={roomId} me={me} onBack={() => { setRoomId(null); setMode(null) }} onExit={onBack} />
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים והיריב יקבל הודעה"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={confirmLeaveNow}
+        />
+      )}
+    </>
+  )
 }
 
 // ════════════════════════════════════════════════════════
