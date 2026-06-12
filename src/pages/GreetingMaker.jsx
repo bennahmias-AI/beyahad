@@ -20,6 +20,7 @@ import { useUserStore } from '../stores/userStore.js'
 import { logActivity, createOrUpdateUser } from '../services/firebase.js'
 import { IconBackRTL, IconTemplates, IconBackground, IconText, IconSender, IconFont, IconEffects, IconColor, IconSize, IconShare, IconDownload } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 import { GREETING_FONTS } from '../greetingFonts.js'
 import { getOccasion } from '../occasion.js'
 import { GREETING_GROUPS, READY_OCCASIONS, occasionsByGroup, findOccasion, fillName, randomGreeting } from '../data/readyGreetings.js'
@@ -396,9 +397,11 @@ export default function GreetingMaker({ onBack, onHome, registerBack }) {
   const [showSender, setShowSender] = useState(true)
   // בלוקי טקסט נוספים שהמשתמש מוסיף — מופיעים מתחת לטקסט הראשי
   const [extraTexts, setExtraTexts] = useState([])
+  // חלון אישור יציאה מעריכת הברכה (כדי לא לאבד עבודה בטעות)
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   const goBack = () => {
-    if (step === 'design') { setStep('text'); return }
+    if (step === 'design') { setConfirmLeave(true); return }
     if (step === 'text' || step === 'bank') { setStep('choose'); return }
     onBack()
   }
@@ -411,7 +414,8 @@ export default function GreetingMaker({ onBack, onHome, registerBack }) {
   // קודם תת-מסך פנימי, אחר כך שלב אחורה; במסך הפתיחה — יציאה מהדף.
   const handleBackStep = () => {
     if (childBackRef.current && childBackRef.current()) return true
-    if (step === 'design') { setStep('text'); return true }
+    if (confirmLeave) { setConfirmLeave(false); return true }   // back סוגר את החלון = להישאר
+    if (step === 'design') { setConfirmLeave(true); return true }
     if (step === 'text' || step === 'bank') { setStep('choose'); return true }
     return false
   }
@@ -420,7 +424,7 @@ export default function GreetingMaker({ onBack, onHome, registerBack }) {
     if (!registerBack) return
     registerBack(handleBackStep)
     return () => registerBack(null)
-  }, [registerBack, step])
+  }, [registerBack, step, confirmLeave])
 
   // מרכיב את השם מהפרופיל — שם פרטי + שם משפחה (אם יש)
   const senderName = (() => {
@@ -522,6 +526,19 @@ export default function GreetingMaker({ onBack, onHome, registerBack }) {
           effectId={effectId} setEffectId={setEffectId}
           textColorId={textColorId} setTextColorId={setTextColorId}
           extraTexts={extraTexts} setExtraTexts={setExtraTexts}
+        />
+      )}
+
+      {/* חלון אישור יציאה מעריכת הברכה */}
+      {confirmLeave && (
+        <LeaveConfirmModal
+          emoji="💌"
+          title="לצאת מעריכת הברכה?"
+          subtitle="השינויים שעשית לא יישמרו"
+          stayLabel="לא, להמשיך לערוך"
+          leaveLabel="כן, לצאת"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={() => { setConfirmLeave(false); setStep('text') }}
         />
       )}
     </div>
