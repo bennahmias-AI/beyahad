@@ -30,6 +30,7 @@ import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { AddFriendButton, ChatHeaderButton, ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 
 // ── קבועים ─────────────────────────────────────────────
 const COLS = 7
@@ -241,10 +242,41 @@ function aiPickColumn(board, difficulty, me, opponent) {
 // ════════════════════════════════════════════════════════
 // mode: 'ai' | 'local' | 'online-random' | 'online-friend-host' | 'online-friend-join'
 // ════════════════════════════════════════════════════════
-export default function Connect4Game({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null }) {
+export default function Connect4Game({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null, registerBack }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [difficulty, setDifficulty] = useState('medium')
   const [roomId, setRoomId] = useState(initialRoomId || null)  // למצבי אונליין
+  // חלון אישור יציאה ממשחק פעיל (נפתח בלחיצת חזרה באמצע משחק)
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  // תת-מסך (כמו בחירת רמת קושי) יכול לרשום צעד-חזרה משלו
+  const childBackRef = useRef(null)
+  const registerChildBack = useRef((fn) => { childBackRef.current = fn }).current
+
+  // האם יש משחק פעיל עכשיו (לוח פתוח מול מחשב/חבר/מקומי)
+  const inActiveGame = mode === 'ai' || mode === 'local' || ((mode === 'online-random' || mode === 'online-friend') && roomId)
+
+  // צעד חזרה אחד עבור כפתור החזרה של אנדרואיד:
+  // באמצע משחק — חלון אישור; בתת-מסך — צעד אחורה; במסך הבחירה — יציאה לזירת המשחקים.
+  const handleBackStep = () => {
+    if (childBackRef.current && childBackRef.current()) return true
+    if (confirmLeave) { setConfirmLeave(false); return true }   // back סוגר את החלון = להישאר
+    if (inActiveGame) { setConfirmLeave(true); return true }
+    if ((mode === 'online-random' || mode === 'online-friend') && !roomId) { setMode(null); return true }
+    return false
+  }
+
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, mode, roomId, confirmLeave])
+
+  // אישור העזיבה — יוצאים צעד אחד: חזרה למסך בחירת המצב
+  const confirmLeaveNow = () => {
+    setConfirmLeave(false)
+    setRoomId(null)
+    setMode(null)
+  }
 
   // אם הגענו לכאן דרך אישור הזמנה (initialRoomId) — נכנסים ישר לחדר
   useEffect(() => {
@@ -260,6 +292,7 @@ export default function Connect4Game({ onBack, onHome, initialRoomId, autoInvite
       <ModeSelectScreen
         onBack={onBack}
         onHome={onHome}
+        registerBack={registerChildBack}
         onSelectAI={(diff) => { setDifficulty(diff); setMode('ai') }}
         onSelectLocal={() => setMode('local')}
         onSelectOnlineRandom={() => setMode('online-random')}
@@ -282,33 +315,65 @@ export default function Connect4Game({ onBack, onHome, initialRoomId, autoInvite
       )
     }
     return (
-      <OnlineGameScreen
-        roomId={roomId}
-        onBack={() => { setRoomId(null); setMode(null) }}
-        onHome={onHome}
-        onExit={onBack}
-        onFindOther={() => { setRoomId(null); setMode('online-random') }}
-      />
+      <>
+        <OnlineGameScreen
+          roomId={roomId}
+          onBack={() => { setRoomId(null); setMode(null) }}
+          onHome={onHome}
+          onExit={onBack}
+          onFindOther={() => { setRoomId(null); setMode('online-random') }}
+        />
+        {confirmLeave && (
+          <LeaveConfirmModal
+            title="לעזוב את המשחק?"
+            subtitle="המשחק הנוכחי יסתיים והיריב יקבל הודעה"
+            stayLabel="לא, להישאר במשחק"
+            leaveLabel="כן, לעזוב"
+            onStay={() => setConfirmLeave(false)}
+            onLeave={confirmLeaveNow}
+          />
+        )}
+      </>
     )
   }
 
   // מצב AI / שני שחקנים מקומי
   return (
-    <LocalGameScreen
-      mode={mode}
-      difficulty={difficulty}
-      onBack={() => setMode(null)}
-      onHome={onHome}
-      onExit={onBack}
-    />
+    <>
+      <LocalGameScreen
+        mode={mode}
+        difficulty={difficulty}
+        onBack={() => setMode(null)}
+        onHome={onHome}
+        onExit={onBack}
+      />
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={confirmLeaveNow}
+        />
+      )}
+    </>
   )
 }
 
 // ════════════════════════════════════════════════════════
 // מסך בחירת מצב משחק
 // ════════════════════════════════════════════════════════
-function ModeSelectScreen({ onBack, onHome, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
+function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLocal, onSelectOnlineRandom, onSelectOnlineFriend }) {
   const [showDifficulty, setShowDifficulty] = useState(false)
+
+  // כפתור החזרה של אנדרואיד — ממסך הקושי חוזרים לבחירת המצב (צעד אחד)
+  useEffect(() => {
+    if (!registerBack) return
+    if (showDifficulty) registerBack(() => { setShowDifficulty(false); return true })
+    else registerBack(null)
+    return () => registerBack(null)
+  }, [registerBack, showDifficulty])
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>

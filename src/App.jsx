@@ -569,6 +569,7 @@ export default function App() {
           initialRoomId={connect4Room}
           autoInviteFriend={playFriend}
           initialMode={gameMode}
+          registerBack={registerPageBack}
           onBack={() => { setConnect4Room(null); setPlayFriend(null); setPage('games') }}
           onHome={goHome}
         />
