@@ -486,11 +486,11 @@ export default function App() {
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
-      {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} />}
-      {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} />}
+      {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} registerBack={registerPageBack} />}
+      {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} registerBack={registerPageBack} />}
       {page === 'radio' && <RadioPage onBack={() => setPage('hub')} onHome={goHome} registerBack={registerPageBack} />}
       {page === 'tv' && <TVPage onBack={() => setPage('hub')} onHome={goHome} />}
-      {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} />}
+      {page === 'greeting' && <GreetingMaker onBack={() => setPage('hub')} onHome={goHome} registerBack={registerPageBack} />}
       {page === 'profile' && <ProfilePage onBack={() => setPage('hub')} onHome={goHome} />}
       {page === 'friend-profile' && <FriendProfile friend={profileFriend} onBack={() => { setProfileFriend(null); setPage('friends') }} onHome={goHome} />}
       {page === 'settings' && <SettingsPage onBack={() => setPage('hub')} onHome={goHome} />}

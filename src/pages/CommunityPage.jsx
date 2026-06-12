@@ -155,7 +155,7 @@ const FAMILY_TIPS = [
 
 const ALL_SEED_TIPS = [...HOME_TIPS, ...CAR_TIPS, ...DAILY_TIPS, ...TRAVEL_TIPS, ...SEASON_TIPS, ...KITCHEN_TIPS, ...TECH_TIPS, ...FAMILY_TIPS]
 
-export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPostId = null }) {
+export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPostId = null, registerBack }) {
   const { profile, authUser } = useUserStore()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -198,6 +198,24 @@ export default function CommunityPage({ onBack, onHome, kind = 'tip', initialPos
 
   // הגרסה החיה של העצה הפתוחה (לייקים/צפיות מתעדכנים בזמן אמת)
   const liveOpenPost = openPost ? (posts.find(p => p.id === openPost.id) || openPost) : null
+
+  // צעד חזרה אחד בתוך הדף: עצה פתוחה/יצירה → רשימה → קטגוריות → לשונית ראשית.
+  // מחזיר true אם טופל פנימית; false → יציאה מהדף (חזרה למסך הבית).
+  const handleBackStep = () => {
+    if (composing || editingPost) { setComposing(false); setEditingPost(null); return true }
+    if (openPost) { setOpenPost(null); return true }
+    if (search) { setSearch(''); return true }
+    if (activeCat) { setActiveCat(null); return true }
+    if (tab === 'mine') { setTab('all'); return true }
+    return false
+  }
+
+  // כפתור החזרה של אנדרואיד — צעד אחד אחורה בתוך הדף
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, composing, editingPost, openPost, search, activeCat, tab])
 
   // העצות שאני כתבתי (לפי authorUid)
   const myUid = authUser?.uid

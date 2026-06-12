@@ -56,7 +56,7 @@ function compressRecipeImage(file, maxW = 1000) {
   })
 }
 
-export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
+export default function RecipesPage({ onBack, onHome, initialPostId = null, registerBack }) {
   const { profile, authUser } = useUserStore()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +99,24 @@ export default function RecipesPage({ onBack, onHome, initialPostId = null }) {
 
   // שומרים את הגרסה החיה של המתכון הפתוח (לייקים/הכנתי מתעדכנים בזמן אמת)
   const liveOpenPost = openPost ? (posts.find(p => p.id === openPost.id) || openPost) : null
+
+  // צעד חזרה אחד בתוך הדף: מתכון פתוח/יצירה → רשימה → קטגוריות → לשונית ראשית.
+  // מחזיר true אם טופל פנימית; false → יציאה מהדף (חזרה למסך הבית).
+  const handleBackStep = () => {
+    if (composing || editingPost) { setComposing(false); setEditingPost(null); return true }
+    if (openPost) { setOpenPost(null); return true }
+    if (search) { setSearch(''); return true }
+    if (activeCat) { setActiveCat(null); return true }
+    if (tab === 'mine') { setTab('all'); return true }
+    return false
+  }
+
+  // כפתור החזרה של אנדרואיד — צעד אחד אחורה בתוך הדף
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, composing, editingPost, openPost, search, activeCat, tab])
 
   // המתכונים שאני כתבתי (לפי authorUid)
   const myUid = authUser?.uid

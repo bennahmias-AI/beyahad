@@ -377,7 +377,7 @@ const PRESET_GREETINGS = {
 // ═══════════════════════════════════════════════════════════════
 // המסך הראשי
 // ═══════════════════════════════════════════════════════════════
-export default function GreetingMaker({ onBack, onHome }) {
+export default function GreetingMaker({ onBack, onHome, registerBack }) {
   const { profile } = useUserStore()
   const [step, setStep] = useState('choose')
 
@@ -402,6 +402,25 @@ export default function GreetingMaker({ onBack, onHome }) {
     if (step === 'text' || step === 'bank') { setStep('choose'); return }
     onBack()
   }
+
+  // מסך פנימי (כמו הגלריה במאגר) יכול לרשום כאן צעד-חזרה משלו
+  const childBackRef = useRef(null)
+  const registerChildBack = useRef((fn) => { childBackRef.current = fn }).current
+
+  // צעד חזרה אחד עבור כפתור החזרה של אנדרואיד:
+  // קודם תת-מסך פנימי, אחר כך שלב אחורה; במסך הפתיחה — יציאה מהדף.
+  const handleBackStep = () => {
+    if (childBackRef.current && childBackRef.current()) return true
+    if (step === 'design') { setStep('text'); return true }
+    if (step === 'text' || step === 'bank') { setStep('choose'); return true }
+    return false
+  }
+
+  useEffect(() => {
+    if (!registerBack) return
+    registerBack(handleBackStep)
+    return () => registerBack(null)
+  }, [registerBack, step])
 
   // מרכיב את השם מהפרופיל — שם פרטי + שם משפחה (אם יש)
   const senderName = (() => {
@@ -466,6 +485,7 @@ export default function GreetingMaker({ onBack, onHome }) {
             quotaCats={quotaCats}
             onPersistQuota={persistQuota}
             onCreatePersonal={goPersonalForOccasion}
+            registerBack={registerChildBack}
           />
         </>
       )}
@@ -2633,13 +2653,21 @@ function OccasionGallery({ occ, count, isPremium, savedShown, senderName, sender
   )
 }
 
-function BankStep({ senderName, senderVerb, isPremium, quotaCats, onPersistQuota, onCreatePersonal }) {
+function BankStep({ senderName, senderVerb, isPremium, quotaCats, onPersistQuota, onCreatePersonal, registerBack }) {
   const [groupId, setGroupId] = useState('days')
   const [occ, setOcc] = useState(null)        // אירוע שנבחר ואושר → גלריה
   const [selectedOcc, setSelectedOcc] = useState(null) // אירוע מסומן (לפני לחיצת המשך)
   const [counts, setCounts] = useState({})    // כמה תמונות יש בכל אירוע (מ-manifest)
   const occasions = occasionsByGroup(groupId)
   const autoRef = useRef(false)               // בחירת היום האוטומטית — פעם אחת
+
+  // כפתור החזרה של אנדרואיד — מהגלריה חוזרים לרשימת האירועים (צעד אחד)
+  useEffect(() => {
+    if (!registerBack) return
+    if (occ) registerBack(() => { setOcc(null); return true })
+    else registerBack(null)
+    return () => registerBack(null)
+  }, [registerBack, occ])
 
   useEffect(() => {
     fetch('/ready/manifest.json')
