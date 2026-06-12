@@ -24,8 +24,8 @@ import HomeButton from '../components/HomeButton.jsx'
 const GAMES = [
   {
     id: 'monopoly',
-    name: 'מונופול',
-    description: 'מסביב לעולם - נוסטלגיה משנות ה-80', 
+    name: 'מסביב לעולם',
+    description: 'מונופול נוסטלגי משנות ה-80', 
     emoji: '🌍',
     players: 'AI / 2-4 שחקנים',
     color: '#2f73c9',
@@ -79,7 +79,7 @@ const GAMES = [
   },
   {
     id: 'rummikub',
-    name: 'רמיקוב',
+    name: 'רמי מלבנים',
     description: 'סדרו רצפים וקבוצות',
     emoji: '🎴',
     players: 'AI / 2-4 שחקנים',

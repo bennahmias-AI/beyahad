@@ -87,14 +87,13 @@ const F = {
   PL: () => wrap(`<rect width="90" height="30" fill="${C.white}"/>
     <rect y="30" width="90" height="30" fill="${C.red}"/>`),
   SU: () => wrap(`<rect width="90" height="60" fill="${C.red}"/>
-    <g transform="translate(10,9)">
-      ${star(20, 6, 6, C.yellow)}
-      <g fill="${C.yellow}" stroke="${C.gold}" stroke-width="0.6" stroke-linejoin="round">
-        <path d="M11 36 C2 28 4 15 21 13 C13 17 13 27 18 32 C15 32 12 34 11 36 Z"/>
-        <path d="M9 35 L25 19 L29 23 L13 39 Z"/>
-        <path d="M23 14 L33 24 L29 28 L19 18 Z"/>
-      </g>
-    </g>`),
+    ${star(45, 10, 5.5, C.yellow)}
+    <g stroke="${C.yellow}" stroke-linecap="round" fill="none">
+      <path d="M51 22 A12.5 12.5 0 1 0 50 41" stroke-width="5"/>
+      <line x1="50" y1="41" x2="57" y2="48" stroke-width="5.5"/>
+      <line x1="30" y1="47" x2="47" y2="29" stroke-width="5"/>
+    </g>
+    <rect x="42" y="21" width="15" height="8" rx="1.5" fill="${C.yellow}" transform="rotate(45 49.5 25)"/>`),
   RO: () => wrap(`<rect width="30" height="60" fill="${C.blue}"/>
     <rect x="30" width="30" height="60" fill="${C.yellow}"/><rect x="60" width="30" height="60" fill="${C.red}"/>`),
   MA: () => wrap(`<rect width="90" height="60" fill="${C.red}"/>
@@ -106,7 +105,12 @@ const F = {
       <path d="M41 28 L31 25 L40 32 Z"/><path d="M49 28 L59 25 L50 32 Z"/>
       <circle cx="45" cy="24" r="2.2"/>
       <rect x="40" y="38" width="10" height="2.4"/></g>`),
-  LY: () => wrap(`<rect width="90" height="60" fill="${C.green}"/>`),
+  LY: () => wrap(`<rect width="90" height="15" fill="${C.red}"/>
+    <rect y="15" width="90" height="30" fill="${C.black}"/>
+    <rect y="45" width="90" height="15" fill="${C.green}"/>
+    <circle cx="42" cy="30" r="9" fill="${C.white}"/>
+    <circle cx="45.5" cy="30" r="7.6" fill="${C.black}"/>
+    ${star(53, 30, 4.6, C.white)}`),
   BJ: () => wrap(`<rect width="30" height="60" fill="${C.green}"/>
     <rect x="30" width="60" height="30" fill="${C.yellow}"/>
     <rect x="30" y="30" width="60" height="30" fill="${C.red}"/>`),

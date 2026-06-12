@@ -10,8 +10,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import MonopolyBoard from './MonopolyBoard.jsx';
-import { TILES, TILE_COUNT, RULES, TOKEN_COLORS, GROUPS, ownsFullGroup, rentFor } from '../data/monopolyBoard';
+import { TILES, TILE_COUNT, RULES, TOKEN_COLORS, GROUPS, MAX_LEVEL, LEVEL_NAMES, rentFor, buildCost, nextBuildLabel, randomPriceIndex, applyIndex, regionOf, REGION_LABELS } from '../data/monopolyBoard';
 import { flagSVG } from '../data/monopolyFlags';
+import { PropertyCard, CardsModal, CardFooter } from './MonopolyCards.jsx';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INK = '#1c1c1c';
@@ -80,10 +81,16 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   const [card, setCard] = useState(null); // { kind, tile?, text?, amount?, ... }
   const [message, setMessage] = useState('');
   const [winner, setWinner] = useState(null);
+  const [setupStep, setSetupStep] = useState('mode'); // mode | bots
+  const [viewPlayer, setViewPlayer] = useState(null); // player whose assets are shown
+  const [cameraMode, setCameraMode] = useState(() => {
+    try { return localStorage.getItem('beyahad_monopoly_camera') || 'zoom'; } catch { return 'zoom'; }
+  }); // zoom = camera follows the token | full = whole board, token just moves
+  const [priceIndex, setPriceIndex] = useState(null); // per-region % - reshuffled every round
 
   // refs mirror state for the async engine
   const S = useRef({});
-  S.current = { phase, players, owners, hotels, turnIdx, round };
+  S.current = { phase, players, owners, hotels, turnIdx, round, cameraMode, priceIndex };
 
   const myName = profile?.name || 'אני';
 
@@ -97,6 +104,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     }
     setPlayers(ps);
     setOwners({}); setHotels({}); setTurnIdx(0); setRound(1);
+    setPriceIndex(randomPriceIndex());
     setWinner(null); setCard(null); setFocusTiles(null);
     setMessage('התור של ' + ps[0].name + ' - הטל קוביות!');
     setPhase('idle');
@@ -105,6 +113,10 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   // ---- engine: turn flow ----
   const updatePlayer = (uid, patch) =>
     setPlayers((ps) => ps.map((p) => (p.uid === uid ? { ...p, ...(typeof patch === 'function' ? patch(p) : patch) } : p)));
+
+  // camera helper: in 'full' mode we never zoom - the board stays whole and
+  // only the token animates between tiles
+  const focus = (ids) => setFocusTiles(S.current.cameraMode === 'zoom' ? ids : null);
 
   async function rollAndWalk() {
     const { players: ps, turnIdx: ti } = S.current;
@@ -116,7 +128,9 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     setDice([d1, d2]);
     setPhase('walking');
     setMessage(p.name + ' הטיל ' + (d1 + d2) + ' - צועדים!');
-    await sleep(700);
+    // camera travels FIRST to where the player stands, then follows each step
+    focus(focusWindow(p.pos));
+    await sleep(S.current.cameraMode === 'zoom' ? 950 : 400);
 
     await walkSteps(p.uid, d1 + d2);
     await sleep(350);
@@ -124,28 +138,26 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   }
 
   async function walkSteps(uid, steps) {
+    // track position locally - React state updaters are async, so reading
+    // a variable set inside them (the old bug) made the camera jump to tile 0
+    let pos = S.current.players.find((x) => x.uid === uid).pos;
     for (let i = 0; i < steps; i++) {
-      let newPos = 0;
-      setPlayers((ps) => ps.map((pl) => {
-        if (pl.uid !== uid) return pl;
-        newPos = (pl.pos + 1) % TILE_COUNT;
-        const bonus = newPos === 0 ? RULES.PASS_START_BONUS : 0;
-        return { ...pl, pos: newPos, cash: pl.cash + bonus };
-      }));
-      setFocusTiles(focusWindow(newPos));
+      pos = (pos + 1) % TILE_COUNT;
+      const bonus = pos === 0 ? RULES.PASS_START_BONUS : 0;
+      const newPos = pos;
+      updatePlayer(uid, (p) => ({ pos: newPos, cash: p.cash + bonus }));
+      focus(focusWindow(newPos));
       await sleep(480);
     }
   }
 
   async function walkBack(uid, steps) {
+    let pos = S.current.players.find((x) => x.uid === uid).pos;
     for (let i = 0; i < steps; i++) {
-      let newPos = 0;
-      setPlayers((ps) => ps.map((pl) => {
-        if (pl.uid !== uid) return pl;
-        newPos = (pl.pos - 1 + TILE_COUNT) % TILE_COUNT;
-        return { ...pl, pos: newPos };
-      }));
-      setFocusTiles(focusWindow(newPos));
+      pos = (pos - 1 + TILE_COUNT) % TILE_COUNT;
+      const newPos = pos;
+      updatePlayer(uid, { pos: newPos });
+      focus(focusWindow(newPos));
       await sleep(480);
     }
   }
@@ -155,21 +167,21 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     const ps = S.current.players;
     const p = ps.find((x) => x.uid === uid);
     const tile = TILES[p.pos];
-    setFocusTiles(focusWindow(p.pos));
+    focus(focusWindow(p.pos));
 
     if (tile.type === 'prop') {
       const owner = S.current.owners[tile.id];
       if (!owner) {
-        setCard({ kind: 'buy', tile, uid });
+        setCard({ kind: 'buy', tile, uid, price: applyIndex(tile.price, S.current.priceIndex, tile) });
       } else if (owner === uid) {
-        const full = ownsFullGroup(tile, S.current.owners, uid);
-        if (full && !S.current.hotels[tile.id]) {
-          setCard({ kind: 'hotel', tile, uid });
+        const level = S.current.hotels[tile.id] || 0;
+        if (level < MAX_LEVEL) {
+          setCard({ kind: 'hotel', tile, uid, level });
         } else {
-          setCard({ kind: 'info', tile, uid, text: 'נחת בשטח שלך. נעים בבית!' });
+          setCard({ kind: 'info', tile, uid, text: 'עיר הבירה כבר בנויה כאן - המדינה בשיאה!' });
         }
       } else {
-        const rent = rentFor(tile, S.current.owners, S.current.hotels);
+        const rent = applyIndex(rentFor(tile, S.current.owners, S.current.hotels), S.current.priceIndex, tile);
         setCard({ kind: 'rent', tile, uid, owner, amount: rent });
       }
     } else if (tile.type === 'special') {
@@ -202,12 +214,14 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     let extraTurn = false;
 
     if (c.kind === 'buy' && action === 'yes') {
-      updatePlayer(uid, (p) => ({ cash: p.cash - c.tile.price }));
+      const pay = c.price ?? c.tile.price;
+      updatePlayer(uid, (p) => ({ cash: p.cash - pay }));
       setOwners((o) => ({ ...o, [c.tile.id]: uid }));
     }
     if (c.kind === 'hotel' && action === 'yes') {
-      updatePlayer(uid, (p) => ({ cash: p.cash - c.tile.hotel }));
-      setHotels((h) => ({ ...h, [c.tile.id]: true }));
+      const cost = buildCost(c.tile, c.level);
+      updatePlayer(uid, (p) => ({ cash: p.cash - cost }));
+      setHotels((h) => ({ ...h, [c.tile.id]: (h[c.tile.id] || 0) + 1 }));
     }
     if (c.kind === 'rent') {
       updatePlayer(uid, (p) => ({ cash: p.cash - c.amount }));
@@ -245,7 +259,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       const steps = (c.goto - p.pos + TILE_COUNT) % TILE_COUNT;
       if (steps > 0) {
         updatePlayer(uid, { pos: c.goto });
-        setFocusTiles(focusWindow(c.goto));
+        focus(focusWindow(c.goto));
         await sleep(900);
       }
     }
@@ -327,6 +341,9 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       return;
     }
 
+    if (r !== S.current.round) {
+      setPriceIndex(randomPriceIndex()); // מדד המחירים מתחלף כל סיבוב
+    }
     setTurnIdx(ti); setRound(r);
     setMessage('התור של ' + psNow[ti].name);
     setPhase('idle');
@@ -343,8 +360,8 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     if (phase === 'card' && card) {
       const t = setTimeout(() => {
         let action = 'ok';
-        if (card.kind === 'buy') action = p.cash - card.tile.price >= 300 ? 'yes' : 'no';
-        if (card.kind === 'hotel') action = p.cash - card.tile.hotel >= 200 ? 'yes' : 'no';
+        if (card.kind === 'buy') action = p.cash - (card.price ?? card.tile.price) >= 300 ? 'yes' : 'no';
+        if (card.kind === 'hotel') action = p.cash - buildCost(card.tile, card.level) >= 200 ? 'yes' : 'no';
         resolveCard(action);
       }, 1400);
       return () => clearTimeout(t);
@@ -359,10 +376,10 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
 
   // ---- UI pieces ----
   const panelCard = (p, isActive) => (
-    <div key={p.uid} style={{
+    <div key={p.uid} onClick={() => setViewPlayer(p)} role="button" style={{
       background: '#fff', border: isActive ? '3px solid #2f9e3f' : '1px solid #d3d1c7',
       borderRadius: 14, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8,
-      opacity: p.dead ? 0.4 : 1,
+      opacity: p.dead ? 0.4 : 1, cursor: 'pointer',
     }}>
       <div style={{ width: 34, height: 34, borderRadius: '50%', background: p.color, border: `3px solid ${INK}`, flex: 'none' }} />
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -382,17 +399,39 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#cfd3d8', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', fontFamily: 'Heebo, sans-serif' }}>
         <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '26px 28px', width: 'min(92vw, 420px)', textAlign: 'center', boxShadow: '0 18px 50px rgba(0,0,0,.3)' }}>
-          <div style={{ fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 900, fontSize: 34, color: '#d8402a' }}>מונופול</div>
-          <div style={{ fontWeight: 800, fontSize: 19, color: INK, marginBottom: 18 }}>מסביב לעולם · נוסטלגיה משנות ה-80</div>
-          <div style={{ fontWeight: 700, fontSize: 17, color: INK, marginBottom: 10 }}>נגד כמה יריבים לשחק?</div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 18 }}>
-            {[1, 2, 3].map((n) => (
-              <button key={n} onClick={() => startGame(n)} style={{
-                width: 74, height: 74, borderRadius: 16, border: `3px solid ${INK}`, background: TOKEN_COLORS[n].color,
-                fontSize: 30, fontWeight: 900, color: n === 1 ? INK : '#fff', cursor: 'pointer', fontFamily: 'inherit',
-              }}>{n}</button>
-            ))}
-          </div>
+          <div style={{ fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 900, fontSize: 34, color: '#d8402a' }}>מסביב לעולם</div>
+          <div style={{ fontWeight: 800, fontSize: 19, color: INK, marginBottom: 18 }}>מונופול נוסטלגי משנות ה-80</div>
+          {setupStep === 'mode' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              <button onClick={() => setSetupStep('bots')} style={{
+                background: '#2f9e3f', color: '#fff', border: `3px solid ${INK}`, borderRadius: 14,
+                padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              }}>🤖 לשחק נגד המחשב</button>
+              <button onClick={() => setMessage('soon')} style={{
+                background: '#fff', color: INK, border: `3px solid ${INK}`, borderRadius: 14,
+                padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', position: 'relative',
+              }}>
+                👥 לשחק עם חברים
+                <span style={{ position: 'absolute', top: -10, insetInlineStart: -8, background: '#e8761f', color: '#fff', fontSize: 12, fontWeight: 800, borderRadius: 10, padding: '2px 10px', border: `2px solid ${INK}` }}>בקרוב!</span>
+              </button>
+              {message === 'soon' && (
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: '#a35a12' }}>משחק עם חברים יגיע ממש בקרוב - בינתיים תתאמנו על המחשב 😊</div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 17, color: INK, marginBottom: 10 }}>נגד כמה יריבים לשחק?</div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
+                {[1, 2, 3].map((n) => (
+                  <button key={n} onClick={() => startGame(n)} style={{
+                    width: 74, height: 74, borderRadius: 16, border: `3px solid ${INK}`, background: TOKEN_COLORS[n].color,
+                    fontSize: 30, fontWeight: 900, color: n === 1 ? INK : '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>{n}</button>
+                ))}
+              </div>
+              <button onClick={() => setSetupStep('mode')} style={{ background: 'transparent', border: 'none', fontSize: 15, fontWeight: 700, color: '#555', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>→ חזרה</button>
+            </>
+          )}
           <button onClick={onBack} style={{ background: 'transparent', border: 'none', fontSize: 16, fontWeight: 700, color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}>
             חזרה לזירה
           </button>
@@ -419,6 +458,16 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
           <button onClick={onBack} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {players.filter((p) => !p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              onClick={() => {
+                const m = cameraMode === 'zoom' ? 'full' : 'zoom';
+                setCameraMode(m);
+                try { localStorage.setItem('beyahad_monopoly_camera', m); } catch { /* ignore */ }
+                if (m === 'full') setFocusTiles(null);
+              }}
+              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {cameraMode === 'zoom' ? '🎥 מצלמה עוקבת' : '🗺️ לוח מלא'}
+            </button>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0, 1].map((i) => (
                 <div key={i} style={{ width: 46, height: 46, borderRadius: 10, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, color: INK }}>
@@ -447,6 +496,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
             owners={owners}
             hotels={hotels}
             tokenColors={tokenColors}
+            priceIndex={priceIndex}
           />
           <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,.94)', borderRadius: 20, padding: '5px 16px', fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', maxWidth: '92%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             סיבוב {round}/{RULES.MAX_ROUNDS} · {message}
@@ -458,6 +508,11 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
           {players.filter((p) => p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
         </div>
       </div>
+
+      {/* player cards modal */}
+      {viewPlayer && (
+        <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} onClose={() => setViewPlayer(null)} />
+      )}
 
       {/* landing card */}
       {card && (
@@ -474,7 +529,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
               שווי כולל: {netWorth(winner, owners).toLocaleString()} ₪
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setPhase('setup')} style={{ flex: 1, background: '#2f9e3f', color: '#fff', border: `2.5px solid ${INK}`, borderRadius: 12, padding: 12, fontSize: 17, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => { setSetupStep('mode'); setPhase('setup'); }} style={{ flex: 1, background: '#2f9e3f', color: '#fff', border: `2.5px solid ${INK}`, borderRadius: 12, padding: 12, fontSize: 17, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
                 משחק חדש
               </button>
               <button onClick={onBack} style={{ flex: 1, background: '#fff', color: INK, border: `2.5px solid ${INK}`, borderRadius: 12, padding: 12, fontSize: 17, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -484,6 +539,57 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---- player assets modal: the country cards a player owns -------------------
+function PlayerAssets({ player, owners, hotels, onClose }) {
+  const owned = TILES.filter((t) => t.type === 'prop' && owners[t.id] === player.uid);
+  return (
+    <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: 'min(92vw, 560px)', maxHeight: '86vh', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: `2px solid ${INK}`, background: '#fff' }}>
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: player.color, border: `3px solid ${INK}`, flex: 'none' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, color: INK }}>המדינות של {player.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#1c4e26' }}>{player.cash.toLocaleString()} ₪ בקופה · {owned.length} מדינות</div>
+          </div>
+          <button onClick={onClose} aria-label="סגירה" style={{ width: 38, height: 38, borderRadius: 10, border: `2px solid ${INK}`, background: '#fff', fontSize: 18, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: 12 }}>
+          {owned.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 17, color: '#555' }}>
+              עוד אין מדינות. הכל לפניו! 🌍
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10 }}>
+              {owned.map((t) => {
+                const grp = GROUPS[t.group];
+                const level = hotels[t.id] || 0;
+                const rent = rentFor(t, owners, hotels);
+                return (
+                  <div key={t.id} style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: 9, background: grp.color }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px' }}>
+                      <div style={{ width: 58, height: 38, flex: 'none' }} dangerouslySetInnerHTML={{ __html: flagSVG(t.flag) }} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: 17, color: INK, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {t.name}
+                          {level > 0 && <span style={{ background: level === 4 ? '#2f73c9' : '#d8402a', color: '#fff', fontSize: 11.5, fontWeight: 800, borderRadius: 7, padding: '1px 7px', border: `1.5px solid ${INK}` }}>{LEVEL_NAMES[level]}</span>}
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#333' }}>
+                          קנייה {t.price} ₪ · שכירות {rent} ₪
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -507,12 +613,56 @@ function LandingCard({ card, players, onAction }) {
     }}>{label}</button>
   );
 
+  // property tiles get the REAL card next to the action - so the player can
+  // see all rent tiers and judge whether the purchase pays off
+  if (t && t.type === 'prop' && (card.kind === 'buy' || card.kind === 'hotel' || card.kind === 'rent')) {
+    let hl = -1, sideTitle = '', sideSub = '', actions = null;
+    if (card.kind === 'buy') {
+      const eff = card.price ?? t.price;
+      const pct = (eff !== t.price && card.price != null) ? Math.round((eff / t.price - 1) * 100) : 0;
+      sideTitle = 'מדינה פנויה';
+      sideSub = grp.label + (pct ? ' · מדד ' + (pct > 0 ? '+' : '') + pct + '%' : '');
+      actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)];
+    } else if (card.kind === 'hotel') {
+      hl = card.level + 1;
+      const cost = buildCost(t, card.level);
+      const what = nextBuildLabel(card.level);
+      sideTitle = 'המדינה שלך!';
+      sideSub = 'השכירות תעלה ל-' + t.rents[hl] + ' ₪';
+      actions = [btn('לבנות ' + what + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)];
+    } else {
+      hl = Math.max(0, t.rents.indexOf(card.amount));
+      sideTitle = 'המדינה של ' + (ownerP?.name || '');
+      sideSub = 'תשלום שכירות';
+      actions = [btn('לשלם ' + card.amount + ' ₪', 'ok', '#d8402a')];
+    }
+    return (
+      <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(28,28,28,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl' }}>
+        <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '14px 18px', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, boxShadow: '0 18px 50px rgba(0,0,0,.4)', maxWidth: '94vw' }}>
+          <PropertyCard tile={t} level={hl} width={172} footer={card.kind === 'buy' ? <CardFooter color="#1c4e26">מחיר {card.price ?? t.price} ₪</CardFooter> : null} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 190, maxWidth: 230, textAlign: 'center' }}>
+            <div style={{ fontWeight: 900, fontSize: 23, color: INK, lineHeight: 1.05 }}>{sideTitle}</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#3a3a3a' }}>{sideSub}</div>
+            {isHuman ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>{actions}</div>
+            ) : (
+              <div style={{ fontSize: 15, color: '#666' }}>{actor?.name} חושב...</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (card.kind === 'buy') {
     sub = 'מדינה פנויה · ' + grp.label;
     buttons = isHuman ? [btn('לקנות · ' + t.price + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)] : null;
   } else if (card.kind === 'hotel') {
-    sub = 'כל היבשת שלך! אפשר לבנות מלון - השכירות תוכפל';
-    buttons = isHuman ? [btn('לבנות מלון · ' + t.hotel + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)] : null;
+    const cost = buildCost(t, card.level);
+    const what = nextBuildLabel(card.level);
+    const nextRent = t.rents[card.level + 1];
+    sub = 'כל היבשת שלך! ' + (card.level === 0 ? 'אפשר לבנות מלון' : 'אפשר לשדרג ל' + LEVEL_NAMES[card.level + 1]) + ' - השכירות תעלה ל-' + nextRent + ' ₪';
+    buttons = isHuman ? [btn('לבנות ' + what + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)] : null;
   } else if (card.kind === 'rent') {
     sub = 'המדינה של ' + (ownerP?.name || '') + ' - תשלום שכירות ' + card.amount + ' ₪';
     buttons = isHuman ? [btn('לשלם ' + card.amount + ' ₪', 'ok', '#d8402a')] : null;
@@ -523,7 +673,7 @@ function LandingCard({ card, players, onAction }) {
     sub = 'מזל טוב! כל שחקן נותן לך ' + RULES.BIRTHDAY_GIFT + ' ₪ 🎂';
     buttons = isHuman ? [btn('תודה רבה!', 'ok', '#2f9e3f')] : null;
   } else if (card.kind === 'lotto' || card.kind === 'chance') {
-    title = card.kind === 'lotto' ? 'לוטו' : 'צ׳אנס';
+    title = card.kind === 'lotto' ? 'מפעל הפיס' : 'הפתעה';
     sub = card.text + (typeof card.amount === 'number' ? (card.amount > 0 ? ' · +' + card.amount + ' ₪' : ' · ' + card.amount + ' ₪') : '');
     buttons = isHuman ? [btn('אישור', 'ok', typeof card.amount === 'number' && card.amount < 0 ? '#d8402a' : '#2f9e3f')] : null;
   } else if (card.kind === 'atzor') {
