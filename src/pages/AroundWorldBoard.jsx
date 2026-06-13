@@ -150,12 +150,6 @@ export default function AroundWorldBoard({ focusTiles = null, tokens = [], owner
   const wrapRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
-  // ---- user pinch/wheel zoom + drag pan (on top of the camera transform) ----
-  // userZoom: { k, tx, ty } — k=scale factor (1=none), tx/ty=pan offset in px.
-  const [userZoom, setUserZoom] = useState({ k: 1, tx: 0, ty: 0 });
-  const uz = useRef(userZoom); uz.current = userZoom;
-  const gesture = useRef(null); // active pinch/drag state
-
   // rebuilt when the price index changes (once per round)
   const boardHTML = useMemo(() => buildBoardHTML(priceIndex), [priceIndex]);
 
@@ -168,116 +162,22 @@ export default function AroundWorldBoard({ focusTiles = null, tokens = [], owner
     return () => ro.disconnect();
   }, []);
 
-  // clamp helper — keeps zoom between 1x (fit) and 4x
-  const clampZoom = (z) => {
-    const k = Math.max(1, Math.min(4, z.k));
-    // when fully zoomed out, snap pan back to center
-    if (k <= 1.001) return { k: 1, tx: 0, ty: 0 };
-    return { k, tx: z.tx, ty: z.ty };
-  };
-
-  // ---- touch: pinch to zoom, one-finger drag to pan ----
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const dist = (t1, t2) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-    const mid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 });
-
-    const onStart = (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        gesture.current = { mode: 'pinch', d0: dist(e.touches[0], e.touches[1]), k0: uz.current.k, tx0: uz.current.tx, ty0: uz.current.ty, m0: mid(e.touches[0], e.touches[1]) };
-      } else if (e.touches.length === 1 && uz.current.k > 1.001) {
-        // one-finger pan only when already zoomed in
-        gesture.current = { mode: 'pan', x0: e.touches[0].clientX, y0: e.touches[0].clientY, tx0: uz.current.tx, ty0: uz.current.ty };
-      }
-    };
-    const onMove = (e) => {
-      const g = gesture.current;
-      if (!g) return;
-      if (g.mode === 'pinch' && e.touches.length === 2) {
-        e.preventDefault();
-        const k = clampZoom({ k: g.k0 * (dist(e.touches[0], e.touches[1]) / g.d0), tx: 0, ty: 0 }).k;
-        const m = mid(e.touches[0], e.touches[1]);
-        // keep the pinch midpoint anchored while scaling, plus follow finger drift
-        const f = k / g.k0;
-        const tx = g.m0.x - f * (g.m0.x - g.tx0) + (m.x - g.m0.x);
-        const ty = g.m0.y - f * (g.m0.y - g.ty0) + (m.y - g.m0.y);
-        setUserZoom(clampZoom({ k, tx, ty }));
-      } else if (g.mode === 'pan' && e.touches.length === 1) {
-        e.preventDefault();
-        setUserZoom(clampZoom({ k: uz.current.k, tx: g.tx0 + (e.touches[0].clientX - g.x0), ty: g.ty0 + (e.touches[0].clientY - g.y0) }));
-      }
-    };
-    const onEnd = (e) => { if (e.touches.length === 0) gesture.current = null; };
-
-    el.addEventListener('touchstart', onStart, { passive: false });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd);
-    el.addEventListener('touchcancel', onEnd);
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', onEnd);
-    };
-  }, []);
-
-  // ---- desktop: ctrl/cmd+wheel (and trackpad pinch) to zoom ----
-  const onWheel = (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return; // plain scroll left alone
-    e.preventDefault();
-    const el = wrapRef.current;
-    const rect = el.getBoundingClientRect();
-    const px = e.clientX - rect.left, py = e.clientY - rect.top;
-    const factor = Math.exp(-e.deltaY * 0.0015);
-    const k = Math.max(1, Math.min(4, uz.current.k * factor));
-    const f = k / uz.current.k;
-    // zoom toward the cursor
-    const tx = px - f * (px - uz.current.tx);
-    const ty = py - f * (py - uz.current.ty);
-    setUserZoom(clampZoom({ k, tx, ty }));
-  };
-
-  const camTransform = size.w ? cameraTransform(focusTiles, size.w, size.h) : 'scale(0)';
-  // user zoom is applied OUTSIDE the camera transform (screen-space) so pinch
-  // works regardless of which tiles the camera is following.
-  const userTransform = `translate(${userZoom.tx}px, ${userZoom.ty}px) scale(${userZoom.k})`;
+  const transform = size.w ? cameraTransform(focusTiles, size.w, size.h) : 'scale(0)';
 
   return (
-    <div ref={wrapRef} onWheel={onWheel}
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'none' }}>
+    <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
       <style>{BOARD_CSS}</style>
-      {/* user pinch/pan layer (screen-space) */}
       <div style={{
-        position: 'absolute', inset: 0, transformOrigin: '0 0',
-        transform: userTransform,
-        transition: gesture.current ? 'none' : 'transform .18s ease-out',
+        position: 'absolute', left: 0, top: 0, width: B, height: B,
+        transformOrigin: '0 0', transform,
+        transition: 'transform .8s cubic-bezier(.4,.1,.2,1)',
       }}>
-        {/* camera-follow layer (board-space) */}
-        <div style={{
-          position: 'absolute', left: 0, top: 0, width: B, height: B,
-          transformOrigin: '0 0', transform: camTransform,
-          transition: 'transform .8s cubic-bezier(.4,.1,.2,1)',
-        }}>
-          <div className="aw-stage" dangerouslySetInnerHTML={{ __html: boardHTML }} />
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <Overlays owners={owners} hotels={hotels} tokenColors={tokenColors} />
-            <Tokens tokens={tokens} />
-          </div>
+        <div className="aw-stage" dangerouslySetInnerHTML={{ __html: boardHTML }} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <Overlays owners={owners} hotels={hotels} tokenColors={tokenColors} />
+          <Tokens tokens={tokens} />
         </div>
       </div>
-      {/* reset button — appears only while the user has manually zoomed */}
-      {userZoom.k > 1.001 && (
-        <button onClick={() => setUserZoom({ k: 1, tx: 0, ty: 0 })}
-          aria-label="איפוס תצוגה"
-          style={{
-            position: 'absolute', insetInlineEnd: 10, bottom: 10, zIndex: 8,
-            width: 42, height: 42, borderRadius: 12, border: `2px solid ${INK}`,
-            background: 'rgba(255,255,255,.92)', fontSize: 20, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>⌖</button>
-      )}
     </div>
   );
 }
