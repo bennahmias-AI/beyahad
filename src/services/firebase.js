@@ -2099,6 +2099,117 @@ export async function findOrCreateBingoMatch({ player, maxPlayers = 10 }) {
   return { roomId, isHost: true }
 }
 
+// ─── מסביב לעולם (מונופול) — חדרי משחק רב-משתתפים (2-4) ─────────
+// מודל זהה לרמיקוב/מלך-הזירה/בינגו: חדר עם מארח, עד maxPlayers שחקנים,
+// gameStateJson מחזיק את מצב המשחק המלא (שחקנים, בעלויות, מלונות, תור,
+// סיבוב, מדד-מחירים, קלף נוכחי, מנצח). רק מי-שבתורו כותב את המצב קדימה.
+//
+//   monopolyRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
+//     gameStateJson, maxPlayers, roomType, isPrivate, inviteCode
+
+export async function createMonopolyRoom({ host, roomType, maxPlayers = 4 }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const ref = await addDoc(collection(db, 'monopolyRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    gameStateJson: '',
+    maxPlayers,
+    roomType,
+    isPrivate: roomType === 'private',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+export async function joinMonopolyRoom(roomId, player) {
+  const ref = doc(db, 'monopolyRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 4)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
+export async function startMonopolyGame(roomId, gameState) {
+  await updateDoc(doc(db, 'monopolyRooms', roomId), {
+    status: 'playing',
+    gameStateJson: JSON.stringify(gameState),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מעדכן את מצב המשחק (אחרי תור / מהלך).
+export async function updateMonopolyState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'monopolyRooms', roomId), {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateMonopolyState error:', e)
+  }
+}
+
+export function watchMonopolyRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'monopolyRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchMonopolyRoom error:', err) })
+}
+
+export async function leaveMonopolyRoom(roomId) {
+  try { await deleteDoc(doc(db, 'monopolyRooms', roomId)) }
+  catch (e) { console.error('leaveMonopolyRoom error:', e) }
+}
+
+// שולח הודעת צ'אט בחדר מסביב לעולם (מתווסף למערך chat).
+export async function sendMonopolyChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'monopolyRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendMonopolyChat error:', e)
+  }
+}
+
+// מתאמה רנדומלית למסביב לעולם — מצטרף לחדר ממתין (עם אותו מספר שחקנים מבוקש)
+// או יוצר חדש. כשהחדר מתמלא בדיוק ל-maxPlayers — המשחק מתחיל אוטומטית (צד הלקוח).
+export async function findOrCreateMonopolyMatch({ player, maxPlayers = 4 }) {
+  const q = query(
+    collection(db, 'monopolyRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    if ((data.maxPlayers || 4) !== maxPlayers) return false   // רק חדר עם אותו מספר שחקנים מבוקש
+    const players = data.players || []
+    if (players.length >= (data.maxPlayers || 4)) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinMonopolyRoom(room.id, player)
+    return { roomId: room.id, isHost: false }
+  }
+  const { roomId } = await createMonopolyRoom({ host: player, roomType: 'random', maxPlayers })
+  return { roomId, isHost: true }
+}
+
 // ─── LiveKit token ────────────────────────────────────────────
 
 export async function fetchLiveKitToken(room, participantName, uid = '') {

@@ -1,6 +1,6 @@
 /*
-  monopolyBoard.js
-  Board data for the vintage Israeli "Around the World" Monopoly (1980s).
+  aroundWorldBoard.js
+  Board data for the vintage Israeli "Around the World" board game (1980s).
 
   Money model (all real numbers from the physical game):
   - price   = purchase price, printed big on the board tile

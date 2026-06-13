@@ -76,6 +76,7 @@ export default function App() {
   const [rummikubRoom, setRummikubRoom] = useState(null)
   const [arenaRoom, setArenaRoom] = useState(null)
   const [bingoRoom, setBingoRoom] = useState(null)
+  const [monopolyRoom, setMonopolyRoom] = useState(null)
   // מצב משחק לכניסה ישירה ממסך הבית (חבר/רשת/מחשב/לבד) — null = מסך בחירת מצב רגיל
   const [gameMode, setGameMode] = useState(null)
   // החבר שאיתו פתוחה שיחת צ'אט פרטית
@@ -188,8 +189,8 @@ export default function App() {
         return 'friends'
       case 'memory-game':
       case 'millionaire-game':
-      case 'monopoly-game':
         return 'games'
+      case 'monopoly-game': setMonopolyRoom(null); setPlayFriend(null); return 'games'
       case 'rummikub-game': setRummikubRoom(null); setPlayFriend(null); return 'games'
       case 'arena-game':    setArenaRoom(null);    setPlayFriend(null); return 'games'
       case 'bingo-game':    setBingoRoom(null);    setPlayFriend(null); return 'games'
@@ -268,6 +269,7 @@ export default function App() {
   function goHome() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
+    setMonopolyRoom(null)
     setGameMode(null)
     setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
     setPage('hub')
@@ -314,6 +316,9 @@ export default function App() {
     } else if (gameType === 'bingo') {
       setBingoRoom(roomId)
       setPage('bingo-game')
+    } else if (gameType === 'monopoly') {
+      setMonopolyRoom(roomId)
+      setPage('monopoly-game')
     }
   }
 
@@ -541,7 +546,7 @@ export default function App() {
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
-      {page === 'monopoly-game' && <MonopolyGame onBack={() => setPage('games')} onHome={goHome} profile={profile} />}
+      {page === 'monopoly-game' && <MonopolyGame initialRoomId={monopolyRoom} autoInviteFriend={playFriend} onBack={() => { setMonopolyRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}

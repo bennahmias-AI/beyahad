@@ -15,6 +15,11 @@ import { flagSVG } from '../data/monopolyFlags';
 import { PropertyCard, CardsModal, CardFooter } from './MonopolyCards.jsx';
 import { cardBack } from '../data/monopolyBoardArt';
 import { playSound, isMuted, setMuted } from '../utils/gameSounds';
+import { IconBackRTL } from '../icons/index.jsx';
+import HomeButton from '../components/HomeButton.jsx';
+import { GameIcon } from '../icons/gameIcons.jsx';
+import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx';
+import MonopolyOnline from './MonopolyOnline.jsx';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INK = '#1c1c1c';
@@ -58,29 +63,8 @@ function focusWindow(pos) {
 
 const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];
 
-// nice inline SVG icons for the setup buttons (replacing the muddy emojis)
-const ICON_ROBOT = (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" style={{ flex: 'none' }}>
-    <rect x="5" y="8" width="16" height="13" rx="4" fill="#fff" stroke="#1c1c1c" strokeWidth="2" />
-    <circle cx="10" cy="14" r="1.9" fill="#1c1c1c" />
-    <circle cx="16" cy="14" r="1.9" fill="#1c1c1c" />
-    <path d="M10 18 h6" stroke="#1c1c1c" strokeWidth="2" strokeLinecap="round" />
-    <path d="M13 8 V4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="13" cy="3" r="2" fill="#fff" stroke="#1c1c1c" strokeWidth="1.6" />
-    <path d="M5 13 H2 M21 13 H24" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-const ICON_FRIENDS = (
-  <svg width="28" height="26" viewBox="0 0 28 26" fill="none" style={{ flex: 'none' }}>
-    <circle cx="9" cy="9" r="4" fill="#f4c20d" stroke="#1c1c1c" strokeWidth="2" />
-    <path d="M2 22 c0-4 3.5-6.5 7-6.5 s7 2.5 7 6.5" fill="#f4c20d" stroke="#1c1c1c" strokeWidth="2" strokeLinejoin="round" />
-    <circle cx="19" cy="10" r="3.4" fill="#2f73c9" stroke="#1c1c1c" strokeWidth="2" />
-    <path d="M15 22 c0-3.5 3-5.8 6-5.8 s6 2.3 6 5.8" fill="#2f73c9" stroke="#1c1c1c" strokeWidth="2" strokeLinejoin="round" />
-  </svg>
-);
-
 // ============================================================================
-export default function MonopolyGame({ onBack, onHome, profile }) {
+export default function MonopolyGame({ onBack, onHome, profile, initialRoomId = null, autoInviteFriend = null }) {
   // ---- orientation ----
   // שתי שכבות לסיבוב אוטומטי:
   //  1. PWA מותקן / Android Chrome — מנסים screen.orientation.lock('landscape')
@@ -136,6 +120,12 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   }); // zoom = camera follows the token | full = whole board, token just moves
   const [priceIndex, setPriceIndex] = useState(null); // per-region % - reshuffled every round
   const [muted, setMutedState] = useState(() => isMuted());
+  // online routing: null = local/setup ; 'online-random' | 'online-friend' = אונליין
+  const [onlineMode, setOnlineMode] = useState(null);
+  const [onlineNum, setOnlineNum] = useState(4);
+  // אישור יציאה + הצצה (משחק מקומי נגד המחשב)
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [peek, setPeek] = useState(false);
 
   // refs mirror state for the async engine
   const S = useRef({});
@@ -434,6 +424,11 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   const active = players[turnIdx];
   const isMyTurn = active && !active.isBot && phase === 'idle';
 
+  // כשמגיע התור שלי — יוצאים אוטומטית ממצב ההצצה (peek)
+  useEffect(() => {
+    if (isMyTurn && peek) setPeek(false);
+  }, [isMyTurn]); // eslint-disable-line
+
   // ---- UI pieces ----
   const panelCard = (p, isActive) => (
     <div key={p.uid} onClick={() => setViewPlayer(p)} role="button" style={{
@@ -455,50 +450,29 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
 
   // ============== RENDER ==============
 
+  // אונליין — שחקן רנדומלי / שחק עם חברים / הזמנה נכנסת (מנותב ל-MonopolyOnline)
+  if (onlineMode || initialRoomId || autoInviteFriend) {
+    return (
+      <MonopolyOnline
+        mode={onlineMode || 'online-friend'}
+        numPlayers={onlineNum}
+        initialRoomId={initialRoomId}
+        autoInviteFriend={autoInviteFriend}
+        onBack={() => setOnlineMode(null)}
+        onHome={onHome}
+        onExit={onBack}
+      />
+    );
+  }
+
   if (phase === 'setup') {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#cfd3d8', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', fontFamily: 'Heebo, sans-serif' }}>
-        <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '26px 28px', width: 'min(92vw, 420px)', textAlign: 'center', boxShadow: '0 18px 50px rgba(0,0,0,.3)' }}>
-          <div style={{ fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 900, fontSize: 34, color: '#d8402a' }}>מסביב לעולם</div>
-          <div style={{ fontWeight: 800, fontSize: 19, color: INK, marginBottom: 18 }}>משחק הלוח הקלאסי - מטיילים, קונים וזוכים</div>
-          {setupStep === 'mode' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-              <button onClick={() => setSetupStep('bots')} style={{
-                background: '#2f9e3f', color: '#fff', border: `3px solid ${INK}`, borderRadius: 14,
-                padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              }}>{ICON_ROBOT}<span>לשחק נגד המחשב</span></button>
-              <button onClick={() => setMessage('soon')} style={{
-                background: '#fff', color: INK, border: `3px solid ${INK}`, borderRadius: 14,
-                padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', position: 'relative',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              }}>
-                {ICON_FRIENDS}<span>לשחק עם חברים</span>
-                <span style={{ position: 'absolute', top: -10, insetInlineStart: -8, background: '#e8761f', color: '#fff', fontSize: 12, fontWeight: 800, borderRadius: 10, padding: '2px 10px', border: `2px solid ${INK}` }}>בקרוב!</span>
-              </button>
-              {message === 'soon' && (
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: '#a35a12' }}>משחק עם חברים יגיע ממש בקרוב - בינתיים תתאמנו על המחשב 😊</div>
-              )}
-            </div>
-          ) : (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 17, color: INK, marginBottom: 10 }}>נגד כמה יריבים לשחק?</div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
-                {[1, 2, 3].map((n) => (
-                  <button key={n} onClick={() => startGame(n)} style={{
-                    width: 74, height: 74, borderRadius: 16, border: `3px solid ${INK}`, background: TOKEN_COLORS[n].color,
-                    fontSize: 30, fontWeight: 900, color: n === 1 ? INK : '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                  }}>{n}</button>
-                ))}
-              </div>
-              <button onClick={() => setSetupStep('mode')} style={{ background: 'transparent', border: 'none', fontSize: 15, fontWeight: 700, color: '#555', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>→ חזרה</button>
-            </>
-          )}
-          <button onClick={onBack} style={{ background: 'transparent', border: 'none', fontSize: 16, fontWeight: 700, color: '#555', cursor: 'pointer', fontFamily: 'inherit' }}>
-            חזרה לזירה
-          </button>
-        </div>
-      </div>
+      <SetupScreen
+        onBack={onBack}
+        onHome={onHome}
+        onStart={(botCount) => startGame(botCount)}
+        onOnline={(mode, n) => { setOnlineNum(n); setOnlineMode(mode); }}
+      />
     );
   }
 
@@ -524,7 +498,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
 
         {/* right panel (RTL start): me + dice */}
         <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={onBack} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
+          <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {players.filter((p) => !p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
@@ -563,15 +537,23 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
         </div>
 
         {/* board center */}
-        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        <div
+          style={{ flex: 1, minWidth: 0, position: 'relative' }}
+          onDoubleClick={() => { if (!isMyTurn) setPeek((v) => !v); }}
+        >
           <MonopolyBoard
-            focusTiles={focusTiles}
+            focusTiles={peek ? null : focusTiles}
             tokens={tokens}
             owners={owners}
             hotels={hotels}
             tokenColors={tokenColors}
             priceIndex={priceIndex}
           />
+          {peek && !isMyTurn && (
+            <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              👁 מצב הצצה — לחיצה כפולה לחזרה
+            </div>
+          )}
         </div>
 
         {/* left panel: opponents */}
@@ -620,14 +602,137 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   );
 
   // ב-portrait — עוטפים בקונטיינר מסובב; אחרת מחזירים ישירות
+  const leaveModal = confirmLeave ? (
+    <LeaveConfirmModal
+      title="לעזוב את המשחק?"
+      subtitle="המשחק הנוכחי יסתיים"
+      stayLabel="לא, להישאר במשחק"
+      leaveLabel="כן, לעזוב"
+      onStay={() => setConfirmLeave(false)}
+      onLeave={() => { setConfirmLeave(false); onBack(); }}
+    />
+  ) : null;
+
   if (isPortrait) {
     return (
-      <div style={rotateOuter}>
-        <div style={rotateInner}>{gameInner}</div>
-      </div>
+      <>
+        <div style={rotateOuter}>
+          <div style={rotateInner}>{gameInner}</div>
+        </div>
+        {leaveModal}
+      </>
     );
   }
-  return gameInner;
+  return (
+    <>
+      {gameInner}
+      {leaveModal}
+    </>
+  );
+}
+
+// ============================================================================
+// SETUP SCREEN — מסך בחירת מצב (בסגנון רמיקוב): שחקן רנדומלי /
+// שחק עם חברים / נגד המחשב / כמה שחקנים
+// כרגע רק "נגד המחשב" פעיל; השאר "בקרוב" עד שנבנה מקומי/אונליין
+// ============================================================================
+function SetupScreen({ onBack, onHome, onStart, onOnline }) {
+  const [step, setStep] = useState('mode'); // 'mode' | 'ai-setup' | 'random-setup'
+  const [soon, setSoon] = useState(false);
+
+  return (
+    <div className="scroll-area" style={{ direction: 'rtl' }}>
+      <div className="screen-header">
+        <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
+        <HomeButton onClick={onHome} />
+        <div className="screen-header__title">מסביב לעולם</div>
+      </div>
+
+      <div style={{ padding: '8px 20px 32px' }}>
+        {/* כרטיס אינטרו */}
+        <div style={{ background: 'linear-gradient(135deg, #2f73c9 0%, #1d4e8f 100%)', borderRadius: 20, padding: '20px 18px', color: '#FBF7EE', marginBottom: 24, boxShadow: '0 8px 20px -6px rgba(29,78,143,.5)', textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><GameIcon id="monopoly" size={52} /></div>
+          <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>מסביב לעולם</div>
+          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>מטיילים בעולם, קונים מדינות — ומי שמתעשר הכי הרבה מנצח</div>
+        </div>
+
+        {step === 'mode' && (
+          <>
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו איך לשחק:</h2>
+            <MonoModeButton onClick={() => setStep('random-setup')} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
+            <MonoModeButton onClick={() => onOnline('online-friend', 4)} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" badge="חדש" />
+            <MonoModeButton onClick={() => setStep('ai-setup')} iconId="vs-ai" gradient="linear-gradient(135deg, #2C5566, #173846)" label="נגד המחשב" description="שחקו לבד מול יריבי מחשב" />
+            <MonoModeButton onClick={() => setSoon(true)} iconId="local-2p" gradient="linear-gradient(135deg, #B89048, #8A6A2E)" label="כמה שחקנים" description="2-4 שחקנים על אותו מכשיר" badge="בקרוב" />
+
+            {soon && (
+              <div style={{ marginTop: 14, background: '#fff', border: '1px dashed var(--line-strong)', borderRadius: 14, padding: '14px 16px', textAlign: 'center', fontSize: 14.5, fontWeight: 700, color: '#a35a12' }}>
+                משחק על אותו מכשיר יגיע ממש בקרוב - בינתיים אפשר לשחק אונליין או נגד המחשב 😊
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 'random-setup' && (
+          <>
+            <MonoBackLink onClick={() => setStep('mode')} />
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>עם כמה שחקנים תרצו לשחק?</h2>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 12 }}>נחכה עד שיצטרפו מספיק אנשים, ואז המשחק יתחיל אוטומטית.</div>
+            <MonoCountPicker options={[2, 3, 4]} labels={['2 שחקנים', '3 שחקנים', '4 שחקנים']} onPick={(n) => onOnline('online-random', n)} />
+          </>
+        )}
+
+        {step === 'ai-setup' && (
+          <>
+            <MonoBackLink onClick={() => setStep('mode')} />
+            <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>נגד כמה יריבים?</h2>
+            <MonoCountPicker options={[1, 2, 3]} labels={['יריב אחד', '2 יריבים', '3 יריבים']} onPick={(n) => onStart(n)} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MonoBackLink({ onClick }) {
+  return (
+    <button onClick={onClick} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <IconBackRTL size={18} color="#8389A4" /> חזרה
+    </button>
+  );
+}
+
+function MonoModeButton({ onClick, iconId, gradient, label, description, badge }) {
+  return (
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 18, padding: '16px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14, fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', position: 'relative' }}>
+      {badge && <div style={{ position: 'absolute', top: -8, insetInlineStart: 12, background: '#e8761f', color: 'white', fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 999 }}>{badge}</div>}
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><GameIcon id={iconId} size={36} /></div>
+      <div style={{ flex: 1 }}>
+        <div className="h-display" style={{ fontSize: 18, color: 'var(--ink)', lineHeight: 1.15 }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 2 }}>{description}</div>
+      </div>
+      <IconBackRTL size={20} color="#8389A4" />
+    </button>
+  );
+}
+
+function MonoCountPicker({ options, labels, onPick }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {options.map((n, i) => (
+        <button key={n} onClick={() => onPick(n)} style={{
+          width: '100%', textAlign: 'right', background: 'var(--surface)',
+          border: '1px solid var(--line)', borderRadius: 16, padding: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer',
+        }}>
+          <span className="h-display" style={{ fontSize: 18, color: 'var(--ink)' }}>{labels[i]}</span>
+          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', background: 'linear-gradient(135deg,#2f73c9,#1d4e8f)', borderRadius: 10, padding: '5px 9px' }}>
+            {Array.from({ length: Math.min(n, 3) }).map((_, k) => <GameIcon key={k} id="monopoly" size={20} />)}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ---- player assets modal: the country cards a player owns -------------------
@@ -724,12 +829,12 @@ function LandingCard({ card, players, onAction }) {
       actions = [btn('לשלם ' + card.amount + ' ₪', 'ok', '#d8402a')];
     }
     return (
-      <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(28,28,28,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl' }}>
-        <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '14px 18px', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, boxShadow: '0 18px 50px rgba(0,0,0,.4)', maxWidth: '94vw' }}>
-          <PropertyCard tile={t} level={hl} width={172} footer={card.kind === 'buy' ? <CardFooter color="#1c4e26">מחיר {card.price ?? t.price} ₪</CardFooter> : null} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 190, maxWidth: 230, textAlign: 'center' }}>
-            <div style={{ fontWeight: 900, fontSize: 23, color: INK, lineHeight: 1.05 }}>{sideTitle}</div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#3a3a3a' }}>{sideSub}</div>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(28,28,28,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 16, boxSizing: 'border-box' }}>
+        <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '14px 18px', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 14, boxShadow: '0 18px 50px rgba(0,0,0,.4)', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <PropertyCard tile={t} level={hl} width={150} footer={card.kind === 'buy' ? <CardFooter color="#1c4e26">מחיר {card.price ?? t.price} ₪</CardFooter> : null} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 190, flex: 'none', textAlign: 'center' }}>
+            <div style={{ fontWeight: 900, fontSize: 21, color: INK, lineHeight: 1.1 }}>{sideTitle}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#3a3a3a', lineHeight: 1.3 }}>{sideSub}</div>
             {isHuman ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>{actions}</div>
             ) : (

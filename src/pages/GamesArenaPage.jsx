@@ -117,9 +117,9 @@ const GAMES = [
 ]
 
 // מזהי המשחקים שאפשר לשחק עם חבר (רב-משתתפים). memory/trivia הם "לבד" ולכן לא כלולים.
-const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess']
+const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess', 'monopoly']
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
-const MULTI_PLAYER = ['rummikub', 'arena', 'bingo']
+const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'monopoly']
 
 export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoMonopoly, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
