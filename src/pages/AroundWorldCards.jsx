@@ -21,11 +21,16 @@ export const CARD_ROW_LABELS = ['דמי ביקור', 'עם מלון אחד', 'ע
 
 export function PropertyCard({ tile, level = -1, width = 200, footer = null }) {
   const grp = GROUPS[tile.group];
-  const f = (n) => Math.round(width * n);
+  // width יכול להיות מספר (px) או '100%' (גמיש — בתוך grid).
+  // כשגמיש, הכרטיס תופס 100% מהתא והגדלים הפנימיים מחושבים מבסיס קבוע.
+  const isFluid = typeof width !== 'number';
+  const base = isFluid ? 150 : width;
+  const f = (n) => Math.round(base * n);
   return (
     <div style={{
       width, flex: 'none', background: '#f4f2ec', border: '1px solid #c9c6bd', borderRadius: f(0.07),
       padding: f(0.035), boxShadow: '0 5px 14px rgba(0,0,0,.22)', direction: 'rtl', fontFamily: 'Heebo, sans-serif',
+      boxSizing: 'border-box', maxWidth: '100%',
     }}>
       <div style={{ border: `${Math.max(2, f(0.013))}px solid ${INK}`, borderRadius: f(0.03), overflow: 'hidden', background: '#fff' }}>
         <div style={{
@@ -106,7 +111,7 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
               עוד אין מדינות. הכל לפניו! 🌍
             </div>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, justifyContent: 'center', width: '100%' }}>
               {shown.map((t) => {
                 const ownerUid = owners[t.id];
                 const ownerP = ownerUid ? players.find((p) => p.uid === ownerUid) : null;
@@ -124,7 +129,7 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
                     </CardFooter>
                   );
                 }
-                return <PropertyCard key={t.id} tile={t} level={level} width={158} footer={footer} />;
+                return <PropertyCard key={t.id} tile={t} level={level} width="100%" footer={footer} />;
               })}
             </div>
           )}
