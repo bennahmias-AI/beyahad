@@ -180,6 +180,83 @@ function playBingoBallSound() {
 }
 
 // ────────────────────────────────────────────────
+// סאונד הטלת קוביות — כמה נקישות עץ של קוביות מתגלגלות (שש-בש)
+// ────────────────────────────────────────────────
+// רצף של 5-6 נקישות עץ קצרות בקצב מאיץ-מאט, כמו קוביות שנופלות
+// ומתגלגלות על הלוח ונחות.
+function playDiceSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  const now = ctx.currentTime
+  // זמני הנקישות — מתחילות צפופות ומתפזרות (מתגלגל ונח)
+  const taps = [0, 0.06, 0.13, 0.22, 0.34, 0.5]
+  taps.forEach((t, i) => {
+    const dur = 0.04
+    // רעש לבן קצר עם דעיכה — "טוק" של עץ
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let j = 0; j < data.length; j++) {
+      data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (data.length * 0.18))
+    }
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    // פילטר bandpass שיורד בתדר עם כל נקישה — תחושת עץ מתגלגל
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.value = 1500 - i * 130
+    filter.Q.value = 1.1
+    const gain = ctx.createGain()
+    gain.gain.value = 0.32 - i * 0.025  // נקישות אחרונות חלשות יותר
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+    src.start(now + t)
+    src.stop(now + t + dur)
+  })
+}
+
+// ────────────────────────────────────────────────
+// סאונד צעד — נקישה קצרה ויבשה לכל משבצת שעוברים
+// ────────────────────────────────────────────────
+function playStepSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  const now = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'triangle'
+  // "טופ" קצר — תדר נופל מעט
+  osc.frequency.setValueAtTime(330, now)
+  osc.frequency.exponentialRampToValueAtTime(220, now + 0.07)
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.008)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1)
+  osc.connect(gain); gain.connect(ctx.destination)
+  osc.start(now); osc.stop(now + 0.1)
+}
+
+// ────────────────────────────────────────────────
+// סאונד נחיתה לא טובה — באז יורד קצר (קנס / שכירות / עצור)
+// ────────────────────────────────────────────────
+function playBadStepSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
+  const now = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sawtooth'  // משור = צליל חד/מבאס
+  // "בְּזזז" יורד מ-300 ל-110
+  osc.frequency.setValueAtTime(300, now)
+  osc.frequency.exponentialRampToValueAtTime(110, now + 0.32)
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 900
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.34)
+  osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+  osc.start(now); osc.stop(now + 0.34)
+}
+
+// ────────────────────────────────────────────────
 // API ציבורי — מנגן סאונד לפי שם
 // ────────────────────────────────────────────────
 export function playSound(soundName) {
@@ -192,6 +269,15 @@ export function playSound(soundName) {
         break
       case 'bingoBall':
         playBingoBallSound()
+        break
+      case 'dice':
+        playDiceSound()
+        break
+      case 'step':
+        playStepSound()
+        break
+      case 'badStep':
+        playBadStepSound()
         break
       case 'win':
         playWinSound()

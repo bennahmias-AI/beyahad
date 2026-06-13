@@ -25,7 +25,7 @@ const GAMES = [
   {
     id: 'monopoly',
     name: 'מסביב לעולם',
-    description: 'מונופול נוסטלגי משנות ה-80', 
+    description: 'מטיילים, קונים וזוכים',
     emoji: '🌍',
     players: 'AI / 2-4 שחקנים',
     color: '#2f73c9',

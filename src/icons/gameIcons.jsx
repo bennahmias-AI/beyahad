@@ -316,7 +316,29 @@ function RummikubIcon({ size }) {
   )
 }
 
-// ── 🏆 גביע ניצחון — גביע עם המספר "1" (מקום ראשון) ──
+// ── 🌍 מסביב לעולם (מונופול) — גלובוס עם יבשות ──
+// כדור הארץ עם קווי רשת (אורך/רוחב) ויבשות — מתאים לשם "מסביב לעולם".
+function MonopolyIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* הכדור */}
+      <circle cx="32" cy="32" r="21" fill={W} />
+      {/* קווי אורך (מרידיאנים) */}
+      <line x1="32" y1="11" x2="32" y2="53" stroke={DARK} strokeWidth="1.4" strokeOpacity="0.4" />
+      <ellipse cx="32" cy="32" rx="10" ry="21" fill="none" stroke={DARK} strokeWidth="1.4" strokeOpacity="0.4" />
+      {/* קו משווה + קווי רוחב */}
+      <line x1="11" y1="32" x2="53" y2="32" stroke={DARK} strokeWidth="1.4" strokeOpacity="0.4" />
+      <line x1="15" y1="21" x2="49" y2="21" stroke={DARK} strokeWidth="1.2" strokeOpacity="0.3" />
+      <line x1="15" y1="43" x2="49" y2="43" stroke={DARK} strokeWidth="1.2" strokeOpacity="0.3" />
+      {/* יבשות מסוגננות (כתמי זהב) */}
+      <path d="M22 20 q4 -3 8 -1 q3 2 1 6 q-3 3 -7 2 q-4 -3 -2 -7 Z" fill="#E8C879" />
+      <path d="M34 30 q5 -2 9 1 q2 4 -2 7 q-5 2 -8 -2 q-2 -4 1 -6 Z" fill="#E8C879" />
+      <path d="M20 36 q4 -1 6 2 q1 4 -3 5 q-4 0 -5 -3 q0 -3 2 -4 Z" fill="#E8C879" />
+    </IconWrap>
+  )
+}
+
+// ── 🏆 גביע ניצחון ──
 // משמש במסכי סיום משחק כשהשחקן מנצח. צבוע בזהב מלא כך שייראה
 // טוב גם על רקע צבעוני (כרטיסים) וגם על רקע בהיר (מודל סיום).
 // color — צבע הגביע (ברירת מחדל זהב). numColor — צבע הספרה.
@@ -392,6 +414,7 @@ export function GameIcon({ id, size = 64 }) {
     case 'trivia':    return <TriviaIcon size={size} />
     case 'memory':    return <MemoryIcon size={size} />
     case 'rummikub':  return <RummikubIcon size={size} />
+    case 'monopoly':  return <MonopolyIcon size={size} />
     case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
     case 'trophy':    return <TrophyIcon size={size} />

@@ -141,55 +141,91 @@ function buildStrip(ids, rot) {
   return `<div class="strip ${rot}">${html}</div>`;
 }
 
-/* ----- center (verbatim port of buildCenter) ----- */
+/* ----- center landmarks: vintage illustrated style (redrawn to match the
+   reference art Ben approved - soft shading, dark-brown ink outlines) ----- */
 const G = '#d98a2b', GF = '#e9b94d', GD = '#9a6a16';
+const INKB = '#5a4326'; // warm dark-brown outline used across all landmarks
 
 const LM = {
-  pyramid: `<svg viewBox="0 0 100 100"><polygon points="50,18 88,82 12,82" fill="${GF}" stroke="${GD}" stroke-width="3"/>
-    <polygon points="50,18 65,82 50,82" fill="#d99a2f"/><line x1="50" y1="18" x2="50" y2="82" stroke="${GD}" stroke-width="2"/>
-    <line x1="30" y1="50" x2="70" y2="50" stroke="${GD}" stroke-width="1.4" opacity=".5"/>
-    <rect x="6" y="82" width="88" height="6" fill="#e7cf94" stroke="${GD}" stroke-width="1.4"/></svg>`,
-  arch: `<svg viewBox="0 0 100 100"><rect x="16" y="22" width="68" height="9" fill="#c0512f" stroke="#7a2d1c" stroke-width="2"/>
-    <rect x="22" y="31" width="56" height="56" fill="#d8674a" stroke="#7a2d1c" stroke-width="3"/>
-    <path d="M40 87 V57 a10 10 0 0 1 20 0 V87" fill="#f6efdf" stroke="#7a2d1c" stroke-width="2.6"/>
-    <g stroke="#7a2d1c" stroke-width="1.4" opacity=".55"><line x1="22" y1="44" x2="78" y2="44"/><line x1="30" y1="31" x2="30" y2="87"/><line x1="70" y1="31" x2="70" y2="87"/></g></svg>`,
+  // Egyptian pyramids - three sand-gold pyramids with lit/shaded faces
+  pyramid: `<svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="90" rx="42" ry="5" fill="#00000018"/>
+    <polygon points="22,40 38,86 6,86" fill="#d9b066" stroke="${INKB}" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="22,40 38,86 22,86" fill="#c2914a"/>
+    <polygon points="78,46 92,86 64,86" fill="#d9b066" stroke="${INKB}" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="78,46 92,86 78,86" fill="#c2914a"/>
+    <polygon points="50,20 80,86 20,86" fill="#eccd86" stroke="${INKB}" stroke-width="2.4" stroke-linejoin="round"/>
+    <polygon points="50,20 80,86 50,86" fill="#d9b066"/>
+    <line x1="50" y1="20" x2="50" y2="86" stroke="${INKB}" stroke-width="1.5" opacity=".5"/>
+    <path d="M38 60 L62 60 M32 72 L68 72" stroke="#b3853f" stroke-width="1.2" opacity=".55"/>
+    <rect x="4" y="86" width="92" height="5" fill="#e7cf94" stroke="${INKB}" stroke-width="1.4"/></svg>`,
+
+  // Arc de Triomphe - stone arch with shading
+  arch: `<svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="92" rx="36" ry="4" fill="#00000018"/>
+    <rect x="18" y="22" width="64" height="12" rx="2" fill="#cfc7b4" stroke="${INKB}" stroke-width="2"/>
+    <rect x="23" y="34" width="54" height="56" fill="#ded7c4" stroke="${INKB}" stroke-width="2.4"/>
+    <rect x="23" y="34" width="12" height="56" fill="#c7bfa8"/>
+    <path d="M40 90 V58 a10 10 0 0 1 20 0 V90" fill="#9c8f72" stroke="${INKB}" stroke-width="2.2"/>
+    <path d="M40 90 V58 a10 10 0 0 1 10 -10" fill="#8a7d61" opacity=".5"/>
+    <g stroke="${INKB}" stroke-width="1.2" opacity=".5"><line x1="23" y1="46" x2="77" y2="46"/><line x1="30" y1="34" x2="30" y2="90"/><line x1="70" y1="34" x2="70" y2="90"/></g>
+    <rect x="27" y="38" width="7" height="6" fill="#b3a98e"/><rect x="66" y="38" width="7" height="6" fill="#b3a98e"/></svg>`,
+
+  // Statue of Liberty - verdigris copper with torch
   liberty: `<svg viewBox="0 0 100 100">
-    <g stroke="#15506e" stroke-width="2.2" stroke-linejoin="round">
-      <rect x="36" y="88" width="30" height="7" fill="#8fa0ad"/>
-      <rect x="40" y="81" width="22" height="7" fill="#aab7c2"/>
-      <path d="M45 81 L43 56 Q43 48 48 46 L54 46 Q59 48 59 56 L57 81 Z" fill="#67b39c"/>
-      <path d="M45 58 L34 64 L33 72" fill="none" stroke-width="3.4" stroke-linecap="round"/>
-      <rect x="29" y="60" width="9" height="12" fill="#d9c489" transform="rotate(-18 33 66)"/>
-      <path d="M57 50 L64 28" fill="none" stroke-width="3.6" stroke-linecap="round"/>
-      <circle cx="50" cy="38" r="6.2" fill="#e7d2ac"/>
-      <g stroke="#15506e" stroke-width="1.8" stroke-linecap="round">
-        <line x1="50" y1="31" x2="50" y2="24"/><line x1="44" y1="33" x2="40" y2="28"/>
-        <line x1="56" y1="33" x2="60" y2="28"/><line x1="45" y1="36" x2="39" y2="35"/><line x1="55" y1="36" x2="61" y2="35"/></g>
-      <circle cx="65" cy="24" r="4.6" fill="#f4c20d"/>
-      <g stroke="#f4c20d" stroke-width="1.6" stroke-linecap="round"><line x1="65" y1="18" x2="65" y2="13"/><line x1="60" y1="21" x2="57" y2="18"/><line x1="70" y1="21" x2="73" y2="18"/></g>
-    </g></svg>`,
-  towerDavid: `<svg viewBox="0 0 100 100"><g fill="${GF}" stroke="${GD}" stroke-width="2.6">
-    <rect x="22" y="56" width="56" height="32"/><rect x="40" y="30" width="17" height="26"/><rect x="43" y="16" width="7" height="14"/></g>
-    <g fill="${GD}">${[24, 33, 42, 60, 69].map(x => `<rect x="${x}" y="50" width="6" height="6"/>`).join('')}
-    ${[41, 49].map(x => `<rect x="${x}" y="26" width="5" height="5"/>`).join('')}</g>
-    <polygon points="50,16 62,11 50,8" fill="#d8402a"/>
-    <g stroke="${GD}" stroke-width="1.4" opacity=".5"><line x1="22" y1="68" x2="78" y2="68"/></g>
-    <rect x="46" y="74" width="9" height="14" fill="${GD}"/></svg>`,
+    <ellipse cx="50" cy="93" rx="26" ry="4" fill="#00000018"/>
+    <rect x="38" y="86" width="26" height="8" fill="#8a7f72" stroke="${INKB}" stroke-width="2"/>
+    <rect x="42" y="77" width="18" height="9" fill="#9c9184" stroke="${INKB}" stroke-width="2"/>
+    <path d="M46 77 L44 50 Q44 41 51 39 L55 39 Q62 41 61 50 L59 77 Z" fill="#74b6a0" stroke="#3d7a64" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M51 39 L46 77 L51 77 Z" fill="#5a9c86" opacity=".6"/>
+    <path d="M46 52 L33 59 L32 68" fill="none" stroke="#3d7a64" stroke-width="3" stroke-linecap="round"/>
+    <rect x="28" y="55" width="8" height="11" rx="1" fill="#cdb87f" stroke="${INKB}" stroke-width="1.2" transform="rotate(-18 32 60)"/>
+    <path d="M58 47 L66 25" stroke="#3d7a64" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="51" cy="31" r="6" fill="#7fbfa8" stroke="#3d7a64" stroke-width="1.8"/>
+    <g stroke="#3d7a64" stroke-width="1.7" stroke-linecap="round">
+      <line x1="51" y1="25" x2="51" y2="19"/><line x1="45" y1="27" x2="42" y2="22"/>
+      <line x1="57" y1="27" x2="60" y2="22"/><line x1="45" y1="31" x2="39" y2="30"/><line x1="57" y1="31" x2="63" y2="30"/></g>
+    <circle cx="67" cy="21" r="4.4" fill="#f4c20d" stroke="#b88a00" stroke-width="1"/>
+    <g stroke="#f4c20d" stroke-width="1.5" stroke-linecap="round"><line x1="67" y1="15" x2="67" y2="11"/><line x1="62" y1="18" x2="59" y2="15"/><line x1="72" y1="18" x2="75" y2="15"/></g></svg>`,
+
+  // Sandcastle (bottom, matches the reference) - golden sand with red flag
+  towerDavid: `<svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="92" rx="40" ry="5" fill="#00000018"/>
+    <rect x="16" y="60" width="68" height="30" fill="#e0b873" stroke="${INKB}" stroke-width="2.2"/>
+    <rect x="16" y="60" width="22" height="30" fill="#cd9f55" opacity=".5"/>
+    <g fill="#e0b873" stroke="${INKB}" stroke-width="2.2">
+      <rect x="14" y="48" width="16" height="42"/><rect x="70" y="48" width="16" height="42"/>
+      <rect x="38" y="34" width="24" height="56"/></g>
+    <g fill="${INKB}">
+      <rect x="14" y="44" width="4" height="6"/><rect x="22" y="44" width="4" height="6"/>
+      <rect x="70" y="44" width="4" height="6"/><rect x="78" y="44" width="4" height="6"/>
+      <rect x="38" y="30" width="5" height="6"/><rect x="47" y="30" width="5" height="6"/><rect x="56" y="30" width="5" height="6"/></g>
+    <path d="M44 60 Q50 50 56 60 Z" fill="${INKB}"/>
+    <rect x="45" y="68" width="10" height="22" rx="4" fill="#c79a52"/>
+    <line x1="50" y1="34" x2="50" y2="14" stroke="${INKB}" stroke-width="2"/>
+    <path d="M50 14 L66 19 L50 24 Z" fill="#d8402a" stroke="${INKB}" stroke-width="1.4"/>
+    <g stroke="#b3853f" stroke-width="1" opacity=".5"><line x1="16" y1="72" x2="84" y2="72"/></g></svg>`,
+
+  // Eiffel Tower - bronze lattice
   eiffel: `<svg viewBox="0 0 100 100">
-    <g fill="#cf8a3a" stroke="#7a4d16" stroke-width="2" stroke-linejoin="round">
-      <path d="M50 10 L53 26 L56 42 Q60 64 74 90 L63 90 Q58 70 50 62 Q42 70 37 90 L26 90 Q40 64 44 42 L47 26 Z"/>
+    <ellipse cx="50" cy="93" rx="30" ry="4" fill="#00000018"/>
+    <g fill="#7a5a36" stroke="#4a3622" stroke-width="1.8" stroke-linejoin="round">
+      <path d="M50 9 L53 27 L57 46 Q61 68 78 91 L65 91 Q58 70 50 63 Q42 70 35 91 L22 91 Q39 68 43 46 L47 27 Z"/>
     </g>
-    <g fill="none" stroke="#7a4d16" stroke-width="2">
-      <path d="M40 56 H60"/><path d="M35 72 H65"/>
-      <path d="M40 78 Q50 70 60 78"/>
-    </g>
-    <g stroke="#7a4d16" stroke-width="1.2" opacity=".55">
-      <line x1="50" y1="26" x2="50" y2="62"/></g>
-    <polygon points="50,10 54,20 46,20" fill="#2f9e3f" stroke="#7a4d16" stroke-width="1.2"/></svg>`,
-  temple: `<svg viewBox="0 0 100 100"><polygon points="16,42 84,42 50,20" fill="${GF}" stroke="${GD}" stroke-width="2.6"/>
-    <rect x="18" y="42" width="64" height="7" fill="#d99a2f" stroke="${GD}" stroke-width="1.6"/>
-    <g fill="${GF}" stroke="${GD}" stroke-width="2">${[24, 36, 48, 60, 72].map(x => `<rect x="${x}" y="49" width="7" height="33"/>`).join('')}</g>
-    <rect x="16" y="82" width="68" height="8" fill="#d99a2f" stroke="${GD}" stroke-width="1.6"/></svg>`,
+    <path d="M50 9 L50 63" stroke="#4a3622" stroke-width="1" opacity=".5"/>
+    <g fill="none" stroke="#4a3622" stroke-width="2"><path d="M41 46 H59"/><path d="M34 70 H66"/><path d="M39 80 Q50 72 61 80"/></g>
+    <g stroke="#4a3622" stroke-width="1" opacity=".5"><path d="M44 30 H56"/><path d="M43 38 L57 38"/></g>
+    <polygon points="50,9 53,18 47,18" fill="#2f9e3f" stroke="#4a3622" stroke-width="1"/></svg>`,
+
+  // Greek temple (Parthenon) - white stone with columns
+  temple: `<svg viewBox="0 0 100 100">
+    <ellipse cx="50" cy="92" rx="40" ry="4" fill="#00000018"/>
+    <polygon points="14,40 86,40 50,18" fill="#ece9e2" stroke="${INKB}" stroke-width="2.2"/>
+    <polygon points="14,40 50,18 50,40" fill="#d6d2c8"/>
+    <rect x="16" y="40" width="68" height="7" fill="#ddd9cf" stroke="${INKB}" stroke-width="1.8"/>
+    <g fill="#ece9e2" stroke="${INKB}" stroke-width="1.8">${[20, 32, 44, 56, 68].map(x => `<rect x="${x}" y="47" width="8" height="36"/>`).join('')}</g>
+    <g fill="#cdc8bc">${[20, 32, 44, 56, 68].map(x => `<rect x="${x}" y="47" width="3" height="36"/>`).join('')}</g>
+    <rect x="14" y="83" width="72" height="8" fill="#ddd9cf" stroke="${INKB}" stroke-width="1.8"/></svg>`,
 };
 
 function spokes() {
@@ -203,20 +239,19 @@ function spokes() {
 }
 
 function globeSVG() {
-  const land = '#e0a52e', landEdge = '#8a5e12';
+  const land = '#e8c074', landEdge = '#9a6a16';
   return `<svg viewBox="0 0 100 100">
     <defs><clipPath id="globeClip"><circle cx="50" cy="50" r="49"/></clipPath>
-    <radialGradient id="oceanGrad" cx="38%" cy="32%" r="75%">
-      <stop offset="0%" stop-color="#73c2ec"/><stop offset="70%" stop-color="#2f8fd0"/><stop offset="100%" stop-color="#1f6cae"/>
+    <radialGradient id="oceanGrad" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#4fb3d9"/><stop offset="55%" stop-color="#2a7fb8"/><stop offset="100%" stop-color="#15466f"/>
     </radialGradient></defs>
     <g clip-path="url(#globeClip)">
-      <rect width="100" height="100" fill="#2f8fd0"/>
       <circle cx="50" cy="50" r="49" fill="url(#oceanGrad)"/>
-      <g stroke="#1f6bb0" stroke-width="0.6" opacity=".55" fill="none">
+      <g stroke="#bfe0ef" stroke-width="0.5" opacity=".3" fill="none">
         ${[12, 24, 37, 50, 63, 76, 88].map(y => `<line x1="1" y1="${y}" x2="99" y2="${y}"/>`).join('')}
         ${[18, 34, 50, 66, 82].map(x => `<path d="M${x} 2 Q${50 + (x - 50) * 1.55} 50 ${x} 98"/>`).join('')}
       </g>
-      <g fill="${land}" stroke="${landEdge}" stroke-width="0.7" stroke-linejoin="round">
+      <g fill="${land}" stroke="${landEdge}" stroke-width="0.8" stroke-linejoin="round">
         <path d="M14 18 Q9 24 12 30 Q10 36 17 39 Q15 45 22 46 L27 41 Q33 42 33 36 Q39 33 36 27 Q40 22 33 19 Q26 13 20 16 Q16 14 14 18 Z"/>
         <path d="M24 47 Q27 51 31 53 Q33 57 30 58 Q27 53 23 50 Z"/>
         <path d="M33 60 Q29 64 31 71 Q33 80 39 86 Q44 88 43 80 Q47 74 44 67 Q45 60 38 58 Q35 57 33 60 Z"/>
@@ -226,8 +261,9 @@ function globeSVG() {
         <path d="M70 20 Q66 25 72 28 Q78 32 86 30 Q92 26 88 20 Q80 15 74 17 Q71 17 70 20 Z"/>
         <path d="M83 66 Q79 69 83 73 Q89 74 90 69 Q88 65 83 66 Z"/>
       </g>
+      <ellipse cx="34" cy="28" rx="20" ry="14" fill="#ffffff" opacity=".12"/>
     </g>
-    <circle cx="50" cy="50" r="49" fill="none" stroke="#8a5e12" stroke-width="1.4"/>
+    <circle cx="50" cy="50" r="49" fill="none" stroke="#8a5e12" stroke-width="1.6"/>
   </svg>`;
 }
 
@@ -254,10 +290,28 @@ function priceTable(index) {
   return `<div class="panel"><div class="ptitle">לוח המחירים · מתחלף כל סיבוב</div><div class="pi-table">${html}</div></div>`;
 }
 
-const envBadge = `<svg viewBox="0 0 60 64"><path d="M30 3 L56 22 L48 60 L12 60 L4 22 Z" fill="#6cb33f" stroke="#1c1c1c" stroke-width="2.4"/>
-  <rect x="12" y="52" width="36" height="9" fill="#f4c20d" stroke="#1c1c1c" stroke-width="1.6"/>
-  <path d="M20 30 a12 12 0 1 0 12 -12" fill="none" stroke="#1c4a1c" stroke-width="3.2"/>
-  <polygon points="30,16 33,23 26,23" fill="#1c4a1c"/></svg>`;
+/* face-down card back, shared by the in-board decks and the flip animation.
+   RECTANGULAR (card-shaped), showing the ORIGINAL emblem of each deck:
+   chance = yellow envelope with '?', lotto = green Pais hill+star badge. */
+export function cardBack(kind) {
+  // viewBox 0 0 72 100 = card aspect. Emblem sits centered in a fixed box
+  // (cx 36, top ~30) at the SAME size for both decks; name printed below it.
+  const emblem = kind === 'lotto'
+    // Pais hill+star badge, centered at (36,46), ~30px tall
+    ? `<g transform="translate(21,28) scale(0.5)"><path d="M30 3 L56 22 L48 60 L12 60 L4 22 Z" fill="#6cb33f" stroke="#1c1c1c" stroke-width="2.4"/>
+        <rect x="12" y="52" width="36" height="9" fill="#f4c20d" stroke="#1c1c1c" stroke-width="1.6"/>
+        <path d="M20 30 a12 12 0 1 0 12 -12" fill="none" stroke="#1c4a1c" stroke-width="3.2"/>
+        <polygon points="30,16 33,23 26,23" fill="#1c4a1c"/></g>`
+    // envelope with '?', centered at (36,46), ~26px tall - same footprint
+    : `<g transform="translate(20,33)"><rect x="0" y="0" width="32" height="24" rx="1.5" fill="#f4c20d" stroke="#1c1c1c" stroke-width="2"/>
+        <polyline points="0,0 16,13 32,0" fill="none" stroke="#1c1c1c" stroke-width="2"/>
+        <text x="16" y="20" font-size="11" text-anchor="middle" font-family="Rubik,Heebo,sans-serif" font-weight="900" fill="#1c1c1c">?</text></g>`;
+  return `<svg class="cardback" viewBox="0 0 72 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <rect x="3" y="3" width="66" height="94" rx="8" fill="#f6efdf" stroke="#1c1c1c" stroke-width="3"/>
+    <rect x="8" y="8" width="56" height="84" rx="5" fill="none" stroke="#1c1c1c" stroke-width="1.2" opacity=".4"/>
+    ${emblem}
+    <text x="36" y="82" font-size="10" text-anchor="middle" font-family="Heebo,sans-serif" font-weight="800" fill="#1c1c1c">${kind === 'lotto' ? 'מפעל הפיס' : 'הפתעה'}</text></svg>`;
+}
 
 function centerHTML(priceIndex) {
   const CX = 588, CY = 690, R = 256, SZ = 182;
@@ -273,8 +327,10 @@ function centerHTML(priceIndex) {
     html += `<div class="landmark" style="left:${x}px;top:${y}px;width:${SZ}px;height:${SZ}px;">${LM[k]}</div>`;
   });
   html += `<div class="globe" style="left:${CX}px;top:${CY}px;">${globeSVG()}</div>`;
-  html += `<div class="c-envelope"><svg viewBox="0 0 100 64"><polygon points="6,8 94,8 94,58 6,58" fill="#f4c20d" stroke="#1c1c1c" stroke-width="3"/><polyline points="6,8 50,38 94,8" fill="none" stroke="#1c1c1c" stroke-width="3"/><text x="50" y="52" font-size="22" text-anchor="middle" font-family="Rubik,Heebo,sans-serif" font-weight="900" fill="#1c1c1c">?</text></svg><span>הפתעה</span></div>`;
-  html += `<div class="c-badge">${envBadge}<span>מפעל הפיס</span></div>`;
+  // two face-down card decks sitting in the center, like a real Monopoly board.
+  // ids let the React layer find them as the animation's start position.
+  html += `<div class="c-deck chance-deck" id="deck-chance">${cardBack('chance')}</div>`;
+  html += `<div class="c-deck lotto-deck" id="deck-lotto">${cardBack('lotto')}</div>`;
   return html;
 }
 
@@ -355,6 +411,8 @@ export const BOARD_CSS = `
 .mono-stage .edge.bottom{grid-column:2;grid-row:3;}
 .mono-stage .edge.left{grid-column:1;grid-row:2;}
 .mono-stage .edge.right{grid-column:3;grid-row:2;}
+/* divider lines between a corner and the first tile of each side strip */
+.mono-stage .edge.right{border-top:2px solid var(--ink);}
 .mono-stage .strip{position:absolute; display:flex; align-items:stretch; background:var(--cream);}
 .mono-stage .edge.top .strip, .mono-stage .edge.bottom .strip{top:0;left:0;width:100%;height:100%;}
 .mono-stage .strip.rot180{transform:rotate(180deg);}
@@ -421,21 +479,37 @@ export const BOARD_CSS = `
 .mono-stage .corner.tl{transform:rotate(180deg);}
 .mono-stage .corner.tr{transform:rotate(180deg);}
 
-.mono-stage .center{grid-column:2;grid-row:2; position:relative; background:var(--blue);
-  border:4px solid var(--ink); overflow:hidden;}
-.mono-stage .wheel{position:absolute; transform:translate(-50%,-50%);
+.mono-stage .center{grid-column:2;grid-row:2; position:relative;
+  border:4px solid var(--ink); overflow:hidden;
+  /* art-deco gold: faint sun-rays behind the wheel + deep blue radial */
+  background:
+    repeating-conic-gradient(from 0deg at 50% 57%, rgba(255,255,255,.05) 0deg 6deg, transparent 6deg 12deg),
+    radial-gradient(circle at 50% 50%, #2a7fb8 0%, #1d5e92 55%, #123c61 100%);}
+.mono-stage .center::before{content:""; position:absolute; inset:22px; pointer-events:none; z-index:1;
+  border:3px solid var(--gold); outline:8px double rgba(217,138,43,.45); outline-offset:9px;}
+.mono-stage .center::after{content:""; position:absolute; inset:34px; pointer-events:none; z-index:1;
+  background:
+    linear-gradient(var(--gold),var(--gold)) left top / 54px 4px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) left top / 4px 54px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right top / 54px 4px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right top / 4px 54px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) left bottom / 54px 4px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) left bottom / 4px 54px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right bottom / 54px 4px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right bottom / 4px 54px no-repeat;}
+.mono-stage .wheel{position:absolute; transform:translate(-50%,-50%); z-index:2;
   border-radius:50%;
   background:var(--cream); border:6px solid var(--red);
   box-shadow:0 0 0 10px rgba(0,0,0,.06) inset;}
 .mono-stage .wheel svg.spokes{position:absolute;inset:0;width:100%;height:100%;}
-.mono-stage .globe{position:absolute;transform:translate(-50%,-50%);
+.mono-stage .globe{position:absolute;transform:translate(-50%,-50%); z-index:2;
   width:280px;height:280px;border-radius:50%; overflow:hidden;
   border:5px solid var(--gold); box-shadow:0 0 0 3px #1c1c1c, 0 8px 22px rgba(0,0,0,.3);}
 .mono-stage .globe svg{position:absolute;inset:0;width:100%;height:100%;}
-.mono-stage .landmark{position:absolute; display:flex;align-items:center;justify-content:center;}
+.mono-stage .landmark{position:absolute; display:flex;align-items:center;justify-content:center; z-index:2;}
 .mono-stage .landmark svg{width:100%;height:100%;}
 
-.mono-stage .topstrip{position:absolute; left:26px; right:26px; top:24px; height:192px; display:flex; gap:14px; align-items:stretch;}
+.mono-stage .topstrip{position:absolute; left:26px; right:26px; top:24px; height:192px; display:flex; gap:14px; align-items:stretch; z-index:3;}
 .mono-stage .topstrip .titlebox{position:relative; width:212px; flex:none; padding:6px;
   display:flex;flex-direction:column;align-items:center;justify-content:center; gap:2px;
   background:var(--red); color:#fff; border:4px solid var(--ink); box-shadow:5px 5px 0 rgba(0,0,0,.18);}
@@ -454,13 +528,11 @@ export const BOARD_CSS = `
 .mono-stage .pi-table .zero{background:#dfeef7;font-weight:700;}
 .mono-stage .pi-table .cellc.mark{background:var(--red); box-shadow:0 0 0 2.5px var(--ink) inset;}
 
-.mono-stage .c-envelope{position:absolute; left:30px; top:902px; width:184px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  background:var(--cream); border:3px solid var(--ink); padding:12px 10px;}
-.mono-stage .c-envelope svg{width:120px;}
-.mono-stage .c-badge{position:absolute; right:30px; top:902px; width:150px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  background:var(--cream); border:3px solid var(--ink); padding:12px 10px;}
-.mono-stage .c-badge svg{width:74px;height:78px;}
-.mono-stage .c-envelope span, .mono-stage .c-badge span{font-weight:800;font-size:14.5px;color:var(--ink);}
+.mono-stage .c-deck{position:absolute; top:880px; width:120px; height:166px; z-index:3;}
+.mono-stage .c-deck .cardback{width:120px;height:166px;
+  filter:drop-shadow(3px 4px 0 rgba(0,0,0,.28));}
+.mono-stage .c-deck::before{content:""; position:absolute; top:5px; left:5px;
+  width:120px; height:166px; border-radius:8px; background:#0000002e; z-index:-1;}
+.mono-stage .chance-deck{left:46px;}
+.mono-stage .lotto-deck{right:46px;}
 `;

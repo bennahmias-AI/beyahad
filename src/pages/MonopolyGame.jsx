@@ -13,6 +13,8 @@ import MonopolyBoard from './MonopolyBoard.jsx';
 import { TILES, TILE_COUNT, RULES, TOKEN_COLORS, GROUPS, MAX_LEVEL, LEVEL_NAMES, rentFor, buildCost, nextBuildLabel, randomPriceIndex, applyIndex, regionOf, REGION_LABELS } from '../data/monopolyBoard';
 import { flagSVG } from '../data/monopolyFlags';
 import { PropertyCard, CardsModal, CardFooter } from './MonopolyCards.jsx';
+import { cardBack } from '../data/monopolyBoardArt';
+import { playSound, isMuted, setMuted } from '../utils/gameSounds';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INK = '#1c1c1c';
@@ -56,6 +58,27 @@ function focusWindow(pos) {
 
 const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];
 
+// nice inline SVG icons for the setup buttons (replacing the muddy emojis)
+const ICON_ROBOT = (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" style={{ flex: 'none' }}>
+    <rect x="5" y="8" width="16" height="13" rx="4" fill="#fff" stroke="#1c1c1c" strokeWidth="2" />
+    <circle cx="10" cy="14" r="1.9" fill="#1c1c1c" />
+    <circle cx="16" cy="14" r="1.9" fill="#1c1c1c" />
+    <path d="M10 18 h6" stroke="#1c1c1c" strokeWidth="2" strokeLinecap="round" />
+    <path d="M13 8 V4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="13" cy="3" r="2" fill="#fff" stroke="#1c1c1c" strokeWidth="1.6" />
+    <path d="M5 13 H2 M21 13 H24" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+const ICON_FRIENDS = (
+  <svg width="28" height="26" viewBox="0 0 28 26" fill="none" style={{ flex: 'none' }}>
+    <circle cx="9" cy="9" r="4" fill="#f4c20d" stroke="#1c1c1c" strokeWidth="2" />
+    <path d="M2 22 c0-4 3.5-6.5 7-6.5 s7 2.5 7 6.5" fill="#f4c20d" stroke="#1c1c1c" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="19" cy="10" r="3.4" fill="#2f73c9" stroke="#1c1c1c" strokeWidth="2" />
+    <path d="M15 22 c0-3.5 3-5.8 6-5.8 s6 2.3 6 5.8" fill="#2f73c9" stroke="#1c1c1c" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
 // ============================================================================
 export default function MonopolyGame({ onBack, onHome, profile }) {
   // ---- orientation ----
@@ -87,6 +110,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     try { return localStorage.getItem('beyahad_monopoly_camera') || 'zoom'; } catch { return 'zoom'; }
   }); // zoom = camera follows the token | full = whole board, token just moves
   const [priceIndex, setPriceIndex] = useState(null); // per-region % - reshuffled every round
+  const [muted, setMutedState] = useState(() => isMuted());
 
   // refs mirror state for the async engine
   const S = useRef({});
@@ -126,6 +150,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     const d1 = 1 + Math.floor(Math.random() * 6);
     const d2 = 1 + Math.floor(Math.random() * 6);
     setDice([d1, d2]);
+    playSound('dice');
     setPhase('walking');
     setMessage(p.name + ' הטיל ' + (d1 + d2) + ' - צועדים!');
     // camera travels FIRST to where the player stands, then follows each step
@@ -146,6 +171,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       const bonus = pos === 0 ? RULES.PASS_START_BONUS : 0;
       const newPos = pos;
       updatePlayer(uid, (p) => ({ pos: newPos, cash: p.cash + bonus }));
+      playSound('step');
       focus(focusWindow(newPos));
       await sleep(480);
     }
@@ -157,6 +183,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       pos = (pos - 1 + TILE_COUNT) % TILE_COUNT;
       const newPos = pos;
       updatePlayer(uid, { pos: newPos });
+      playSound('step');
       focus(focusWindow(newPos));
       await sleep(480);
     }
@@ -183,12 +210,14 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       } else {
         const rent = applyIndex(rentFor(tile, S.current.owners, S.current.hotels), S.current.priceIndex, tile);
         setCard({ kind: 'rent', tile, uid, owner, amount: rent });
+        playSound('badStep');
       }
     } else if (tile.type === 'special') {
       if (tile.amount === 'birthday') {
         setCard({ kind: 'birthday', tile, uid });
       } else {
         setCard({ kind: 'pay', tile, uid, amount: tile.amount });
+        if (tile.amount < 0) playSound('badStep');
       }
     } else if (tile.type === 'lotto') {
       const c = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)];
@@ -198,8 +227,8 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       setCard({ kind: 'chance', tile, uid, ...c });
     } else {
       // corner
-      if (tile.key === 'einKnisa') setCard({ kind: 'pay', tile, uid, amount: -RULES.EIN_KNISA_FINE });
-      else if (tile.key === 'atzor') setCard({ kind: 'atzor', tile, uid });
+      if (tile.key === 'einKnisa') { setCard({ kind: 'pay', tile, uid, amount: -RULES.EIN_KNISA_FINE }); playSound('badStep'); }
+      else if (tile.key === 'atzor') { setCard({ kind: 'atzor', tile, uid }); playSound('badStep'); }
       else if (tile.key === 'odPaam') setCard({ kind: 'odPaam', tile, uid });
       else setCard({ kind: 'info', tile, uid, text: 'נחת על ההתחלה!' });
     }
@@ -231,6 +260,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       updatePlayer(uid, (p) => ({ cash: p.cash + c.amount }));
     }
     if (c.kind === 'birthday') {
+      playSound('win');
       setPlayers((ps) => {
         const others = ps.filter((p) => p.uid !== uid && !p.dead);
         return ps.map((p) => {
@@ -241,7 +271,10 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       });
     }
     if (c.kind === 'lotto' || c.kind === 'chance') {
-      if (typeof c.amount === 'number') updatePlayer(uid, (p) => ({ cash: p.cash + c.amount }));
+      if (typeof c.amount === 'number') {
+        updatePlayer(uid, (p) => ({ cash: p.cash + c.amount }));
+        if (c.amount > 0) playSound('win');
+      }
     }
     if (c.kind === 'atzor') {
       updatePlayer(uid, { skip: RULES.ATZOR_SKIP_TURNS });
@@ -304,6 +337,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     const living = psNow.filter((p) => !(p.dead || p.cash < 0));
     if (living.length === 1) {
       setWinner(living[0]);
+      playSound('win');
       setPhase('gameover');
       return;
     }
@@ -337,6 +371,7 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     if (r > RULES.MAX_ROUNDS) {
       const ranked = [...living].sort((a, b) => netWorth(b, S.current.owners) - netWorth(a, S.current.owners));
       setWinner(ranked[0]);
+      playSound('win');
       setPhase('gameover');
       return;
     }
@@ -400,18 +435,20 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#cfd3d8', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', fontFamily: 'Heebo, sans-serif' }}>
         <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '26px 28px', width: 'min(92vw, 420px)', textAlign: 'center', boxShadow: '0 18px 50px rgba(0,0,0,.3)' }}>
           <div style={{ fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 900, fontSize: 34, color: '#d8402a' }}>מסביב לעולם</div>
-          <div style={{ fontWeight: 800, fontSize: 19, color: INK, marginBottom: 18 }}>מונופול נוסטלגי משנות ה-80</div>
+          <div style={{ fontWeight: 800, fontSize: 19, color: INK, marginBottom: 18 }}>משחק הלוח הקלאסי - מטיילים, קונים וזוכים</div>
           {setupStep === 'mode' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
               <button onClick={() => setSetupStep('bots')} style={{
                 background: '#2f9e3f', color: '#fff', border: `3px solid ${INK}`, borderRadius: 14,
                 padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-              }}>🤖 לשחק נגד המחשב</button>
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              }}>{ICON_ROBOT}<span>לשחק נגד המחשב</span></button>
               <button onClick={() => setMessage('soon')} style={{
                 background: '#fff', color: INK, border: `3px solid ${INK}`, borderRadius: 14,
                 padding: '15px 10px', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               }}>
-                👥 לשחק עם חברים
+                {ICON_FRIENDS}<span>לשחק עם חברים</span>
                 <span style={{ position: 'absolute', top: -10, insetInlineStart: -8, background: '#e8761f', color: '#fff', fontSize: 12, fontWeight: 800, borderRadius: 10, padding: '2px 10px', border: `2px solid ${INK}` }}>בקרוב!</span>
               </button>
               {message === 'soon' && (
@@ -441,13 +478,13 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#cfd3d8', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
 
       {isPortrait && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(28,28,28,.94)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: '#fff', textAlign: 'center', padding: 24 }}>
           <div style={{ fontSize: 64 }}>🔄</div>
           <div style={{ fontWeight: 800, fontSize: 26 }}>סובבו את הטלפון לרוחב</div>
-          <div style={{ fontSize: 17, opacity: 0.85 }}>מונופול משוחק לרוחב כדי שתראו את כל הלוח</div>
+          <div style={{ fontSize: 17, opacity: 0.85 }}>המשחק משוחק לרוחב כדי שתראו את כל הלוח</div>
         </div>
       )}
 
@@ -467,6 +504,11 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
               }}
               style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
               {cameraMode === 'zoom' ? '🎥 מצלמה עוקבת' : '🗺️ לוח מלא'}
+            </button>
+            <button
+              onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step'); }}
+              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {muted ? '🔇 צלילים כבויים' : '🔊 צלילים פועלים'}
             </button>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0, 1].map((i) => (
@@ -498,9 +540,6 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
             tokenColors={tokenColors}
             priceIndex={priceIndex}
           />
-          <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,.94)', borderRadius: 20, padding: '5px 16px', fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', maxWidth: '92%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            סיבוב {round}/{RULES.MAX_ROUNDS} · {message}
-          </div>
         </div>
 
         {/* left panel: opponents */}
@@ -514,8 +553,14 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
         <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} onClose={() => setViewPlayer(null)} />
       )}
 
-      {/* landing card */}
-      {card && (
+      {/* lotto / chance: flip-card animation (a card rises from the deck,
+          flips to reveal, then flips back) - real-Monopoly feel */}
+      {card && (card.kind === 'lotto' || card.kind === 'chance') && (
+        <CardFlip card={card} actor={active} onDone={() => resolveCard('ok')} />
+      )}
+
+      {/* landing card (everything except lotto/chance) */}
+      {card && card.kind !== 'lotto' && card.kind !== 'chance' && (
         <LandingCard card={card} players={players} onAction={resolveCard} />
       )}
 
@@ -698,6 +743,103 @@ function LandingCard({ card, players, onAction }) {
         <div style={{ fontWeight: 700, fontSize: 17, color: '#3a3a3a', lineHeight: 1.35 }}>{sub}</div>
         {!isHuman && <div style={{ fontSize: 15, color: '#666' }}>{actor?.name} חושב...</div>}
         {buttons && <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 6 }}>{buttons}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ---- lotto / chance flip-card animation -------------------------------------
+// A face-down card rises from the center deck, flips to reveal the result,
+// waits, then flips back and drops home - like drawing a card in real life.
+function CardFlip({ card, actor, onDone }) {
+  // stage: 'rise' -> 'reveal' -> 'return'
+  const [stage, setStage] = useState('rise');
+  const isHuman = actor && !actor.isBot;
+  const isLotto = card.kind === 'lotto';
+  const accent = isLotto ? '#2f9e3f' : '#e8761f';
+  const deckSide = isLotto ? { right: '14%' } : { left: '14%' }; // matches in-board decks
+  const amount = typeof card.amount === 'number' ? card.amount : null;
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setStage('reveal'), 620); // rise + flip to face
+    return () => clearTimeout(t1);
+  }, []);
+
+  // bots auto-confirm; humans tap the button
+  useEffect(() => {
+    if (stage !== 'reveal' || isHuman) return;
+    const t = setTimeout(() => setStage('return'), 1700);
+    return () => clearTimeout(t);
+  }, [stage, isHuman]);
+
+  // once returning, finish after the drop-home transition
+  useEffect(() => {
+    if (stage !== 'return') return;
+    const t = setTimeout(onDone, 600);
+    return () => clearTimeout(t);
+  }, [stage, onDone]);
+
+  const lifted = stage === 'reveal';
+  const gone = stage === 'return';
+
+  // card transform across stages
+  const wrapStyle = {
+    position: 'absolute', bottom: '8%', ...deckSide,
+    width: 220, height: 300, zIndex: 2,
+    transformStyle: 'preserve-3d',
+    transition: 'transform .6s cubic-bezier(.34,1.2,.5,1)',
+    transform: lifted
+      ? 'translate(0,0) scale(1)'
+      : 'translateY(40px) scale(.42)',
+  };
+  // when lifted, recenter to the middle of the screen
+  if (lifted) {
+    wrapStyle.bottom = 'auto';
+    wrapStyle.top = '50%';
+    wrapStyle.left = '50%';
+    wrapStyle.right = 'auto';
+    wrapStyle.transform = 'translate(-50%,-50%) scale(1)';
+  }
+  if (gone) {
+    wrapStyle.transform = (deckSide.left ? 'translate(-50%,160%)' : 'translate(50%,160%)') + ' scale(.42)';
+    wrapStyle.opacity = 0;
+  }
+
+  const innerStyle = {
+    position: 'relative', width: '100%', height: '100%',
+    transformStyle: 'preserve-3d',
+    transition: 'transform .55s ease',
+    transform: lifted ? 'rotateY(0deg)' : 'rotateY(180deg)',
+  };
+  const face = {
+    position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+    borderRadius: 16, overflow: 'hidden', boxShadow: '0 18px 50px rgba(0,0,0,.5)',
+  };
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(28,28,28,.55)', direction: 'rtl', overflow: 'hidden' }}>
+      <div style={wrapStyle}>
+        <div style={innerStyle}>
+          {/* FRONT face (revealed content) */}
+          <div style={{ ...face, transform: 'rotateY(0deg)', background: CREAM, border: `4px solid ${accent}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 16px', textAlign: 'center', gap: 12 }}>
+            <div style={{ fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 900, fontSize: 23, color: accent }}>{isLotto ? 'מפעל הפיס' : 'הפתעה'}</div>
+            <div style={{ fontWeight: 700, fontSize: 17, color: INK, lineHeight: 1.35 }}>{card.text}</div>
+            {amount != null && (
+              <div style={{ fontWeight: 900, fontSize: 26, color: amount < 0 ? '#d8402a' : '#1c4e26' }}>
+                {amount > 0 ? '+' : ''}{amount} ₪
+              </div>
+            )}
+            {card.back && <div style={{ fontWeight: 800, fontSize: 16, color: '#a35a12' }}>חוזרים {card.back} צעדים</div>}
+            {isHuman && stage === 'reveal' && (
+              <button onClick={() => setStage('return')} style={{ marginTop: 4, background: accent, color: '#fff', border: `2.5px solid ${INK}`, borderRadius: 12, padding: '10px 28px', fontSize: 17, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                אישור
+              </button>
+            )}
+          </div>
+          {/* BACK face (face-down deck design) */}
+          <div style={{ ...face, transform: 'rotateY(180deg)', display: 'flex' }}
+            dangerouslySetInnerHTML={{ __html: cardBack(card.kind) }} />
+        </div>
       </div>
     </div>
   );

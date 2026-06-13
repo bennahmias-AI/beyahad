@@ -65,16 +65,39 @@ function cameraTransform(focusTiles, cw, ch) {
 // ---- token layer ------------------------------------------------------------
 const TOKEN_OFFSETS = [[-34, -34], [34, -34], [-34, 34], [34, 34]];
 
+// On the START square (id 0) each token sits inside its OWN colored circle.
+// The start SVG is a 200x200 viewBox scaled to the 212px corner (x1.06):
+// yellow (38,38) green (162,38) blue (38,162) orange (162,162).
+const START_SLOTS = {
+  '#f4c20d': [38, 38],   // yellow - top-left
+  '#2f9e3f': [162, 38],  // green  - top-right
+  '#2f73c9': [38, 162],  // blue   - bottom-left
+  '#e8761f': [162, 162], // orange - bottom-right
+};
+
 function Tokens({ tokens }) {
   return tokens.map((tk, i) => {
-    const { cx, cy } = tileCenter(tk.tileId);
-    const [dx, dy] = TOKEN_OFFSETS[i % 4];
+    const g = TILE_GEOMS[tk.tileId];
+    const slot = tk.tileId === 0 ? START_SLOTS[tk.color] : null;
+    let left, top, sz;
+    if (slot) {
+      const sc = g.w / 200; // 212/200
+      left = g.x + slot[0] * sc - 26;
+      top = g.y + slot[1] * sc - 26;
+      sz = 52;
+    } else {
+      const { cx, cy } = tileCenter(tk.tileId);
+      const [dx, dy] = TOKEN_OFFSETS[i % 4];
+      left = cx + dx - 30;
+      top = cy + dy - 30;
+      sz = 60;
+    }
     return (
       <div key={tk.uid} style={{
-        position: 'absolute', left: cx + dx - 30, top: cy + dy - 30, width: 60, height: 60,
+        position: 'absolute', left, top, width: sz, height: sz,
         zIndex: 5, transition: 'left .42s ease, top .42s ease', pointerEvents: 'none',
       }}>
-        <svg viewBox="0 0 44 44" width="60" height="60">
+        <svg viewBox="0 0 44 44" width={sz} height={sz}>
           <circle cx="22" cy="24.5" r="17" fill="rgba(0,0,0,.28)" />
           <circle cx="22" cy="21" r="17" fill={tk.color} stroke={INK} strokeWidth="3" />
           <circle cx="22" cy="21" r="10.5" fill="none" stroke={INK} strokeWidth="1.6" opacity=".5" />
