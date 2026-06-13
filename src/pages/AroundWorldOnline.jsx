@@ -425,7 +425,11 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
       </div>
       <div style={{ padding: '20px 16px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="aroundworld" size={56} /></div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #2f73c9, #1d557f)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,.18)' }}>
+              <GameIcon id="aroundworld" size={50} />
+            </div>
+          </div>
           <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)' }}>
             {isRandom
               ? `ממתינים לשחקנים (${players.length}/${maxPlayers})`
