@@ -84,8 +84,8 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
   );
 
   return (
-    <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: 'min(94vw, 720px)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
+    <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 12, boxSizing: 'border-box' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 720, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `2px solid ${INK}`, background: '#fff' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: player.color, border: `3px solid ${INK}`, flex: 'none' }} />
