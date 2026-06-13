@@ -25,6 +25,7 @@ import { useUserStore } from '../stores/userStore.js'
 import Avatar from '../components/Avatar.jsx'
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
+import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate, ProfilesProvider } from '../components/GameVideo.jsx'
 import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import AroundWorldBoard from './AroundWorldBoard.jsx'
 import { PropertyCard, CardsModal, CardFooter } from './AroundWorldCards.jsx'
@@ -617,6 +618,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const [walkingTiles, setWalkingTiles] = useState(null)  // אנימציית הליכה מקומית (לכותב בלבד)
   const [localTokens, setLocalTokens] = useState(null)    // מיקומי דיסקיות מקומיים בזמן צעידה (לכותב בלבד)
   const [muted, setMutedState] = useState(() => isMuted())
+  const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const busyRef = useRef(false)                   // נועל מהלך בזמן ריצה
 
   const myIndex = state ? state.players.findIndex(p => p.uid === me.uid) : -1
@@ -639,6 +641,15 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           <div className="screen-header__title">מסביב לעולם</div>
         </div>
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>טוען את המשחק...</div>
+      </div>
+    )
+  }
+
+  // אישור וידאו — לפני שמתחילים, כל שחקן בוחר אם להפעיל וידאו+שמע
+  if (videoChoice === null) {
+    return (
+      <div style={{ direction: 'rtl', minHeight: '100%', background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)' }}>
+        <VideoConsentGate onDecide={(use) => setVideoChoice(use)} accent="#1d557f" accentDeep="#2f73c9" />
       </div>
     )
   }
@@ -842,20 +853,29 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
+    const isMe = p.uid === me.uid
     return (
-      <div key={p.uid} onClick={() => setViewPlayer(p)} role="button" style={{
+      <div key={p.uid} style={{
         background: '#fff', border: isActive ? '3px solid #2f9e3f' : '1px solid #d3d1c7',
-        borderRadius: 14, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8,
-        opacity: p.dead ? 0.4 : 1, cursor: 'pointer',
+        borderRadius: 14, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6,
+        opacity: p.dead ? 0.4 : 1,
       }}>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', background: p.color, border: `3px solid ${INK}`, flex: 'none' }} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {p.name}{p.uid === me.uid ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+        <div onClick={() => setViewPlayer(p)} role="button" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <PlayerVideo uid={p.uid} name={p.name} size={34} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 16, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
+              {p.cash.toLocaleString()} ₪
+            </div>
           </div>
-          <div style={{ fontWeight: 800, fontSize: 16, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
-            {p.cash.toLocaleString()} ₪
-          </div>
+        </div>
+        {/* כפתורי וידאו/שמע — שלי (מצלמה+מיק) / של אחרים (השתקה+הסתרה) */}
+        <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #ece9e0', paddingTop: 5 }}>
+          {isMe
+            ? <VideoControls size={28} />
+            : <RemoteVideoToggles uid={p.uid} size={26} />}
         </div>
       </div>
     )
@@ -995,7 +1015,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   )
 
   return (
-    <>
+    <ProfilesProvider uids={state.players.map(p => p.uid)} myUid={me.uid}>
+    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
       {isPortrait ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center' }}>
@@ -1014,7 +1035,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           onLeave={() => { setConfirmLeave(false); handleLeave() }}
         />
       )}
-    </>
+    </GameVideoProvider>
+    </ProfilesProvider>
   )
 }
 
