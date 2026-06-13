@@ -100,7 +100,7 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
           {tabBtn('all', 'כל הכרטיסיות (' + allProps.length + ')')}
         </div>
 
-        <div style={{ overflowY: 'auto', padding: 12 }}>
+        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', minHeight: 0, flex: 1, padding: 12 }}>
           {shown.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 17, color: '#555' }}>
               עוד אין מדינות. הכל לפניו! 🌍
