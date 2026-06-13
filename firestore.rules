@@ -148,6 +148,17 @@ service cloud.firestore {
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
+    // ── חדרי "מסביב לעולם" (2-4 שחקנים) — חדש ──
+    // המארח יוצר לבד; שאר השחקנים מצטרפים דרך update.
+    match /aroundworldRooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.players.size() == 1
+        && request.resource.data.players[0].uid == request.auth.uid
+        && request.resource.data.hostUid == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
     // ── טבלת מובילים יומית של "מי רוצה להיות מיליונר" — חדש ──
     match /millionaireScores/{docId} {
       allow read: if request.auth != null;
