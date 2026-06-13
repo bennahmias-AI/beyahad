@@ -55,12 +55,13 @@ const F = {
       <rect x="9.5" y="39" width="11" height="1.8"/>
       <rect x="9.5" y="41.4" width="11" height="1.8"/></g>`),
   US: () => wrap(`<rect width="90" height="60" fill="${C.white}"/>
-    ${[0, 2, 4, 6].map(i => `<rect y="${4 + i * 8.6}" width="90" height="4.3" fill="${C.red}"/>`).join('')}
-    <rect width="44" height="34" fill="${C.navy}"/>
-    <g fill="${C.white}">${[0, 1, 2].map(r => [0, 1, 2, 3].map(c => `<circle cx="${8 + c * 11}" cy="${8 + r * 10}" r="1.8"/>`).join('')).join('')}</g>`),
+    ${[0,1,2,3,4,5,6].map(i => `<rect y="${i * 8.57}" width="90" height="4.28" fill="${C.red}"/>`).join('')}
+    <rect width="40" height="30" fill="${C.navy}"/>
+    <g fill="${C.white}">${[0,1,2,3].map(r => [0,1,2,3,4].map(c => `<circle cx="${5 + c * 7.6}" cy="${5 + r * 7}" r="1.5"/>`).join('')).join('')}</g>`),
   CA: () => wrap(`<rect width="90" height="60" fill="${C.white}"/>
     <rect width="22" height="60" fill="${C.red}"/><rect x="68" width="22" height="60" fill="${C.red}"/>
-    <path d="M45 14 l3 9 8-3 -5 8 9 2 -8 4 4 9 -8-4 -3 8 -3-8 -8 4 4-9 -8-4 9-2 -5-8 8 3z" fill="${C.red}"/>`),
+    <path fill="${C.red}" d="M45 12
+      l2.6 5.2 5.4 -1.1 -1.6 4.2 2.4 1.3 -4 4 0.7 2 -5.5 -0.6 0.2 5.6 -2 -3.6 -2 3.6 0.2 -5.6 -5.5 0.6 0.7 -2 -4 -4 2.4 -1.3 -1.6 -4.2 5.4 1.1z"/>`),
   BR: () => wrap(`<rect width="90" height="60" fill="${C.green}"/>
     <polygon points="45,8 80,30 45,52 10,30" fill="${C.yellow}"/>
     <circle cx="45" cy="30" r="11" fill="${C.blue}"/>`),
