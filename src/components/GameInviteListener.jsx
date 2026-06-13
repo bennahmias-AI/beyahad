@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import {
   watchIncomingInvites, acceptGameInvite, declineGameInvite,
-  joinRummikubRoom, joinArenaRoom, joinBingoRoom, deleteGameInvite,
+  joinRummikubRoom, joinArenaRoom, joinBingoRoom, joinAroundWorldRoom, deleteGameInvite,
 } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
@@ -29,6 +29,7 @@ const GAME_NAMES = {
   rummikub: 'רמיקוב',
   arena: 'מלך הזירה',
   bingo: 'הבינגו של אמי',
+  aroundworld: 'מסביב לעולם',
   memory: 'זיכרון',
   trivia: 'טריוויה',
   words: 'מילים',
@@ -43,6 +44,7 @@ const GAME_COLORS = {
   rummikub: 'linear-gradient(135deg, #4F6B4A, #354D31)',
   arena: 'linear-gradient(135deg, #6B3A4F, #482638)',
   bingo: 'linear-gradient(135deg, #2C5566, #173846)',
+  aroundworld: 'linear-gradient(135deg, #2f73c9, #1d557f)',
   memory: 'linear-gradient(135deg, #4F6B4A, #354D31)',
   trivia: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
   words: 'linear-gradient(135deg, #B89048, #8A6A2E)',
@@ -89,6 +91,11 @@ export default function GameInviteListener({ onAccept }) {
       } else if (invite.gameType === 'bingo') {
         // בינגו משתמש בתשתית נפרדת (bingoRooms)
         await joinBingoRoom(invite.roomId, player)
+        await deleteGameInvite(invite.id)
+        roomId = invite.roomId
+      } else if (invite.gameType === 'aroundworld') {
+        // מסביב לעולם משתמש בתשתית נפרדת (aroundworldRooms)
+        await joinAroundWorldRoom(invite.roomId, player)
         await deleteGameInvite(invite.id)
         roomId = invite.roomId
       } else {
