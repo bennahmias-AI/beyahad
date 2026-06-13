@@ -82,6 +82,11 @@ const ICON_FRIENDS = (
 // ============================================================================
 export default function MonopolyGame({ onBack, onHome, profile }) {
   // ---- orientation ----
+  // שתי שכבות לסיבוב אוטומטי:
+  //  1. PWA מותקן / Android Chrome — מנסים screen.orientation.lock('landscape')
+  //     (סיבוב פיזי אמיתי; לא נתמך ב-iOS Safari — נופל בשקט)
+  //  2. כל השאר (דפדפן רגיל, iOS) — מסובבים את התצוגה 90° ב-CSS
+  //     כך שהלוח נראה לרוחב גם כשהמכשיר מוחזק אנכית (בלי הודעה)
   const [isPortrait, setIsPortrait] = useState(
     () => window.matchMedia('(orientation: portrait)').matches
   );
@@ -89,7 +94,27 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     const mq = window.matchMedia('(orientation: portrait)');
     const fn = (e) => setIsPortrait(e.matches);
     mq.addEventListener('change', fn);
-    return () => mq.removeEventListener('change', fn);
+    // ניסיון לנעול לרוחב (PWA / Android) — עוטף ב-try כי זורק בדפדפנים שלא תומכים
+    try {
+      const so = window.screen && window.screen.orientation;
+      if (so && so.lock) {
+        const p = so.lock('landscape');
+        if (p && p.catch) p.catch(() => { /* iOS/unsupported - CSS fallback handles it */ });
+      }
+    } catch { /* unsupported - CSS rotation fallback handles it */ }
+    return () => {
+      mq.removeEventListener('change', fn);
+      // ביציאה — מחזירים את שאר האפליקציה לאנכי (portrait)
+      try {
+        const so = window.screen && window.screen.orientation;
+        if (so && so.lock) {
+          const p = so.lock('portrait');
+          if (p && p.catch) p.catch(() => { try { so.unlock && so.unlock(); } catch { /* ignore */ } });
+        } else if (so && so.unlock) {
+          so.unlock();
+        }
+      } catch { /* ignore */ }
+    };
   }, []);
 
   // ---- game state ----
@@ -477,16 +502,23 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
     );
   }
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+  // כשהמכשיר אנכי והנעילה הפיזית לא עבדה (iOS / דפדפן) — מסובבים את
+  // כל המשחק 90° ב-CSS: הקונטיינר מקבל רוחב=גובה-המסך והפוך,
+  // מסתובב וממורכז — כך הלוח נראה לרוחב גם כשהטלפון אנכי.
+  const rotateOuter = isPortrait
+    ? { position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }
+    : null;
+  const rotateInner = isPortrait
+    ? {
+        position: 'absolute', top: '50%', left: '50%',
+        width: '100vh', height: '100vw',
+        transform: 'translate(-50%,-50%) rotate(90deg)',
+        transformOrigin: 'center center',
+      }
+    : null;
 
-      {isPortrait && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(28,28,28,.94)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: '#fff', textAlign: 'center', padding: 24 }}>
-          <div style={{ fontSize: 64 }}>🔄</div>
-          <div style={{ fontWeight: 800, fontSize: 26 }}>סובבו את הטלפון לרוחב</div>
-          <div style={{ fontSize: 17, opacity: 0.85 }}>המשחק משוחק לרוחב כדי שתראו את כל הלוח</div>
-        </div>
-      )}
+  const gameInner = (
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -586,6 +618,16 @@ export default function MonopolyGame({ onBack, onHome, profile }) {
       )}
     </div>
   );
+
+  // ב-portrait — עוטפים בקונטיינר מסובב; אחרת מחזירים ישירות
+  if (isPortrait) {
+    return (
+      <div style={rotateOuter}>
+        <div style={rotateInner}>{gameInner}</div>
+      </div>
+    );
+  }
+  return gameInner;
 }
 
 // ---- player assets modal: the country cards a player owns -------------------
