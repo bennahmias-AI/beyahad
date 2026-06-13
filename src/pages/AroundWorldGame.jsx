@@ -658,10 +658,10 @@ function SetupScreen({ onBack, onHome, onStart, onOnline }) {
         {step === 'mode' && (
           <>
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו איך לשחק:</h2>
-            <MonoModeButton onClick={() => setStep('random-setup')} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
-            <MonoModeButton onClick={() => onOnline('online-friend', 4)} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" badge="חדש" />
-            <MonoModeButton onClick={() => setStep('ai-setup')} iconId="vs-ai" gradient="linear-gradient(135deg, #2C5566, #173846)" label="נגד המחשב" description="שחקו לבד מול יריבי מחשב" />
-            <MonoModeButton onClick={() => setSoon(true)} iconId="local-2p" gradient="linear-gradient(135deg, #B89048, #8A6A2E)" label="כמה שחקנים" description="2-4 שחקנים על אותו מכשיר" badge="בקרוב" />
+            <AwModeButton onClick={() => setStep('random-setup')} iconId="online-random" gradient="linear-gradient(135deg, #7E2C2E, #5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
+            <AwModeButton onClick={() => onOnline('online-friend', 4)} iconId="online-friend" gradient="linear-gradient(135deg, #4F6B4A, #354D31)" label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" badge="חדש" />
+            <AwModeButton onClick={() => setStep('ai-setup')} iconId="vs-ai" gradient="linear-gradient(135deg, #2C5566, #173846)" label="נגד המחשב" description="שחקו לבד מול יריבי מחשב" />
+            <AwModeButton onClick={() => setSoon(true)} iconId="local-2p" gradient="linear-gradient(135deg, #B89048, #8A6A2E)" label="כמה שחקנים" description="2-4 שחקנים על אותו מכשיר" badge="בקרוב" />
 
             {soon && (
               <div style={{ marginTop: 14, background: '#fff', border: '1px dashed var(--line-strong)', borderRadius: 14, padding: '14px 16px', textAlign: 'center', fontSize: 14.5, fontWeight: 700, color: '#a35a12' }}>
@@ -673,18 +673,18 @@ function SetupScreen({ onBack, onHome, onStart, onOnline }) {
 
         {step === 'random-setup' && (
           <>
-            <MonoBackLink onClick={() => setStep('mode')} />
+            <AwBackLink onClick={() => setStep('mode')} />
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 6px', color: 'var(--ink)' }}>עם כמה שחקנים תרצו לשחק?</h2>
             <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 12 }}>נחכה עד שיצטרפו מספיק אנשים, ואז המשחק יתחיל אוטומטית.</div>
-            <MonoCountPicker options={[2, 3, 4]} labels={['2 שחקנים', '3 שחקנים', '4 שחקנים']} onPick={(n) => onOnline('online-random', n)} />
+            <AwCountPicker options={[2, 3, 4]} labels={['2 שחקנים', '3 שחקנים', '4 שחקנים']} onPick={(n) => onOnline('online-random', n)} />
           </>
         )}
 
         {step === 'ai-setup' && (
           <>
-            <MonoBackLink onClick={() => setStep('mode')} />
+            <AwBackLink onClick={() => setStep('mode')} />
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>נגד כמה יריבים?</h2>
-            <MonoCountPicker options={[1, 2, 3]} labels={['יריב אחד', '2 יריבים', '3 יריבים']} onPick={(n) => onStart(n)} />
+            <AwCountPicker options={[1, 2, 3]} labels={['יריב אחד', '2 יריבים', '3 יריבים']} onPick={(n) => onStart(n)} />
           </>
         )}
       </div>
@@ -692,7 +692,7 @@ function SetupScreen({ onBack, onHome, onStart, onOnline }) {
   );
 }
 
-function MonoBackLink({ onClick }) {
+function AwBackLink({ onClick }) {
   return (
     <button onClick={onClick} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink-2)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
       <IconBackRTL size={18} color="#8389A4" /> חזרה
@@ -700,7 +700,7 @@ function MonoBackLink({ onClick }) {
   );
 }
 
-function MonoModeButton({ onClick, iconId, gradient, label, description, badge }) {
+function AwModeButton({ onClick, iconId, gradient, label, description, badge }) {
   return (
     <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 18, padding: '16px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 14, fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', position: 'relative' }}>
       {badge && <div style={{ position: 'absolute', top: -8, insetInlineStart: 12, background: '#e8761f', color: 'white', fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 999 }}>{badge}</div>}
@@ -714,7 +714,7 @@ function MonoModeButton({ onClick, iconId, gradient, label, description, badge }
   );
 }
 
-function MonoCountPicker({ options, labels, onPick }) {
+function AwCountPicker({ options, labels, onPick }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {options.map((n, i) => (

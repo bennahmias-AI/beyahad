@@ -23,7 +23,7 @@ import HomeButton from '../components/HomeButton.jsx'
 // emoji זמני — אחר כך נחליף באייקוני SVG מותאמים.
 const GAMES = [
   {
-    id: 'monopoly',
+    id: 'aroundworld',
     name: 'מסביב לעולם',
     description: 'מטיילים, קונים וזוכים',
     emoji: '🌍',
@@ -117,11 +117,11 @@ const GAMES = [
 ]
 
 // מזהי המשחקים שאפשר לשחק עם חבר (רב-משתתפים). memory/trivia הם "לבד" ולכן לא כלולים.
-const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess', 'monopoly']
+const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess', 'aroundworld']
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
-const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'monopoly']
+const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'aroundworld']
 
-export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoMonopoly, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
@@ -170,8 +170,8 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
       onGoChess()
       return
     }
-    if (game.id === 'monopoly' && onGoMonopoly) {
-      onGoMonopoly()
+    if (game.id === 'aroundworld' && onGoAroundWorld) {
+      onGoAroundWorld()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

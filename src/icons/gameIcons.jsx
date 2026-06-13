@@ -316,9 +316,9 @@ function RummikubIcon({ size }) {
   )
 }
 
-// ── 🌍 מסביב לעולם (מונופול) — גלובוס עם יבשות ──
+// ── 🌍 מסביב לעולם — גלובוס עם יבשות ──
 // כדור הארץ עם קווי רשת (אורך/רוחב) ויבשות — מתאים לשם "מסביב לעולם".
-function MonopolyIcon({ size }) {
+function AroundWorldIcon({ size }) {
   return (
     <IconWrap size={size}>
       {/* הכדור */}
@@ -414,7 +414,7 @@ export function GameIcon({ id, size = 64 }) {
     case 'trivia':    return <TriviaIcon size={size} />
     case 'memory':    return <MemoryIcon size={size} />
     case 'rummikub':  return <RummikubIcon size={size} />
-    case 'monopoly':  return <MonopolyIcon size={size} />
+    case 'aroundworld':  return <AroundWorldIcon size={size} />
     case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
     case 'trophy':    return <TrophyIcon size={size} />

@@ -2099,18 +2099,18 @@ export async function findOrCreateBingoMatch({ player, maxPlayers = 10 }) {
   return { roomId, isHost: true }
 }
 
-// ─── מסביב לעולם (מונופול) — חדרי משחק רב-משתתפים (2-4) ─────────
+// ─── מסביב לעולם — חדרי משחק רב-משתתפים (2-4) ─────────
 // מודל זהה לרמיקוב/מלך-הזירה/בינגו: חדר עם מארח, עד maxPlayers שחקנים,
 // gameStateJson מחזיק את מצב המשחק המלא (שחקנים, בעלויות, מלונות, תור,
 // סיבוב, מדד-מחירים, קלף נוכחי, מנצח). רק מי-שבתורו כותב את המצב קדימה.
 //
-//   monopolyRooms/{roomId}:
+//   aroundworldRooms/{roomId}:
 //     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
 //     gameStateJson, maxPlayers, roomType, isPrivate, inviteCode
 
-export async function createMonopolyRoom({ host, roomType, maxPlayers = 4 }) {
+export async function createAroundWorldRoom({ host, roomType, maxPlayers = 4 }) {
   const inviteCode = roomType === 'private' ? generateInviteCode() : null
-  const ref = await addDoc(collection(db, 'monopolyRooms'), {
+  const ref = await addDoc(collection(db, 'aroundworldRooms'), {
     hostUid: host.uid,
     players: [{ uid: host.uid, name: host.name || 'משתמש' }],
     status: 'waiting',
@@ -2125,8 +2125,8 @@ export async function createMonopolyRoom({ host, roomType, maxPlayers = 4 }) {
   return { roomId: ref.id, inviteCode }
 }
 
-export async function joinMonopolyRoom(roomId, player) {
-  const ref = doc(db, 'monopolyRooms', roomId)
+export async function joinAroundWorldRoom(roomId, player) {
+  const ref = doc(db, 'aroundworldRooms', roomId)
   const snap = await getDoc(ref)
   if (!snap.exists()) throw new Error('החדר לא קיים')
   const data = snap.data()
@@ -2141,8 +2141,8 @@ export async function joinMonopolyRoom(roomId, player) {
 }
 
 // המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
-export async function startMonopolyGame(roomId, gameState) {
-  await updateDoc(doc(db, 'monopolyRooms', roomId), {
+export async function startAroundWorldGame(roomId, gameState) {
+  await updateDoc(doc(db, 'aroundworldRooms', roomId), {
     status: 'playing',
     gameStateJson: JSON.stringify(gameState),
     updatedAt: serverTimestamp(),
@@ -2150,45 +2150,45 @@ export async function startMonopolyGame(roomId, gameState) {
 }
 
 // מעדכן את מצב המשחק (אחרי תור / מהלך).
-export async function updateMonopolyState(roomId, gameState) {
+export async function updateAroundWorldState(roomId, gameState) {
   try {
-    await updateDoc(doc(db, 'monopolyRooms', roomId), {
+    await updateDoc(doc(db, 'aroundworldRooms', roomId), {
       gameStateJson: JSON.stringify(gameState),
       updatedAt: serverTimestamp(),
     })
   } catch (e) {
-    console.error('updateMonopolyState error:', e)
+    console.error('updateAroundWorldState error:', e)
   }
 }
 
-export function watchMonopolyRoom(roomId, cb) {
-  return onSnapshot(doc(db, 'monopolyRooms', roomId), snap => {
+export function watchAroundWorldRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'aroundworldRooms', roomId), snap => {
     if (snap.exists()) cb({ id: snap.id, ...snap.data() })
     else cb(null)
-  }, err => { console.error('watchMonopolyRoom error:', err) })
+  }, err => { console.error('watchAroundWorldRoom error:', err) })
 }
 
-export async function leaveMonopolyRoom(roomId) {
-  try { await deleteDoc(doc(db, 'monopolyRooms', roomId)) }
-  catch (e) { console.error('leaveMonopolyRoom error:', e) }
+export async function leaveAroundWorldRoom(roomId) {
+  try { await deleteDoc(doc(db, 'aroundworldRooms', roomId)) }
+  catch (e) { console.error('leaveAroundWorldRoom error:', e) }
 }
 
 // שולח הודעת צ'אט בחדר מסביב לעולם (מתווסף למערך chat).
-export async function sendMonopolyChat(roomId, message) {
+export async function sendAroundWorldChat(roomId, message) {
   try {
-    await updateDoc(doc(db, 'monopolyRooms', roomId), {
+    await updateDoc(doc(db, 'aroundworldRooms', roomId), {
       chat: arrayUnion(message),
     })
   } catch (e) {
-    console.error('sendMonopolyChat error:', e)
+    console.error('sendAroundWorldChat error:', e)
   }
 }
 
 // מתאמה רנדומלית למסביב לעולם — מצטרף לחדר ממתין (עם אותו מספר שחקנים מבוקש)
 // או יוצר חדש. כשהחדר מתמלא בדיוק ל-maxPlayers — המשחק מתחיל אוטומטית (צד הלקוח).
-export async function findOrCreateMonopolyMatch({ player, maxPlayers = 4 }) {
+export async function findOrCreateAroundWorldMatch({ player, maxPlayers = 4 }) {
   const q = query(
-    collection(db, 'monopolyRooms'),
+    collection(db, 'aroundworldRooms'),
     where('status', '==', 'waiting'),
     limit(20),
   )
@@ -2203,10 +2203,10 @@ export async function findOrCreateMonopolyMatch({ player, maxPlayers = 4 }) {
     return true
   })
   if (room) {
-    await joinMonopolyRoom(room.id, player)
+    await joinAroundWorldRoom(room.id, player)
     return { roomId: room.id, isHost: false }
   }
-  const { roomId } = await createMonopolyRoom({ host: player, roomType: 'random', maxPlayers })
+  const { roomId } = await createAroundWorldRoom({ host: player, roomType: 'random', maxPlayers })
   return { roomId, isHost: true }
 }
 
