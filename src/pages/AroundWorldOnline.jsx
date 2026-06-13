@@ -25,7 +25,7 @@ import { useUserStore } from '../stores/userStore.js'
 import Avatar from '../components/Avatar.jsx'
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
-import { playSound } from '../utils/gameSounds.js'
+import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
 import AroundWorldBoard from './AroundWorldBoard.jsx'
 import { PropertyCard, CardsModal, CardFooter } from './AroundWorldCards.jsx'
 import { flagSVG } from '../data/aroundWorldFlags.js'
@@ -127,6 +127,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
   const [errorMsg, setErrorMsg] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [friends, setFriends] = useState([])
+  const [sending, setSending] = useState(false)
   const startedRef = useRef(false)
   const autoInvitedRef = useRef(false)
 
@@ -166,7 +167,8 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
   }, [phase])
 
   const inviteFriend = async (friend) => {
-    if (!me.uid) return
+    if (!me.uid || sending) return
+    setSending(true)
     setErrorMsg('')
     try {
       const { roomId } = await createAroundWorldRoom({ host: me, roomType: 'private' })
@@ -179,6 +181,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
       console.error('inviteFriend error:', e)
       setErrorMsg('לא הצלחנו לשלוח הזמנה')
       setPhase('error')
+      setSending(false)
     }
   }
 
@@ -211,7 +214,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
         <div className="screen-header__title">{mode === 'online-random' ? 'שחקן רנדומלי' : 'שחק עם חברים'}</div>
       </div>
       <div style={{ padding: '20px 20px 32px' }}>
-        {phase === 'friend-list' && <FriendList friends={friends} onInvite={inviteFriend} onBack={onBack} />}
+        {phase === 'friend-list' && <FriendList friends={friends} sending={sending} onInvite={inviteFriend} onBack={onBack} />}
         {phase === 'error' && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '32px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: 56, marginBottom: 14 }}>😕</div>
@@ -225,7 +228,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
   )
 }
 
-function FriendList({ friends, onInvite, onBack }) {
+function FriendList({ friends, sending, onInvite, onBack }) {
   const [onlineMap, setOnlineMap] = useState({})
   const [profileMap, setProfileMap] = useState({})
 
@@ -272,7 +275,7 @@ function FriendList({ friends, onInvite, onBack }) {
             מחוברים עכשיו ({onlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-            {onlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online onInvite={() => onInvite(f)} />)}
+            {onlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online sending={sending} onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -284,7 +287,7 @@ function FriendList({ friends, onInvite, onBack }) {
             לא מחוברים ({offlineFriends.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {offlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online={false} onInvite={() => onInvite(f)} />)}
+            {offlineFriends.map(f => <FriendRow key={f.docId} friend={f} profile={profileMap[f.otherUid]} online={false} sending={sending} onInvite={() => onInvite(f)} />)}
           </div>
         </>
       )}
@@ -292,7 +295,7 @@ function FriendList({ friends, onInvite, onBack }) {
   )
 }
 
-function FriendRow({ friend, profile, online, onInvite }) {
+function FriendRow({ friend, profile, online, sending, onInvite }) {
   const displayName = profile?.name || friend.otherName
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -303,11 +306,12 @@ function FriendRow({ friend, profile, online, onInvite }) {
           {online ? 'מחובר עכשיו' : 'לא מחובר'}
         </div>
       </div>
-      <button onClick={onInvite} style={{
+      <button onClick={onInvite} disabled={sending} style={{
         background: online ? 'var(--success)' : AW_BLUE,
         color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px',
-        fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
-      }}>🎮 הזמן</button>
+        fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: sending ? 'default' : 'pointer',
+        whiteSpace: 'nowrap', opacity: sending ? 0.6 : 1,
+      }}>{sending ? 'שולח...' : '🎮 הזמן'}</button>
     </div>
   )
 }
@@ -611,6 +615,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const [peek, setPeek] = useState(false)        // צביטה/הצצה: לוח מלא זמני כשלא בתורי
   const [localDice, setLocalDice] = useState([null, null])
   const [walkingTiles, setWalkingTiles] = useState(null)  // אנימציית הליכה מקומית (לכותב בלבד)
+  const [localTokens, setLocalTokens] = useState(null)    // מיקומי דיסקיות מקומיים בזמן צעידה (לכותב בלבד)
+  const [muted, setMutedState] = useState(() => isMuted())
   const busyRef = useRef(false)                   // נועל מהלך בזמן ריצה
 
   const myIndex = state ? state.players.findIndex(p => p.uid === me.uid) : -1
@@ -668,15 +674,17 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       if (pos === 0) cash += RULES.PASS_START_BONUS
       const players = s.players.map((pp, idx) => idx === turnIdx ? { ...pp, pos, cash } : pp)
       s = { ...s, players }
+      // מזיזים את הדיסקית מקומית מיד (ללא המתנה ל-Firestore) — כך הכותב רואה את התנועה
+      setLocalTokens(players.filter(pp => !pp.dead).map(pp => ({ uid: pp.uid, color: pp.color, tileId: pp.pos })))
       setWalkingTiles(focusWindow(pos))
       focus(focusWindow(pos))
-      // דוחפים כל כמה צעדים כדי שהצופים יראו תנועה (לא בכל צעד — חוסך כתיבות)
       playSound('step')
       await sleep(420)
     }
     setWalkingTiles(null)
     await push(s)            // עדכון מיקום סופי לכולם
     await sleep(300)
+    setLocalTokens(null)     // משחררים — מכאן הלוח מצייר לפי ה-state המסונכרן
     await landOn(s)
   }
 
@@ -825,7 +833,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   // ── derived for the board ──
-  const tokens = state.players.filter(p => !p.dead).map(p => ({ uid: p.uid, color: p.color, tileId: p.pos }))
+  const tokens = localTokens || state.players.filter(p => !p.dead).map(p => ({ uid: p.uid, color: p.color, tileId: p.pos }))
   const tokenColors = Object.fromEntries(state.players.map(p => [p.uid, p.color]))
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
   const showFull = peek || cameraMode === 'full'
@@ -859,25 +867,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
-        {/* right panel: me + dice + controls */}
+        {/* right panel: ME only + dice + controls */}
         <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {state.players.filter(p => p.uid === me.uid).map(panelCard)}
-          {state.players.filter(p => p.uid !== me.uid).map(panelCard)}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={() => setChatOpen(true)} style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit', position: 'relative' }}>
-              💬 צ'אט
-            </button>
-            <button
-              onClick={() => {
-                const m = cameraMode === 'zoom' ? 'full' : 'zoom'
-                setCameraMode(m)
-                try { localStorage.setItem('beyahad_aroundworld_camera', m) } catch {}
-                if (m === 'full') setFocusTiles(null)
-              }}
-              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {cameraMode === 'zoom' ? '🎥 מצלמה עוקבת' : '🗺️ לוח מלא'}
-            </button>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0, 1].map(i => (
                 <div key={i} style={{ width: 44, height: 44, borderRadius: 10, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 23, color: INK }}>
@@ -897,6 +891,32 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
             </button>
             <div style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)' }}>
               {winner ? '' : isMyTurn ? 'תורך!' : `תור ${active?.name || ''}`}
+            </div>
+            {/* control row: camera · sound · chat */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => {
+                  const m = cameraMode === 'zoom' ? 'full' : 'zoom'
+                  setCameraMode(m)
+                  try { localStorage.setItem('beyahad_aroundworld_camera', m) } catch {}
+                  if (m === 'full') setFocusTiles(null)
+                }}
+                aria-label="מצלמה"
+                title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'}
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {cameraMode === 'zoom' ? '🎥' : '🗺️'}
+              </button>
+              <button
+                onClick={() => { const m = !muted; setMuted(m); setMutedState(m) }}
+                aria-label="סאונד"
+                title={muted ? 'הפעל סאונד' : 'השתק'}
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {muted ? '🔇' : '🔊'}
+              </button>
+              <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                💬
+              </button>
             </div>
           </div>
         </div>
@@ -919,6 +939,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               👁 מצב הצצה — לחיצה כפולה לחזרה
             </div>
           )}
+        </div>
+
+        {/* left panel: ALL OTHER players */}
+        <div style={{ width: 150, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)', textAlign: 'center', padding: '2px 0' }}>
+            השחקנים
+          </div>
+          {state.players.filter(p => p.uid !== me.uid).map(panelCard)}
         </div>
       </div>
 
