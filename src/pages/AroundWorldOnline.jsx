@@ -43,7 +43,7 @@ import {
 
 const INK = '#1c1c1c'
 const CREAM = '#f6efdf'
-const MONO_BLUE = '#2f73c9'
+const AW_BLUE = '#2f73c9'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // ── חפיסות זמניות (זהות ל-AroundWorldGame עד שבן יאשר את נתוני האקסל) ──
@@ -105,7 +105,7 @@ function initAroundWorldState(playerDefs) {
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — מנהל את שלבי האונליין
 // ════════════════════════════════════════════════════════
-export default function MonopolyOnline({ mode, numPlayers = 4, initialRoomId, onBack, onHome, onExit, autoInviteFriend = null }) {
+export default function AroundWorldOnline({ mode, numPlayers = 4, initialRoomId, onBack, onHome, onExit, autoInviteFriend = null }) {
   const { authUser, profile } = useUserStore()
   const [roomId, setRoomId] = useState(initialRoomId || null)
 
@@ -149,10 +149,10 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
     ;(async () => {
       if (!me.uid) { setErrorMsg('צריך להיות מחובר'); setPhase('error'); return }
       try {
-        const { roomId } = await findOrCreateMonopolyMatch({ player: me, maxPlayers: numPlayers })
+        const { roomId } = await findOrCreateAroundWorldMatch({ player: me, maxPlayers: numPlayers })
         onReady(roomId)
       } catch (e) {
-        console.error('monopoly match error:', e)
+        console.error('around-world match error:', e)
         setErrorMsg('לא הצלחנו למצוא משחק — נסו שוב')
         setPhase('error')
       }
@@ -169,10 +169,10 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
     if (!me.uid) return
     setErrorMsg('')
     try {
-      const { roomId } = await createMonopolyRoom({ host: me, roomType: 'private' })
+      const { roomId } = await createAroundWorldRoom({ host: me, roomType: 'private' })
       await sendGameInvite({
         from: me, to: { uid: friend.otherUid, name: friend.otherName },
-        gameType: 'monopoly', roomId,
+        gameType: 'aroundworld', roomId,
       })
       onReady(roomId)
     } catch (e) {
@@ -191,7 +191,7 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
           <button onClick={onBack} style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', color: 'white', border: 'none', fontSize: 22, cursor: 'pointer' }}>←</button>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-          <div style={{ display: 'flex', justifyContent: 'center' }}><GameIcon id="monopoly" size={84} /></div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}><GameIcon id="aroundworld" size={84} /></div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'Rubik, Heebo, sans-serif' }}>מחפש לך יריבים...</div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
@@ -304,7 +304,7 @@ function FriendRow({ friend, profile, online, onInvite }) {
         </div>
       </div>
       <button onClick={onInvite} style={{
-        background: online ? 'var(--success)' : MONO_BLUE,
+        background: online ? 'var(--success)' : AW_BLUE,
         color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px',
         fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
       }}>🎮 הזמן</button>
@@ -323,9 +323,9 @@ function RoomScreen({ roomId, me, onBack, onHome, onExit }) {
   useEffect(() => {
     if (!joinedRef.current) {
       joinedRef.current = true
-      joinMonopolyRoom(roomId, me).catch(() => {})
+      joinAroundWorldRoom(roomId, me).catch(() => {})
     }
-    const unsub = watchMonopolyRoom(roomId, (data) => {
+    const unsub = watchAroundWorldRoom(roomId, (data) => {
       if (!data) { setError('המשחק נסגר'); return }
       setRoom(data)
     })
@@ -387,7 +387,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
     try {
       await sendGameInvite({
         from: me, to: { uid: friend.otherUid, name: friend.otherName },
-        gameType: 'monopoly', roomId,
+        gameType: 'aroundworld', roomId,
       })
     } catch (e) { console.error('invite more error:', e) }
   }
@@ -396,8 +396,8 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
     if (startedRef.current) return
     startedRef.current = true
     const defs = players.map(p => ({ uid: p.uid, name: p.name }))
-    const state = initMonopolyState(defs)
-    await startMonopolyGame(roomId, state)
+    const state = initAroundWorldState(defs)
+    await startAroundWorldGame(roomId, state)
   }
 
   useEffect(() => {
@@ -407,7 +407,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
   }, [isRandom, isHost, players.length, maxPlayers]) // eslint-disable-line
 
   const handleLeave = async () => {
-    if (isHost) await leaveMonopolyRoom(roomId)
+    if (isHost) await leaveAroundWorldRoom(roomId)
     onBack()
   }
 
@@ -420,7 +420,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
       </div>
       <div style={{ padding: '20px 16px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="monopoly" size={56} /></div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><GameIcon id="aroundworld" size={56} /></div>
           <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)' }}>
             {isRandom
               ? `ממתינים לשחקנים (${players.length}/${maxPlayers})`
@@ -445,12 +445,12 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   background: isInviteSlot ? '#eef4fb' : 'var(--surface)',
-                  border: isInviteSlot ? `1px solid ${MONO_BLUE}` : '1px dashed var(--line)',
+                  border: isInviteSlot ? `1px solid ${AW_BLUE}` : '1px dashed var(--line)',
                   borderRadius: 14, padding: '12px 16px',
                   color: 'var(--ink-2)',
                   cursor: isInviteSlot ? 'pointer' : 'default',
                 }}>
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: isInviteSlot ? MONO_BLUE : 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: isInviteSlot ? '#fff' : 'var(--ink-3)' }}>＋</div>
+                <div style={{ width: 42, height: 42, borderRadius: '50%', background: isInviteSlot ? AW_BLUE : 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: isInviteSlot ? '#fff' : 'var(--ink-3)' }}>＋</div>
                 <div style={{ fontSize: 15, fontWeight: isInviteSlot ? 800 : 400 }}>{isInviteSlot ? 'הזמן עוד חבר' : 'ממתין לשחקן…'}</div>
               </div>
             )
@@ -502,7 +502,7 @@ function WaitPlayerRow({ p, meUid, hostUid }) {
       <div style={{ flex: 1, fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
         {prof.name}{p.uid === meUid ? ' (אתה)' : ''}
       </div>
-      {p.uid === hostUid && <span style={{ fontSize: 12, color: MONO_BLUE, fontWeight: 800 }}>👑 מארח</span>}
+      {p.uid === hostUid && <span style={{ fontSize: 12, color: AW_BLUE, fontWeight: 800 }}>👑 מארח</span>}
     </div>
   )
 }
@@ -557,7 +557,7 @@ function InvitePicker({ me, players, onInvite, onClose }) {
                   <Avatar name={dispName} size={46} photoURL={prof?.photoURL} />
                   <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
                   <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
-                    background: invited[f.otherUid] ? 'var(--success)' : MONO_BLUE,
+                    background: invited[f.otherUid] ? 'var(--success)' : AW_BLUE,
                     color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
                     fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
                     cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
@@ -578,7 +578,7 @@ function InvitePicker({ me, players, onInvite, onClose }) {
 function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
 
-  // אוריינטציה — סיבוב אוטומטי לרוחב (זהה ל-MonopolyGame)
+  // אוריינטציה — סיבוב אוטומטי לרוחב (זהה ל-AroundWorldGame)
   const [isPortrait, setIsPortrait] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(orientation: portrait)').matches
   )
@@ -602,7 +602,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   // local view state
   const [cameraMode, setCameraMode] = useState(() => {
-    try { return localStorage.getItem('beyahad_monopoly_camera') || 'zoom' } catch { return 'zoom' }
+    try { return localStorage.getItem('beyahad_aroundworld_camera') || 'zoom' } catch { return 'zoom' }
   })
   const [focusTiles, setFocusTiles] = useState(null)
   const [viewPlayer, setViewPlayer] = useState(null)
@@ -638,7 +638,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   // ── עזרי כתיבת-מצב (רק הכותב הפעיל מריץ אותם) ──
-  const push = (next) => updateMonopolyState(roomId, { ...next, seq: (next.seq || 0) + 1 })
+  const push = (next) => updateAroundWorldState(roomId, { ...next, seq: (next.seq || 0) + 1 })
 
   const focus = (ids) => setFocusTiles((cameraMode === 'zoom' && !peek) ? ids : null)
 
@@ -830,7 +830,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
   const showFull = peek || cameraMode === 'full'
 
-  const handleLeave = async () => { await leaveMonopolyRoom(roomId); onExit ? onExit() : onBack() }
+  const handleLeave = async () => { await leaveAroundWorldRoom(roomId); onExit ? onExit() : onBack() }
 
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
@@ -872,7 +872,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               onClick={() => {
                 const m = cameraMode === 'zoom' ? 'full' : 'zoom'
                 setCameraMode(m)
-                try { localStorage.setItem('beyahad_monopoly_camera', m) } catch {}
+                try { localStorage.setItem('beyahad_aroundworld_camera', m) } catch {}
                 if (m === 'full') setFocusTiles(null)
               }}
               style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -906,7 +906,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           style={{ flex: 1, minWidth: 0, position: 'relative' }}
           onDoubleClick={() => { if (!isMyTurn) setPeek(v => !v) }}
         >
-          <MonopolyBoard
+          <AroundWorldBoard
             focusTiles={showFull ? null : focusTiles}
             tokens={tokens}
             owners={state.owners}
@@ -962,7 +962,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
       {/* chat */}
       <ChatToast msgs={chatMsgs} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />
-      {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendMonopolyChat} />}
+      {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendAroundWorldChat} />}
     </div>
   )
 
@@ -990,7 +990,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   )
 }
 
-// ── landing card (online) — כמו ב-MonopolyGame, מותאם ל-myUid ──
+// ── landing card (online) — כמו ב-AroundWorldGame, מותאם ל-myUid ──
 function LandingCard({ card, players, myUid, onAction }) {
   const t = TILES[card.tileId]
   const actor = players.find(p => p.uid === card.uid)
