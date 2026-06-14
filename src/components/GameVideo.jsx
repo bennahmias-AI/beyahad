@@ -277,7 +277,7 @@ function VideoBridge({ me, startWithCam, children }) {
 // ═══════════════════════════════════════════════════════════════
 // PlayerVideo — מחליף את <Avatar>. מציג וידאו אם יש, אחרת אווטאר.
 // ═══════════════════════════════════════════════════════════════
-export function PlayerVideo({ uid, name, size = 42, photoURL, online }) {
+export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0 }) {
   const { active, tracksByUid, tracksByName, hiddenVideo } = useGameVideo()
   // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
   const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
@@ -287,16 +287,27 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online }) {
   const hasVideo = trackRef && trackRef.publication && !trackRef.publication.isMuted && !isHidden
 
   if (hasVideo) {
+    // rotate — מספר מעלות לסיבוב תוכן הווידאו (לקיזוז סיבוב המשחק במצב landscape
+    // מאולץ בטלפון). כשמסובבים 90°/270° צריך להחליף רוחב↔גובה כדי שימלא את העיגול.
+    const swap = rotate === 90 || rotate === -90 || rotate === 270
+    const videoStyle = rotate
+      ? {
+          position: 'absolute', top: '50%', left: '50%',
+          width: swap ? size : '100%', height: swap ? size : '100%',
+          // כשמחליפים מימדים, נמתח לפי הצד הקצר כדי לכסות את העיגול
+          minWidth: swap ? '100%' : undefined, minHeight: swap ? '100%' : undefined,
+          objectFit: 'cover',
+          transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
+          transformOrigin: 'center center',
+        }
+      : { width: '100%', height: '100%', objectFit: 'cover' }
     return (
       <div style={{
         width: size, height: size, borderRadius: '50%', overflow: 'hidden',
         flexShrink: 0, background: '#000', border: '2px solid rgba(201,162,74,.6)',
         position: 'relative',
       }}>
-        <VideoTrack
-          trackRef={trackRef}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+        <VideoTrack trackRef={trackRef} style={videoStyle} />
       </div>
     )
   }

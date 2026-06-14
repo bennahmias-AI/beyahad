@@ -75,7 +75,7 @@ export function CardFooter({ children, color = '#3a3a3a' }) {
   CardsModal - shows a player's owned cards or the full catalog.
   props: player (the panel that was tapped), players (all), owners, hotels, onClose
 */
-export function CardsModal({ player, players, owners, hotels, onClose }) {
+export function CardsModal({ player, players, owners, hotels, onClose, rotate = false }) {
   const [tab, setTab] = useState('mine'); // mine | all
   const allProps = TILES.filter((t) => t.type === 'prop');
   const mine = allProps.filter((t) => owners[t.id] === player.uid);
@@ -89,9 +89,10 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
     }}>{label}</button>
   );
 
-  return createPortal((
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 12, boxSizing: 'border-box' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 760, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
+  // כשהמשחק מסובב (טלפון ב-portrait מאולץ ל-landscape), ה-portal יושב על document.body
+  // הלא-מסובב — אז נסובב את תוכן המודאל 90° כדי שיתאים לכיוון המשחק.
+  const overlayInner = (
+    <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 760, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `2px solid ${INK}`, background: '#fff' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: player.color, border: `3px solid ${INK}`, flex: 'none' }} />
@@ -136,6 +137,20 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
           )}
         </div>
       </div>
+  );
+
+  // מסגרת ה-overlay: כשמסובב — container פנימי מסובב 90° עם מימדי מסך מוחלפים.
+  return createPortal((
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(28,28,28,.6)', direction: 'rtl', overflow: 'hidden' }}>
+      {rotate ? (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}>
+          {overlayInner}
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}>
+          {overlayInner}
+        </div>
+      )}
     </div>
   ), document.body);
 }

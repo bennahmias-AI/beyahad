@@ -681,7 +681,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     focus(focusWindow(p.pos))
     await sleep(cameraMode === 'zoom' ? 700 : 300)
 
-    // צעידה תא-תא (אנימציה מקומית; דוחפים מצב סופי בסוף)
+    // צעידה תא-תא — דוחפים כל צעד ל-Firestore כדי שגם הצופים יראו את התנועה
     let pos = p.pos
     let cash = p.cash
     for (let i = 0; i < steps; i++) {
@@ -689,11 +689,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       if (pos === 0) cash += RULES.PASS_START_BONUS
       const players = s.players.map((pp, idx) => idx === turnIdx ? { ...pp, pos, cash } : pp)
       s = { ...s, players }
-      // מזיזים את הדיסקית מקומית מיד (ללא המתנה ל-Firestore) — כך הכותב רואה את התנועה
+      // מזיזים את הדיסקית מקומית מיד (לתגובה מיידית אצל הכותב)
       setLocalTokens(players.filter(pp => !pp.dead).map(pp => ({ uid: pp.uid, color: pp.color, tileId: pp.pos })))
       setWalkingTiles(focusWindow(pos))
       focus(focusWindow(pos))
       playSound('step')
+      // דוחפים את הצעד לכולם (הצופים יראו את הדיסקית מתקדמת תא-תא) —
+      // מחכים ל-push כך שהמהלך מסתנכרן לפני הממתין הבא
+      await push(s)
       await sleep(420)
     }
     setWalkingTiles(null)
@@ -865,10 +868,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         opacity: p.dead ? 0.4 : 1,
       }}>
         <div onClick={() => setViewPlayer(p)} role="button" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-          <PlayerVideo uid={p.uid} name={p.name} size={34} />
+          <PlayerVideo uid={p.uid} name={p.name} size={34} rotate={isPortrait ? -90 : 0} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+            <div style={{ fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 11, height: 11, borderRadius: '50%', background: p.color, border: `1.5px solid ${INK}`, flex: 'none' }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}</span>
             </div>
             <div style={{ fontWeight: 800, fontSize: 16, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
               {p.cash.toLocaleString()} ₪
@@ -976,7 +980,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
       {/* player cards modal */}
       {viewPlayer && (
-        <CardsModal player={viewPlayer} players={state.players} owners={state.owners} hotels={state.hotels} onClose={() => setViewPlayer(null)} />
+        <CardsModal player={viewPlayer} players={state.players} owners={state.owners} hotels={state.hotels} onClose={() => setViewPlayer(null)} rotate={isPortrait} />
       )}
 
       {/* card flip (lotto/chance) — מוצג לכולם; רק הכותב מסיים */}
@@ -1015,6 +1019,18 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       {/* chat */}
       <ChatToast msgs={chatMsgs} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />
       {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendAroundWorldChat} />}
+
+      {/* אישור יציאה — בתוך gameInner כדי שיסתובב עם המשחק במצב מסובב */}
+      {confirmLeave && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle="המשחק הנוכחי יסתיים והיריבים יקבלו הודעה"
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לעזוב"
+          onStay={() => setConfirmLeave(false)}
+          onLeave={() => { setConfirmLeave(false); handleLeave() }}
+        />
+      )}
     </div>
   )
 
@@ -1028,17 +1044,6 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           </div>
         </div>
       ) : gameInner}
-
-      {confirmLeave && (
-        <LeaveConfirmModal
-          title="לעזוב את המשחק?"
-          subtitle="המשחק הנוכחי יסתיים והיריבים יקבלו הודעה"
-          stayLabel="לא, להישאר במשחק"
-          leaveLabel="כן, לעזוב"
-          onStay={() => setConfirmLeave(false)}
-          onLeave={() => { setConfirmLeave(false); handleLeave() }}
-        />
-      )}
     </GameVideoProvider>
     </ProfilesProvider>
   )
