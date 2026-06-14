@@ -47,7 +47,7 @@ function heroLines(gender) {
   return lines
 }
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onOpenNotification }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onResumeGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
   const isAdmin = profile?.role === 'admin'
   const [menuOpen, setMenuOpen] = useState(false)
@@ -88,6 +88,18 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
     try { const fresh = await getUser(authUser.uid); if (fresh) setProfile(fresh) } catch {}
     setCancelingDeletion(false)
   }
+
+  // באנר "חזור למשחק" — מוצג אם השחקן עזב משחק זמנית ויש לו 60 שניות לחזור
+  const pendingReturn = profile?.pendingReturn || null
+  const [resumeRemainingSec, setResumeRemainingSec] = useState(0)
+  useEffect(() => {
+    if (!pendingReturn?.expiresMs) return
+    const tick = () => setResumeRemainingSec(Math.max(0, Math.ceil((pendingReturn.expiresMs - Date.now()) / 1000)))
+    tick()
+    const i = setInterval(tick, 500)
+    return () => clearInterval(i)
+  }, [pendingReturn?.expiresMs])
+  const resumeActive = pendingReturn && resumeRemainingSec > 0
 
   // התראות
   const { items: notifications, unseenCount } = useNotifications(authUser?.uid)
@@ -265,6 +277,23 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
         </header>
 
         <div className="wrap">
+
+          {/* באנר חזרה למשחק שנטש — 60 שניות להתחרט חזרה */}
+          {resumeActive && (
+            <div style={{ background: 'rgba(248,211,91,.18)', border: '2px solid #d4901a', borderRadius: 18, padding: '16px 18px', margin: '20px 0 0' }}>
+              <div className="h-display" style={{ fontSize: 18, color: '#7a4d0c', marginBottom: 6 }}>
+                ⏳ עזבת באמצע משחק <strong>{pendingReturn.gameName}</strong>
+              </div>
+              <div style={{ fontSize: 14, color: '#5a4220', fontWeight: 600, lineHeight: 1.6, marginBottom: 14 }}>
+                נשארו <strong style={{ color: '#d4901a' }}>{resumeRemainingSec} שניות</strong> לחזור לפני שהמשחק ימשיך בלעדיך.
+              </div>
+              <button
+                onClick={() => onResumeGame && onResumeGame(pendingReturn.gameType, pendingReturn.roomId)}
+                style={{ width: '100%', padding: 14, borderRadius: 14, background: '#2f9e3f', color: '#fff', fontWeight: 700, fontSize: '1rem', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                🎮 חזור למשחק
+              </button>
+            </div>
+          )}
 
           {/* באנר מחיקת חשבון */}
           {deletionPending && (
@@ -468,6 +497,23 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               {onlineCount <= 1
                 ? 'אתה מחובר — מחכים שעוד יצטרפו'
                 : <>יש כעת <b>{onlineCount}</b> אנשים מחוברים</>}
+            </div>
+          )}
+
+          {/* באנר חזרה למשחק שנטש (מובייל) */}
+          {resumeActive && (
+            <div style={{ background: 'rgba(248,211,91,.18)', border: '2px solid #d4901a', borderRadius: 16, padding: '14px 16px', marginTop: 16 }}>
+              <div className="h-display" style={{ fontSize: 16, color: '#7a4d0c', marginBottom: 4 }}>
+                ⏳ עזבת באמצע <strong>{pendingReturn.gameName}</strong>
+              </div>
+              <div style={{ fontSize: 13, color: '#5a4220', fontWeight: 600, lineHeight: 1.5, marginBottom: 12 }}>
+                נשארו <strong style={{ color: '#d4901a' }}>{resumeRemainingSec} שניות</strong> לחזור.
+              </div>
+              <button
+                onClick={() => onResumeGame && onResumeGame(pendingReturn.gameType, pendingReturn.roomId)}
+                style={{ width: '100%', padding: 12, borderRadius: 12, background: '#2f9e3f', color: '#fff', fontWeight: 700, fontSize: '.98rem', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                🎮 חזור למשחק
+              </button>
             </div>
           )}
 

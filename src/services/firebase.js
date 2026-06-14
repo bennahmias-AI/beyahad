@@ -2227,6 +2227,13 @@ export async function quitAroundWorldGame(roomId, uid) {
 
     if (!gameState.players) return
 
+    // מנקים pendingLeave אם מסומן ל-uid הזה — היציאה סופית מתרחשת גם כשהתוקף פג (מטפלים ב-quit)
+    if (gameState.pendingLeave && gameState.pendingLeave.uid === uid) {
+      delete gameState.pendingLeave
+    }
+    // מנקים pendingReturn ממסמך המשתמש שיצא — הבאנר בדף הבית לא יתמיד להופיע
+    try { await updateDoc(doc(db, 'users', uid), { pendingReturn: null }) } catch { /* best-effort */ }
+
     // המשחק כבר הסתיים? — מחיקים את החדר
     if (gameState.phase === 'ended' || gameState.winner) {
       await deleteDoc(ref).catch(() => {})
@@ -2287,6 +2294,104 @@ export async function quitAroundWorldGame(roomId, uid) {
     })
   } catch (e) {
     console.error('quitAroundWorldGame error:', e)
+  }
+}
+
+// נטישה זמנית ממשחק — מסמן שהשחקן עזב עם חלון 60 שניות לחזור.
+// מצב המשחק נעצר לכולם (שאר השחקנים רואים מודאל עם ספירת לאחור וחוסמים מפעולות).
+// השחקן שיצא מקבל pendingReturn במסמך users שלו — להצגת באנר בדף הבית.
+export async function pauseAroundWorldGame(roomId, uid, name) {
+  if (!roomId || !uid) return false
+  try {
+    const ref = doc(db, 'aroundworldRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return false
+    const data = snap.data()
+    if (data.status !== 'playing') return false   // לא במהלך משחק
+
+    let gameState
+    try { gameState = JSON.parse(data.gameStateJson || '{}') }
+    catch { return false }
+
+    if (!gameState.players) return false
+    if (gameState.phase === 'ended' || gameState.winner) return false   // המשחק נגמר
+
+    const player = gameState.players.find(p => p.uid === uid)
+    if (!player || player.dead) return false
+
+    // כבר יש pendingLeave של מישהו אחר — לא תומכים שתי נטישות במקביל. נוהגים כ-quit רגיל.
+    if (gameState.pendingLeave && gameState.pendingLeave.uid !== uid) {
+      await quitAroundWorldGame(roomId, uid)
+      return false
+    }
+
+    const nowMs = Date.now()
+    const RETURN_WINDOW_MS = 60 * 1000
+    gameState.pendingLeave = {
+      uid,
+      name: name || player.name,
+      sinceMs: nowMs,
+      expiresMs: nowMs + RETURN_WINDOW_MS,
+    }
+    gameState.seq = (gameState.seq || 0) + 1
+
+    await updateDoc(ref, {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+
+    // שמירת הסימון אצל המשתמש — הבאנר ב-HomePage יציג את זה
+    try {
+      await setDoc(doc(db, 'users', uid), {
+        pendingReturn: {
+          gameType: 'aroundworld',
+          gameName: 'מסביב לעולם',
+          roomId,
+          expiresMs: nowMs + RETURN_WINDOW_MS,
+        }
+      }, { merge: true })
+    } catch (e) { /* best-effort */ }
+
+    return true
+  } catch (e) {
+    console.error('pauseAroundWorldGame error:', e)
+    return false
+  }
+}
+
+// השחקן חוזר — מנקה את pendingLeave וpendingReturn. מחזיר true בהצלחה.
+export async function returnToAroundWorldGame(roomId, uid) {
+  if (!roomId || !uid) return false
+  try {
+    const ref = doc(db, 'aroundworldRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return false
+    const data = snap.data()
+
+    let gameState
+    try { gameState = JSON.parse(data.gameStateJson || '{}') }
+    catch { return false }
+
+    if (!gameState.pendingLeave || gameState.pendingLeave.uid !== uid) {
+      // מנקים גם כך pendingReturn אצל המשתמש — לא קשור יותר
+      try { await updateDoc(doc(db, 'users', uid), { pendingReturn: null }) } catch {}
+      return false
+    }
+    if (Date.now() > gameState.pendingLeave.expiresMs) return false   // כבר פג תוקף
+
+    delete gameState.pendingLeave
+    gameState.seq = (gameState.seq || 0) + 1
+
+    await updateDoc(ref, {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+
+    try { await updateDoc(doc(db, 'users', uid), { pendingReturn: null }) } catch {}
+    return true
+  } catch (e) {
+    console.error('returnToAroundWorldGame error:', e)
+    return false
   }
 }
 

@@ -40,6 +40,7 @@ import {
   updateAroundWorldState, watchAroundWorldRoom, leaveAroundWorldRoom,
   findOrCreateAroundWorldMatch, watchFriendships, sendGameInvite,
   watchUser, sendAroundWorldChat, sendFriendRequest, quitAroundWorldGame,
+  pauseAroundWorldGame, returnToAroundWorldGame,
 } from '../services/firebase.js'
 
 const INK = '#1c1c1c'
@@ -641,6 +642,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const active = state?.players[turnIdx]
   const winner = state?.winner ? state.players.find(p => p.uid === state.winner) : null
 
+  // אם השחקן חזר למשחק אחרי נטישה זמנית (לחץ על הבאנר בדף הבית) — מנקה את pendingLeave והמשחק חוזר
+  useEffect(() => {
+    if (state?.pendingLeave?.uid === me.uid) {
+      returnToAroundWorldGame(roomId, me.uid).catch(() => {})
+    }
+  // eslint-disable-next-line
+  }, [state?.pendingLeave?.uid, me.uid, roomId])
+
   // pinch / double-tap להצצה כשלא בתור; כשמגיע התור — חוזר אוטומטית
   useEffect(() => {
     if (isMyTurn && peek) setPeek(false)
@@ -676,6 +685,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // ── המהלך: הטלה → צעידה → נחיתה → קלף (רק מי שבתורו) ──
   async function rollAndWalk() {
     if (!isMyTurn || busyRef.current) return
+    if (state.pendingLeave) return    // המשחק מושהה עד שהשחקן יחזור או שהזמן יפוג
     busyRef.current = true
     const d1 = 1 + Math.floor(Math.random() * 6)
     const d2 = 1 + Math.floor(Math.random() * 6)
@@ -758,6 +768,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // ── הכרעת קלף (רק מי שבתורו) ──
   async function resolveCard(action) {
     if (busyRef.current) return
+    if (state.pendingLeave) return    // המשחק מושהה
     const c = state.pendingCard
     if (!c || c.uid !== me.uid) return
     busyRef.current = true
@@ -867,7 +878,16 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
   const showFull = peek || cameraMode === 'full'
 
-  const handleLeave = async () => { await quitAroundWorldGame(roomId, me.uid); onExit ? onExit() : onBack() }
+  const handleLeave = async () => {
+    // אם המשחק גמור (יש מנצח) — יציאה סופית ללא חלון 60 שניות. אחרת — מעבירים ל-pause שמאפשר חזרה
+    const gameEnded = !!winner || state?.phase === 'ended'
+    if (gameEnded) {
+      await quitAroundWorldGame(roomId, me.uid)
+    } else {
+      await pauseAroundWorldGame(roomId, me.uid, me.name)
+    }
+    onExit ? onExit() : onBack()
+  }
 
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
@@ -1051,6 +1071,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         </div>
       )}
 
+      {/* pending leave modal — מוצג לשאר השחקנים כשמישהו נטש — מחכה לחזרה תוך 60 שניות */}
+      {state.pendingLeave && state.pendingLeave.uid !== me.uid && (
+        <PendingLeaveModal
+          pendingLeave={state.pendingLeave}
+          onExpire={() => quitAroundWorldGame(roomId, state.pendingLeave.uid).catch(() => {})}
+        />
+      )}
+
       {/* chat */}
       <ChatToast msgs={chatMsgs} meUid={me.uid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />
       {chatOpen && <ChatPanel roomId={roomId} me={me} msgs={chatMsgs} onClose={() => setChatOpen(false)} sendFn={sendAroundWorldChat} />}
@@ -1081,6 +1109,46 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       ) : gameInner}
     </GameVideoProvider>
     </ProfilesProvider>
+  )
+}
+
+// ── PendingLeaveModal — מוצג לשאר השחקנים כששחקן נטש זמנית (ספירת לחזרה של 60 שניות) ──
+function PendingLeaveModal({ pendingLeave, onExpire }) {
+  const [remainingSec, setRemainingSec] = useState(() =>
+    Math.max(0, Math.ceil((pendingLeave.expiresMs - Date.now()) / 1000))
+  )
+  const expiredRef = useRef(false)
+
+  useEffect(() => {
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((pendingLeave.expiresMs - Date.now()) / 1000))
+      setRemainingSec(remaining)
+      if (remaining === 0 && !expiredRef.current) {
+        expiredRef.current = true
+        onExpire && onExpire()
+      }
+    }
+    const interval = setInterval(tick, 500)
+    tick()
+    return () => clearInterval(interval)
+  }, [pendingLeave.expiresMs, onExpire])
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 16 }}>
+      <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '24px 26px', textAlign: 'center', maxWidth: 'min(86vw, 360px)', width: '100%', boxShadow: '0 18px 50px rgba(0,0,0,.4)' }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>⏳</div>
+        <div style={{ fontWeight: 900, fontSize: 22, color: INK, marginBottom: 10 }}>
+          {pendingLeave.name} יצא/ה מהמשחק
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: '#555', lineHeight: 1.5, marginBottom: 18 }}>
+          המשחק מושהה עד שיחזור/ת— אם לא יחזור/ת בזמן, המשחק ימשיך בלעדיה/ו.
+        </div>
+        <div style={{ fontWeight: 900, fontSize: 48, color: remainingSec <= 10 ? '#d8402a' : INK, marginBottom: 4, lineHeight: 1 }}>
+          {remainingSec}
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#888' }}>שניות</div>
+      </div>
+    </div>
   )
 }
 

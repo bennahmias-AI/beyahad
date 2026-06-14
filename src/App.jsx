@@ -325,6 +325,24 @@ export default function App() {
   // כניסה ישירה למשחק במצב ספציפי (ממסך הבית — "קורה ממש עכשיו")
   // gameType: bingo|sheshbesh|checkers|chess|rummikub|connect4
   // mode: 'online-friend' | 'online-random' | 'ai' | 'solo'
+  // כניסה ישירה למשחק במצב ספציפי (ממסך הבית — לחיצה על הבאנר “חזור למשחק” אחרי נטישה זמנית)
+  // gameType: aroundworld|rummikub|bingo|arena — roomId: מזהה החדר להיכנס אליו
+  function handleResumeGame(gameType, roomId) {
+    if (gameType === 'aroundworld') {
+      setAroundWorldRoom(roomId)
+      setPage('aroundworld-game')
+    } else if (gameType === 'rummikub') {
+      setRummikubRoom(roomId)
+      setPage('rummikub-game')
+    } else if (gameType === 'bingo') {
+      setBingoRoom(roomId)
+      setPage('bingo-game')
+    } else if (gameType === 'arena') {
+      setArenaRoom(roomId)
+      setPage('arena-game')
+    }
+  }
+
   function handlePlayGame(gameType, mode) {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
@@ -646,6 +664,7 @@ export default function App() {
           onGoFriends={() => setPage('friends')}
           onGoGames={() => setPage('games')}
           onPlayGame={handlePlayGame}
+          onResumeGame={handleResumeGame}
           onOpenNotification={handleOpenNotification}
         />
       )}
