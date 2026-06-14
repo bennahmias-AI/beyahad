@@ -19,7 +19,7 @@
 // הסכמת השחקנים (אישור מראש) מנוהלת ע"י המשחק עצמו דרך
 // <VideoConsentGate> שנמצא גם הוא כאן.
 // ─────────────────────────────────────────────────────────────
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import {
   LiveKitRoom,
   useTracks,
@@ -277,7 +277,7 @@ function VideoBridge({ me, startWithCam, children }) {
 // ═══════════════════════════════════════════════════════════════
 // PlayerVideo — מחליף את <Avatar>. מציג וידאו אם יש, אחרת אווטאר.
 // ═══════════════════════════════════════════════════════════════
-export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0, width, height }) {
+export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, width, height }) {
   const { active, tracksByUid, tracksByName, hiddenVideo } = useGameVideo()
   // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
   const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
@@ -291,13 +291,48 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
   const w = width != null ? width : size
   const h = height != null ? height : size
 
+  // זיהוי אוטומטי של אוריינטציית ה-מקור — המפתח לתקין סיבוב וידאו מטלפון בפורטרייט
+  // (מילי, אמא). כל וידאו מזהה את מימדי ה-מקור בעצמו — לא מתבסס על המכשיר המקומי (הלא נכשל קודם — ראו התמונות של בן + מילי 23/07).
+  const wrapRef = useRef(null)
+  const [autoRotate, setAutoRotate] = useState(0)
+
+  useEffect(() => {
+    if (!hasVideo) { setAutoRotate(0); return }
+    let cancelled = false
+    const detect = () => {
+      if (cancelled) return
+      // מנסים קודם משדה LiveKit (מתקבל מייד כשה-track מצטרף)
+      let vw = 0, vh = 0
+      try {
+        const d = trackRef?.publication?.track?.dimensions
+        if (d && d.width && d.height) { vw = d.width; vh = d.height }
+      } catch {}
+      // fallback — קוראים ישירות מה-<video> המרונדר
+      if (!vw || !vh) {
+        const v = wrapRef.current?.querySelector('video')
+        if (v) { vw = v.videoWidth || 0; vh = v.videoHeight || 0 }
+      }
+      if (vw && vh) {
+        const portraitSource = vh > vw
+        setAutoRotate(portraitSource ? 90 : 0)
+      }
+    }
+    // polling — ה-track לפעמים מתחבר אחרי רנדור ראשון; בדיקה כל 400ms עד שמתייצב
+    detect()
+    const interval = setInterval(detect, 400)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [hasVideo, trackRef])
+
+  // אם ה-caller העביר rotate מפורש — מכבדים אותו (תאימות לאחור). אחרת — משתמשים בזיהוי האוטומטי
+  const effectiveRotate = (rotate != null && rotate !== undefined) ? rotate : autoRotate
+
   if (hasVideo) {
     // rotate counter-rotates the video to compensate for the parent CSS rotation
     // applied on phones that cannot lock landscape orientation. For 90/-90 we must
     // pre-swap width and height so that after the rotation the video fills the box.
-    const swap = rotate === 90 || rotate === -90 || rotate === 270
+    const swap = effectiveRotate === 90 || effectiveRotate === -90 || effectiveRotate === 270
     let videoStyle
-    if (!rotate) {
+    if (!effectiveRotate) {
       videoStyle = { width: '100%', height: '100%', objectFit: 'cover' }
     } else if (isRect && swap && typeof w === 'number' && typeof h === 'number') {
       // rectangle + 90 deg rotation: source is h x w, after rotation fills w x h
@@ -305,14 +340,14 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
         position: 'absolute', top: '50%', left: '50%',
         width: `${h}px`, height: `${w}px`,
         objectFit: 'cover',
-        transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
+        transform: `translate(-50%,-50%) rotate(${effectiveRotate}deg)`,
         transformOrigin: 'center center',
       }
     } else if (isRect) {
       // rectangle + 180 deg rotation, no swap needed
       videoStyle = {
         width: '100%', height: '100%', objectFit: 'cover',
-        transform: `rotate(${rotate}deg)`,
+        transform: `rotate(${effectiveRotate}deg)`,
       }
     } else {
       // circle case (original): swap based on size
@@ -321,12 +356,12 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
         width: swap ? size : '100%', height: swap ? size : '100%',
         minWidth: swap ? '100%' : undefined, minHeight: swap ? '100%' : undefined,
         objectFit: 'cover',
-        transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
+        transform: `translate(-50%,-50%) rotate(${effectiveRotate}deg)`,
         transformOrigin: 'center center',
       }
     }
     return (
-      <div style={{
+      <div ref={wrapRef} style={{
         width: w, height: h,
         borderRadius: isRect ? 0 : '50%',
         overflow: 'hidden',

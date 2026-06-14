@@ -903,9 +903,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         flexShrink: 0,   // הקלף לא מתכווץ — כל התוכן תמיד נראה (וידאו, שם, כסף, כפתורים)
         opacity: p.dead ? 0.4 : 1,
       }}>
-        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. ללא סיבוב — הדפדפן מטפל ב-orientation */}
+        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. PlayerVideo מזהה אוטומטית אם המקור portrait או landscape */}
         <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
-          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} rotate={isPortrait ? 90 : 0} />
+          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} />
         </div>
         {/* שם + כסף בשורה אחת. כפתורי וידאו/מיק בתחתית — שלי (מצלמה+מיק) או של אחרים (הסתרת וידאו / השתקת אודיו — חשוב למודרציה מול משתמשים לא רצויים) */}
         <div style={{ padding: '6px 9px', display: 'flex', flexDirection: 'column', gap: 4 }}>
