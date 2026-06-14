@@ -11,6 +11,7 @@
 */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TILES, GROUPS, rentFor } from '../data/aroundWorldBoard';
 import { flagSVG } from '../data/aroundWorldFlags';
 
@@ -88,9 +89,9 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
     }}>{label}</button>
   );
 
-  return (
-    <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 12, boxSizing: 'border-box' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 720, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
+  return createPortal((
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(28,28,28,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 12, boxSizing: 'border-box' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 760, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `2px solid ${INK}`, background: '#fff' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: player.color, border: `3px solid ${INK}`, flex: 'none' }} />
@@ -136,5 +137,5 @@ export function CardsModal({ player, players, owners, hotels, onClose }) {
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }
