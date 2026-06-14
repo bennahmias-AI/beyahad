@@ -43,11 +43,18 @@ function isValidILPhone(e164) {
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim())
 }
-// שנת לידה סבירה: בין 1910 לפני 16 שנה מהיום (מבוגר מ-16)
+// שנת לידה סבירה: בין 1910 לפני 18 שנה מהיום (מבוגר מ-18) — האפליקציה לגיל 18+
 const CURRENT_YEAR = new Date().getFullYear()
 function isValidBirthYear(y) {
   const n = parseInt(y, 10)
-  return Number.isInteger(n) && n >= 1910 && n <= CURRENT_YEAR - 16
+  return Number.isInteger(n) && n >= 1910 && n <= CURRENT_YEAR - 18
+}
+// מזהה שנה מלאה שמתאימה למישהו מתחת לגיל 18 — מציגים הודעה מיידית למשתמש כשהוא מקליד שנה שכזו (עדיין שלא התקדם לשליחת קוד)
+function isUnder18Year(y) {
+  const s = String(y || '').trim()
+  if (s.length !== 4) return false
+  const n = parseInt(s, 10)
+  return Number.isInteger(n) && n > CURRENT_YEAR - 18 && n <= CURRENT_YEAR
 }
 
 const AUTH_ERRORS = {
@@ -166,7 +173,15 @@ export default function AuthPage() {
       if (!name.trim())     { setError('נא להזין שם פרטי'); return false }
       if (!lastName.trim()) { setError('נא להזין שם משפחה'); return false }
       if (!gender)          { setError('נא לבחור מגדר'); return false }
-      if (!isValidBirthYear(birthYear)) { setError('נא להזין שנת לידה תקינה (למשל 1955)'); return false }
+      if (!isValidBirthYear(birthYear)) {
+        // הודעה ספציפית למי שמתחת לגיל 18 — אין הרשמה לקטינים
+        if (isUnder18Year(birthYear)) {
+          setError('האפליקציה מיועדת לגיל 18 ומעלה. אנא תקנו את שנת הלידה.')
+        } else {
+          setError('נא להזין שנת לידה תקינה (למשל 1955)')
+        }
+        return false
+      }
       if (!city.trim())     { setError('נא להזין עיר'); return false }
     }
     if (forChannel === 'email') {
@@ -365,6 +380,17 @@ export default function AuthPage() {
                   placeholder="1955" inputMode="numeric" dir="ltr" maxLength={4}
                   style={{ ...underlineInput, textAlign: 'left', letterSpacing: '0.1em' }}/>
               </FormField>
+              {/* הודעה ישרה מתחת לשדה — מופיעה רק כששנה שלמה נמצאת מתחת לגיל 18 */}
+              {isUnder18Year(birthYear) && (
+                <div style={{
+                  background: '#fef3e2', border: '1px solid #e8a93e',
+                  borderRadius: 12, padding: '10px 14px', marginTop: -8,
+                  fontSize: 13.5, color: '#7a5410', fontWeight: 600, lineHeight: 1.45, textAlign: 'right',
+                }}>
+                  ⚠️ האפליקציה מיועדת למשתמשים <strong>מעל גיל 18</strong>.<br/>
+                  אנא תקנו את שנת הלידה לשנה שלא מאוחר מ-{CURRENT_YEAR - 18}.
+                </div>
+              )}
               <FormField label="עיר" valid={vCity}>
                 <input value={city} onChange={e => setCity(e.target.value)}
                   placeholder="תל אביב" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>

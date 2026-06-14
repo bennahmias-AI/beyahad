@@ -292,20 +292,39 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
   const h = height != null ? height : size
 
   if (hasVideo) {
-    // rotate — מספר מעלות לסיבוב תוכן הווידאו (לקיזוז סיבוב המשחק במצב landscape
-    // מאולץ בטלפון). כשמסובבים 90°/270° צריך להחליף רוחב↔גובה כדי שימלא את העיגול.
+    // rotate counter-rotates the video to compensate for the parent CSS rotation
+    // applied on phones that cannot lock landscape orientation. For 90/-90 we must
+    // pre-swap width and height so that after the rotation the video fills the box.
     const swap = rotate === 90 || rotate === -90 || rotate === 270
-    const videoStyle = rotate
-      ? {
-          position: 'absolute', top: '50%', left: '50%',
-          width: swap ? size : '100%', height: swap ? size : '100%',
-          // כשמחליפים מימדים, נמתח לפי הצד הקצר כדי לכסות את העיגול
-          minWidth: swap ? '100%' : undefined, minHeight: swap ? '100%' : undefined,
-          objectFit: 'cover',
-          transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
-          transformOrigin: 'center center',
-        }
-      : { width: '100%', height: '100%', objectFit: 'cover' }
+    let videoStyle
+    if (!rotate) {
+      videoStyle = { width: '100%', height: '100%', objectFit: 'cover' }
+    } else if (isRect && swap && typeof w === 'number' && typeof h === 'number') {
+      // rectangle + 90 deg rotation: source is h x w, after rotation fills w x h
+      videoStyle = {
+        position: 'absolute', top: '50%', left: '50%',
+        width: `${h}px`, height: `${w}px`,
+        objectFit: 'cover',
+        transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
+        transformOrigin: 'center center',
+      }
+    } else if (isRect) {
+      // rectangle + 180 deg rotation, no swap needed
+      videoStyle = {
+        width: '100%', height: '100%', objectFit: 'cover',
+        transform: `rotate(${rotate}deg)`,
+      }
+    } else {
+      // circle case (original): swap based on size
+      videoStyle = {
+        position: 'absolute', top: '50%', left: '50%',
+        width: swap ? size : '100%', height: swap ? size : '100%',
+        minWidth: swap ? '100%' : undefined, minHeight: swap ? '100%' : undefined,
+        objectFit: 'cover',
+        transform: `translate(-50%,-50%) rotate(${rotate}deg)`,
+        transformOrigin: 'center center',
+      }
+    }
     return (
       <div style={{
         width: w, height: h,
