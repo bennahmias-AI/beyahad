@@ -650,6 +650,22 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // eslint-disable-next-line
   }, [state?.pendingLeave?.uid, me.uid, roomId])
 
+  // Refs ל-cleanup ב-unmount — למיכל שהשחקן יוצא דרך כפתור החזרה של אנדרואיד / סגירת טאב (בלי ללחוץ על ה-✕ הראשי)
+  const leaveRefs = useRef({ roomId, uid: me.uid, name: me.name })
+  useEffect(() => { leaveRefs.current = { roomId, uid: me.uid, name: me.name } })
+  const handledLeaveRef = useRef(false)   // לא לקרוא ל-pause פעמיים כש handleLeave כבר רץ
+
+  // On unmount — fallback: אם השחקן עזב בכל דרך אחרת (לא דרך ה-handleLeave) — עדיין מסמןים pendingLeave
+  // pauseAroundWorldGame בדיקה פנימית שהמשחק עדיין 'playing'; אם לא — no-op.
+  useEffect(() => {
+    return () => {
+      if (handledLeaveRef.current) return
+      const { roomId: rId, uid, name } = leaveRefs.current
+      pauseAroundWorldGame(rId, uid, name).catch(() => {})
+    }
+  // eslint-disable-next-line
+  }, [])
+
   // pinch / double-tap להצצה כשלא בתור; כשמגיע התור — חוזר אוטומטית
   useEffect(() => {
     if (isMyTurn && peek) setPeek(false)
@@ -879,6 +895,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const showFull = peek || cameraMode === 'full'
 
   const handleLeave = async () => {
+    handledLeaveRef.current = true   // מסמן שהטיפול ביציאה כבר נעשה — לא לקרוא ל-pause שוב ב-cleanup
     // אם המשחק גמור (יש מנצח) — יציאה סופית ללא חלון 60 שניות. אחרת — מעבירים ל-pause שמאפשר חזרה
     const gameEnded = !!winner || state?.phase === 'ended'
     if (gameEnded) {

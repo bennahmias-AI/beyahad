@@ -37,6 +37,7 @@ import AdminDashboard from './pages/AdminDashboardResponsive.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
 import VideoCallListener from './components/VideoCallListener.jsx'
+import PendingReturnToast from './components/PendingReturnToast.jsx'
 import VideoCallScreen from './pages/VideoCallScreen.jsx'
 import OutgoingCallScreen from './pages/OutgoingCallScreen.jsx'
 import AppLogo from './components/AppLogo.jsx'
@@ -677,6 +678,7 @@ export default function App() {
       <InstallPrompt />
       <GameInviteListener onAccept={handleInviteAccept} />
       <VideoCallListener onAccept={handleIncomingAccept} />
+      <PendingReturnToast onResume={handleResumeGame} />
 
       {/* הודעת שגיאה לשיחת וידאו (למשל החבר לא מחובר) */}
       {callError && (
