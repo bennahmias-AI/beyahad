@@ -71,6 +71,36 @@ function isNativePlatform() {
 
 let _nativeVerificationId = null
 
+// שומרים את מזהה האימות ב-localStorage עם TTL — כך הוא שורד מעבר בין אפליקציות
+// (למשל יציאה להודעות SMS וחזרה), וגם אם אנדרואיד הורג את התהליך זמנית.
+// תוקף 15 דקות — מספיק זמן לקבל SMS ולהקליד את הקוד.
+const NATIVE_VID_KEY = 'beyahad_native_verification_id'
+const NATIVE_VID_TTL_MS = 15 * 60 * 1000
+
+function setNativeVerificationId(id) {
+  _nativeVerificationId = id
+  try {
+    if (id) localStorage.setItem(NATIVE_VID_KEY, JSON.stringify({ id, ts: Date.now() }))
+    else localStorage.removeItem(NATIVE_VID_KEY)
+  } catch {}
+}
+
+function getNativeVerificationId() {
+  if (_nativeVerificationId) return _nativeVerificationId
+  try {
+    const raw = localStorage.getItem(NATIVE_VID_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.id || !parsed?.ts) return null
+    if (Date.now() - parsed.ts > NATIVE_VID_TTL_MS) {
+      localStorage.removeItem(NATIVE_VID_KEY)
+      return null
+    }
+    _nativeVerificationId = parsed.id
+    return parsed.id
+  } catch { return null }
+}
+
 async function sendOtpNative(phoneE164) {
   const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication')
   _nativeVerificationId = null
