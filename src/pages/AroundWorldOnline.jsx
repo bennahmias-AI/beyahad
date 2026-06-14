@@ -881,11 +881,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         display: 'flex', flexDirection: 'column',
         opacity: p.dead ? 0.4 : 1,
       }}>
-        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom */}
+        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. ללא סיבוב — הדפדפן מטפל ב-orientation */}
         <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
-          <PlayerVideo uid={p.uid} name={p.name} width="100%" height={videoH} rotate={isPortrait ? 180 : 0} />
+          <PlayerVideo uid={p.uid} name={p.name} width="100%" height={videoH} />
         </div>
-        {/* שם + כסף בשורה אחת + כפתורי וידאו/שמע בשורה תחתונה */}
+        {/* שם + כסף בשורה אחת. כפתורי וידאו/מיק בתחתית — שלי (מצלמה+מיק) או של אחרים (הסתרת וידאו / השתקת אודיו — חשוב למודרציה מול משתמשים לא רצויים) */}
         <div style={{ padding: '6px 9px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
@@ -900,8 +900,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #ddd', paddingTop: 4 }}>
             {isMe
-              ? <VideoControls size={24} />
-              : <RemoteVideoToggles uid={p.uid} size={22} />}
+              ? <VideoControls size={34} />
+              : <RemoteVideoToggles uid={p.uid} size={30} />}
           </div>
         </div>
       </div>
