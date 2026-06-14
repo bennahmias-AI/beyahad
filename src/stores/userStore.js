@@ -9,7 +9,7 @@ export const useUserStore = create((set, get) => ({
   // loading states
   authLoading: true,
 
-  setAuthUser: (authUser) => set({ authUser, authLoading: false }),
+  setAuthUser: (authUser) => set({ authUser }),
   setProfile:  (profile)  => set({ profile }),
   setAuthLoading: (v)     => set({ authLoading: v }),
 

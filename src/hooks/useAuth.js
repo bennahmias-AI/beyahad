@@ -28,6 +28,11 @@ export function useAuth() {
         }
 
         if (!profile) {
+          // לפני יצירת שלד — מוודאים שהמשתמש עדיין מחובר. אם AuthPage זיהה משתמש לא רשום
+          // והתנתק בזמן שחיכינו (1.2 שניות) — לא ליצור שלד עבור חשבון שכבר לא קיים.
+          if (auth.currentUser?.uid !== firebaseUser.uid) {
+            return
+          }
           // Still nothing — this is a genuine first login without a profile.
           // Create a skeleton, but DO NOT write an empty name (merge:true keeps
           // any name that gets written later by AuthPage).

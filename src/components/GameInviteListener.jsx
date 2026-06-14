@@ -141,7 +141,7 @@ export default function GameInviteListener({ onAccept }) {
         boxShadow: 'var(--shadow-lg)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-          <Avatar name={invite.fromName} size={72} />
+          <Avatar name={invite.fromName} size={72} photoURL={invite.fromPhoto || null} />
         </div>
         {/* אייקון המשחק — האייקון החדש בתוך עיגול צבעוני */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>

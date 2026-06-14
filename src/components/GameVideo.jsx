@@ -277,7 +277,7 @@ function VideoBridge({ me, startWithCam, children }) {
 // ═══════════════════════════════════════════════════════════════
 // PlayerVideo — מחליף את <Avatar>. מציג וידאו אם יש, אחרת אווטאר.
 // ═══════════════════════════════════════════════════════════════
-export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0 }) {
+export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0, width, height }) {
   const { active, tracksByUid, tracksByName, hiddenVideo } = useGameVideo()
   // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
   const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
@@ -285,6 +285,11 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
   const trackRef = active ? (tracksByUid?.[uid] || tracksByName?.[name] || tracksByName?.[fullName]) : null
   const isHidden = hiddenVideo?.[uid]
   const hasVideo = trackRef && trackRef.publication && !trackRef.publication.isMuted && !isHidden
+
+  // מצב מלבני — כשמציינים width או height הווידאו הופך מעיגול למלבן (גובה הקלף מלבני אותו).
+  const isRect = width != null || height != null
+  const w = width != null ? width : size
+  const h = height != null ? height : size
 
   if (hasVideo) {
     // rotate — מספר מעלות לסיבוב תוכן הווידאו (לקיזוז סיבוב המשחק במצב landscape
@@ -303,11 +308,27 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate = 0
       : { width: '100%', height: '100%', objectFit: 'cover' }
     return (
       <div style={{
-        width: size, height: size, borderRadius: '50%', overflow: 'hidden',
-        flexShrink: 0, background: '#000', border: '2px solid rgba(201,162,74,.6)',
+        width: w, height: h,
+        borderRadius: isRect ? 0 : '50%',
+        overflow: 'hidden',
+        flexShrink: 0, background: '#000',
+        border: isRect ? 'none' : '2px solid rgba(201,162,74,.6)',
         position: 'relative',
       }}>
         <VideoTrack trackRef={trackRef} style={videoStyle} />
+      </div>
+    )
+  }
+  // אין וידאו — במלבן: אווטאר מרוכז ברקע כהה. בעיגול: אווטאר רגיל.
+  if (isRect) {
+    return (
+      <div style={{
+        width: w, height: h,
+        background: 'linear-gradient(180deg, #1a1020, #2a1a35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, overflow: 'hidden',
+      }}>
+        <Avatar name={fullName} size={Math.min(typeof w === 'number' ? w : 80, typeof h === 'number' ? h : 80) - 20} photoURL={livePhoto} online={online} />
       </div>
     )
   }

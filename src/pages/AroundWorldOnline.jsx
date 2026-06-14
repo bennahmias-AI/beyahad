@@ -39,7 +39,7 @@ import {
   createAroundWorldRoom, joinAroundWorldRoom, startAroundWorldGame,
   updateAroundWorldState, watchAroundWorldRoom, leaveAroundWorldRoom,
   findOrCreateAroundWorldMatch, watchFriendships, sendGameInvite,
-  watchUser, sendAroundWorldChat,
+  watchUser, sendAroundWorldChat, sendFriendRequest, quitAroundWorldGame,
 } from '../services/firebase.js'
 
 const INK = '#1c1c1c'
@@ -112,7 +112,7 @@ export default function AroundWorldOnline({ mode, numPlayers = 4, initialRoomId,
 
   useEffect(() => { if (initialRoomId) setRoomId(initialRoomId) }, [initialRoomId])
 
-  const me = { uid: authUser?.uid, name: profile?.name || 'משתמש' }
+  const me = { uid: authUser?.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
 
   if (!roomId) {
     return <Lobby mode={mode} me={me} numPlayers={numPlayers} autoInviteFriend={autoInviteFriend} onBack={onBack} onHome={onHome} onReady={(id) => setRoomId(id)} />
@@ -623,7 +623,17 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const [localTokens, setLocalTokens] = useState(null)    // מיקומי דיסקיות מקומיים בזמן צעידה (לכותב בלבד)
   const [muted, setMutedState] = useState(() => isMuted())
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
+  const [friendUids, setFriendUids] = useState(() => new Set())  // רשימת ה-uids שעל ה-uid המחובר — למי מהשחקנים שקיימת בקשת חברות
   const busyRef = useRef(false)                   // נועל מהלך בזמן ריצה
+
+  // מעקב אחר חברים הקיימים — כך הכפתור "הוסף לחברים" מופיע רק מול מי שלא ברשימת החברים שלי
+  useEffect(() => {
+    if (!me.uid) return
+    const unsub = watchFriendships(me.uid, ({ friends }) => {
+      setFriendUids(new Set((friends || []).map(f => f.otherUid)))
+    })
+    return () => unsub && unsub()
+  }, [me.uid])
 
   const myIndex = state ? state.players.findIndex(p => p.uid === me.uid) : -1
   const turnIdx = state?.turn ?? state?.turnIdx ?? 0
@@ -820,6 +830,13 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       await push(s); busyRef.current = false; return
     }
 
+    // ניצחון לפי סה"כ נכסים — הראשון שמגיע ל-15,000 ₪ (מזומן+נכסים) מנצח
+    const rich = living.find(p => netWorth(p, s.owners) >= RULES.WIN_NETWORTH_THRESHOLD)
+    if (rich) {
+      s.winner = rich.uid; s.phase = 'ended'; playSound('win')
+      await push(s); busyRef.current = false; return
+    }
+
     if (extraTurn) {
       const p = s.players[turnIdx]
       if (p && !p.dead) { s.phase = 'idle'; await push(s); busyRef.current = false; return }
@@ -837,12 +854,6 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       break
     }
 
-    if (r > RULES.MAX_ROUNDS) {
-      const ranked = [...living].sort((a, b) => netWorth(b, s.owners) - netWorth(a, s.owners))
-      s.winner = ranked[0].uid; s.phase = 'ended'; playSound('win')
-      await push(s); busyRef.current = false; return
-    }
-
     if (r !== s.round) s.priceIndex = randomPriceIndex()  // מדד מתחלף כל סיבוב
     s.turnIdx = ti; s.round = r; s.phase = 'idle'
     setFocusTiles(null)
@@ -856,34 +867,42 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
   const showFull = peek || cameraMode === 'full'
 
-  const handleLeave = async () => { await leaveAroundWorldRoom(roomId); onExit ? onExit() : onBack() }
+  const handleLeave = async () => { await quitAroundWorldGame(roomId, me.uid); onExit ? onExit() : onBack() }
 
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
+    const videoH = isMe ? 110 : 100   // ME קצת גדול יותר משאר השחקנים
     return (
       <div key={p.uid} style={{
-        background: '#fff', border: isActive ? '3px solid #2f9e3f' : '1px solid #d3d1c7',
-        borderRadius: 14, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6,
+        background: CREAM,
+        border: isActive ? `3px solid #2f9e3f` : `1px solid ${INK}`,
+        borderRadius: 12, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
         opacity: p.dead ? 0.4 : 1,
       }}>
-        <div onClick={() => setViewPlayer(p)} role="button" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-          <PlayerVideo uid={p.uid} name={p.name} size={34} rotate={isPortrait ? -90 : 0} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 11, height: 11, borderRadius: '50%', background: p.color, border: `1.5px solid ${INK}`, flex: 'none' }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}</span>
-            </div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
-              {p.cash.toLocaleString()} ₪
-            </div>
-          </div>
+        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom */}
+        <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
+          <PlayerVideo uid={p.uid} name={p.name} width="100%" height={videoH} rotate={isPortrait ? 180 : 0} />
         </div>
-        {/* כפתורי וידאו/שמע — שלי (מצלמה+מיק) / של אחרים (השתקה+הסתרה) */}
-        <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #ece9e0', paddingTop: 5 }}>
-          {isMe
-            ? <VideoControls size={28} />
-            : <RemoteVideoToggles uid={p.uid} size={26} />}
+        {/* שם + כסף בשורה אחת + כפתורי וידאו/שמע בשורה תחתונה */}
+        <div style={{ padding: '6px 9px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: p.color, border: `1.5px solid ${INK}`, flex: 'none' }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+              </span>
+            </div>
+            <span style={{ fontWeight: 800, fontSize: 14, color: p.cash < 200 ? '#a32d2d' : '#1c4e26', flex: 'none' }}>
+              {p.cash.toLocaleString()} ₪
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #ddd', paddingTop: 4 }}>
+            {isMe
+              ? <VideoControls size={24} />
+              : <RemoteVideoToggles uid={p.uid} size={22} />}
+          </div>
         </div>
       </div>
     )
@@ -896,7 +915,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
         {/* right panel: ME only + dice + controls */}
-        <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+        <div style={{ width: 195, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {state.players.filter(p => p.uid === me.uid).map(panelCard)}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -970,7 +989,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         </div>
 
         {/* left panel: ALL OTHER players */}
-        <div style={{ width: 150, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+        <div style={{ width: 180, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)', textAlign: 'center', padding: '2px 0' }}>
             השחקנים
           </div>
@@ -980,7 +999,21 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
       {/* player cards modal */}
       {viewPlayer && (
-        <CardsModal player={viewPlayer} players={state.players} owners={state.owners} hotels={state.hotels} onClose={() => setViewPlayer(null)} rotate={isPortrait} />
+        <CardsModal
+          player={viewPlayer}
+          players={state.players}
+          owners={state.owners}
+          hotels={state.hotels}
+          myUid={me.uid}
+          isFriend={friendUids.has(viewPlayer.uid)}
+          onAddFriend={async () => {
+            try {
+              await sendFriendRequest({ uid: me.uid, name: me.name }, { uid: viewPlayer.uid, name: viewPlayer.name })
+            } catch (e) { console.error('add friend error:', e) }
+          }}
+          onClose={() => setViewPlayer(null)}
+          rotate={isPortrait}
+        />
       )}
 
       {/* card flip (lotto/chance) — מוצג לכולם; רק הכותב מסיים */}
@@ -1070,9 +1103,16 @@ function LandingCard({ card, players, myUid, onAction }) {
     if (card.kind === 'buy') {
       const eff = card.price ?? t.price
       const pct = (eff !== t.price && card.price != null) ? Math.round((eff / t.price - 1) * 100) : 0
+      const canAfford = actor && actor.cash >= eff
       sideTitle = 'מדינה פנויה'
       sideSub = grp.label + (pct ? ' · מדד ' + (pct > 0 ? '+' : '') + pct + '%' : '')
-      actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)]
+      if (canAfford) {
+        actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)]
+      } else {
+        // אין מספיק כסף — מסירים את כפתור הקנייה, משאירים רק "המשך" עם הודעה
+        sideSub += ' · אין מספיק כסף לקנייה'
+        actions = [btn('המשך', 'no', '#d8402a')]
+      }
     } else if (card.kind === 'hotel') {
       hl = card.level + 1
       const cost = buildCost(t, card.level)

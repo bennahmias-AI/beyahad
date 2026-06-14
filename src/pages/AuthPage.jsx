@@ -20,6 +20,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   sendOtp, verifyOtp, createOrUpdateUser,
   sendEmailCode, verifyEmailCode,
+  getUser, signOut,
 } from '../services/firebase.js'
 import { colors } from '../design-system/index.js'
 import AppLogo from '../components/AppLogo.jsx'
@@ -221,6 +222,17 @@ export default function AuthPage() {
         if (email.trim()) data.email = email.trim().toLowerCase()
         if (normalizePhone(phone)) data.phone = normalizePhone(phone)
         await createOrUpdateUser(uid, data)
+      } else {
+        // מצב כניסה (login) — בודקים שמדובר במשתמש רשום. המספר עובר אימות SMS
+        // גם אם הוא לא רשום, לכן בודקים שיש פרופיל עם שם. אם לא — מתנתקים
+        // ומנחים אותו לעבור להרשמה. בדיקה מהירה (~200ms) — דוהרת לפני ש-useAuth מספיק ליצור שלד פרופיל.
+        const existing = await getUser(uid)
+        if (!existing || !existing.name) {
+          await signOut()
+          setError('המספר הזה עדיין לא רשום. לחצו על הלשונית "הרשמה" כדי לפתוח חשבון חדש')
+          setLoading(false)
+          return
+        }
       }
       stopTimer(); stopElapsed()
       // משתמש חוזר (login) — useAuth יטען את הפרופיל ויכניס פנימה.

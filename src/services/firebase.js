@@ -1666,6 +1666,7 @@ export async function sendGameInvite({ from, to, gameType, roomId }) {
   const ref = await addDoc(collection(db, 'gameInvites'), {
     fromUid: from.uid,
     fromName: from.name || 'משתמש',
+    fromPhoto: from.photoURL || '',
     toUid: to.uid,
     toName: to.name || 'משתמש',
     gameType,
@@ -2201,6 +2202,92 @@ export function watchAroundWorldRoom(roomId, cb) {
 export async function leaveAroundWorldRoom(roomId) {
   try { await deleteDoc(doc(db, 'aroundworldRooms', roomId)) }
   catch (e) { console.error('leaveAroundWorldRoom error:', e) }
+}
+
+// נטישת משחק באמצע — במקום למחוק את כל החדר (לשאר השחקנים רואים "המשחק נסגר"),
+// מסמנים את השחקן כ-dead במצב המשחק — הנכסים שלו חוזרים לקופה והמשחק ממשיך בין השאר.
+// אם המשחק כבר נגמר או במצב אחר — מוחקים את החדר כרגיל.
+export async function quitAroundWorldGame(roomId, uid) {
+  if (!roomId || !uid) return
+  try {
+    const ref = doc(db, 'aroundworldRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const data = snap.data()
+
+    // משחק לא במהלך — מחיקים את החדר (התנהגות הישנה)
+    if (data.status !== 'playing') {
+      await deleteDoc(ref).catch(() => {})
+      return
+    }
+
+    let gameState
+    try { gameState = JSON.parse(data.gameStateJson || '{}') }
+    catch { await deleteDoc(ref).catch(() => {}); return }
+
+    if (!gameState.players) return
+
+    // המשחק כבר הסתיים? — מחיקים את החדר
+    if (gameState.phase === 'ended' || gameState.winner) {
+      await deleteDoc(ref).catch(() => {})
+      return
+    }
+
+    const playerIdx = gameState.players.findIndex(p => p.uid === uid)
+    if (playerIdx === -1) return
+    if (gameState.players[playerIdx].dead) return  // כבר מת / פרש
+
+    // מסמנים את השחקן כ-dead
+    gameState.players[playerIdx].dead = true
+
+    // משחררים את הנכסים שלו חזרה לקופה (גם המלונות מהעיר הבירה)
+    for (const tid in (gameState.owners || {})) {
+      if (gameState.owners[tid] === uid) {
+        delete gameState.owners[tid]
+        if (gameState.hotels) delete gameState.hotels[tid]
+      }
+    }
+
+    const living = gameState.players.filter(p => !p.dead)
+
+    if (living.length <= 1) {
+      // נשאר אחד (או אף אחד) — מסתיים את המשחק
+      gameState.winner = living[0]?.uid || null
+      gameState.phase = 'ended'
+    } else {
+      // אם השחקן הנוטש היה בתורו — מעבירים לשחקן החי הבא (דילוג על עוצרים)
+      const turnIdx = gameState.turn ?? gameState.turnIdx ?? 0
+      if (turnIdx === playerIdx) {
+        let ti = turnIdx
+        let r = gameState.round || 1
+        for (let hops = 0; hops < gameState.players.length * 3; hops++) {
+          ti = (ti + 1) % gameState.players.length
+          if (ti === 0) r += 1
+          const np = gameState.players[ti]
+          if (np.dead) continue
+          if (np.skip > 0) { np.skip -= 1; continue }
+          break
+        }
+        gameState.turnIdx = ti
+        gameState.round = r
+        gameState.phase = 'idle'
+      }
+      // אם היה לו קלף פתוח במהלך הנטישה — מנקים
+      if (gameState.pendingCard?.uid === uid) {
+        gameState.pendingCard = null
+        gameState.phase = 'idle'
+      }
+    }
+
+    gameState.seq = (gameState.seq || 0) + 1
+
+    await updateDoc(ref, {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('quitAroundWorldGame error:', e)
+  }
 }
 
 // שולח הודעת צ'אט בחדר מסביב לעולם (מתווסף למערך chat).

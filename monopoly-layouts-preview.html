@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מסביב לעולם — 4 תצוגות מקדימות</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', system-ui, sans-serif;
+    background: #1a1a1f; color: #fff;
+    padding: 18px;
+    direction: rtl;
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; }
+  .sub { font-size: 14px; color: #aaa; margin-bottom: 22px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .card {
+    background: #25252b;
+    border: 1px solid #3a3a45;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #3a3a45;
+  }
+  .card-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .card-desc { font-size: 13px; color: #aaa; line-height: 1.45; }
+
+  /* Simulated phone in landscape (800x395) */
+  .phone {
+    width: 100%;
+    aspect-ratio: 800 / 395;
+    background: linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px;
+    font-family: 'Heebo', sans-serif;
+    color: #1c1c1c;
+  }
+
+  /* Common player card styles */
+  .pcard {
+    background: #fff;
+    border: 1px solid #d3d1c7;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .pcard.active { border: 2.5px solid #2f9e3f; }
+  .face {
+    border-radius: 999px;
+    border: 2px solid #1c1c1c;
+    background: linear-gradient(135deg, #fdd 0%, #fbb 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #1c1c1c; font-weight: 800;
+    flex: none;
+  }
+  .face.green { background: linear-gradient(135deg, #b6d9a3, #5fa650); }
+  .face.blue  { background: linear-gradient(135deg, #aacef0, #4a8cc0); }
+  .face.orange{ background: linear-gradient(135deg, #ffd9a5, #e8761f); }
+  .pname { font-weight: 700; color: #1c1c1c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pcash { font-weight: 800; color: #1c4e26; }
+  .pdot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #1c1c1c; flex: none; }
+
+  /* Board mock */
+  .board {
+    flex: 1; min-width: 0;
+    background: linear-gradient(135deg, #2f97d4 30%, #bfdcec 70%);
+    border: 2px solid #1c1c1c;
+    border-radius: 8px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    color: #1c1c1c; font-weight: 800; font-size: 22px;
+    overflow: hidden;
+  }
+  .board::before {
+    content: ''; position: absolute; inset: 8px;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(28,28,28,.07) 38px, rgba(28,28,28,.07) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 38px, rgba(28,28,28,.07) 38px, rgba(28,28,28,.07) 40px);
+    border-radius: 4px;
+  }
+  .board-tile {
+    position: absolute; background: #f6efdf; border: 1.5px solid #1c1c1c;
+    font-size: 9px; font-weight: 700; color: #1c1c1c;
+    display: flex; align-items: center; justify-content: center;
+    padding: 2px;
+  }
+  .controls {
+    background: #fff; border: 1.5px solid #1c1c1c; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #1c1c1c; font-weight: 800;
+  }
+  .die {
+    background: #fff; border: 2px solid #1c1c1c; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #1c1c1c;
+  }
+  .roll-btn {
+    background: #f4c20d; border: 2.5px solid #1c1c1c; border-radius: 10px;
+    color: #1c1c1c; font-weight: 800; text-align: center;
+    padding: 8px 0;
+  }
+
+  /* Tag for current self */
+  .self-mark { font-size: 11px; color: #1c4e26; font-weight: 700; }
+
+  /* Section heading inside card */
+  .specs {
+    background: #1d1d22;
+    padding: 10px 14px 12px;
+    font-size: 12px;
+    color: #bdbdc9;
+    line-height: 1.6;
+  }
+  .specs b { color: #fff; font-weight: 700; }
+
+  .note { background: #2a2a32; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #ccc; line-height: 1.5; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<h1>🎲 מסביב לעולם — 4 גרסאות תצוגה</h1>
+<div class="sub">סימולציה של טלפון לרוחב (Landscape). הפרצופים מסומנים כעיגולים צבעוניים בכל גרסה. לחץ על כל גרסה כדי לראות איך היא תיראה אצלך.</div>
+
+<div class="grid">
+
+  <!-- ─────────────────────────────────────────────── -->
+  <!-- גרסה 1 — וידאו גדול בקלף קומפקטי -->
+  <!-- ─────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">גרסה 1 — פרצוף גדול במרכז הקלף</div>
+      <div class="card-desc">הוידאו עולה ל-80x80 (מ-34). הפנלים נשארים באותו רוחב, הלוח לא מצטמצם.</div>
+    </div>
+    <div class="phone">
+      <!-- Right panel: ME -->
+      <div style="width: 168px; flex: none; display: flex; flex-direction: column; gap: 6px;">
+        <button style="width: 34px; height: 34px; border-radius: 9px; border: 2px solid #1c1c1c; background: #fff; font-weight: 900;">✕</button>
+        <div class="pcard active" style="padding: 8px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px;">
+            <div class="face" style="width: 80px; height: 80px; font-size: 32px;">😊</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: center; margin-bottom: 2px;">
+            <span class="pdot" style="background: #f4c20d;"></span>
+            <span class="pname" style="font-size: 14px;">בן (אתה)</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 17px;">1,500 ₪</div>
+          <div style="display: flex; justify-content: center; margin-top: 5px; border-top: 1px solid #ece9e0; padding-top: 4px; gap: 6px;">
+            <div style="font-size: 14px;">📹</div><div style="font-size: 14px;">🎤</div>
+          </div>
+        </div>
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; gap: 6px; justify-content: center;">
+            <div class="die" style="width: 36px; height: 36px;">5</div>
+            <div class="die" style="width: 36px; height: 36px;">3</div>
+          </div>
+          <div class="roll-btn" style="font-size: 14px;">🎲 הטלת קוביות</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4);">תורך!</div>
+        </div>
+      </div>
+      <!-- Board -->
+      <div class="board">
+        <div class="board-tile" style="top: 4px; left: 4px; width: 60px; height: 38px;">איטליה</div>
+        <div class="board-tile" style="top: 4px; right: 4px; width: 60px; height: 38px;">ספרד</div>
+        <div class="board-tile" style="bottom: 4px; left: 4px; width: 60px; height: 38px;">סין</div>
+        <div class="board-tile" style="bottom: 4px; right: 4px; width: 60px; height: 38px;">הודו</div>
+        <div style="text-align: center;">🗺️<br/>הלוח</div>
+      </div>
+      <!-- Left panel: others (3 players) -->
+      <div style="width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center;">השחקנים</div>
+        <div class="pcard" style="padding: 8px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+            <div class="face green" style="width: 64px; height: 64px; font-size: 26px;">מ</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: center;">
+            <span class="pdot" style="background: #2f9e3f;"></span>
+            <span class="pname" style="font-size: 13px;">מילי</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 14px;">1,200 ₪</div>
+        </div>
+        <div class="pcard" style="padding: 8px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+            <div class="face blue" style="width: 64px; height: 64px; font-size: 26px;">ד</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: center;">
+            <span class="pdot" style="background: #2f73c9;"></span>
+            <span class="pname" style="font-size: 13px;">דנה</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 14px;">980 ₪</div>
+        </div>
+      </div>
+    </div>
+    <div class="specs">
+      <b>שינויים:</b> וידאו 80x80 (היה 34) · שם 14px · כסף 17px · הקלף עצמו לא גדל הרבה · הלוח שומר על מימדים מלאים.
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+  <!-- גרסה 2 — פנלים רחבים, וידאו ענק -->
+  <!-- ─────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">גרסה 2 — פנלים רחבים יותר</div>
+      <div class="card-desc">פנל הימני מ-168 ל-210, השמאלי מ-150 ל-190. וידאו 100x100. הלוח מצטמצם קצת.</div>
+    </div>
+    <div class="phone">
+      <div style="width: 210px; flex: none; display: flex; flex-direction: column; gap: 7px;">
+        <button style="width: 36px; height: 36px; border-radius: 10px; border: 2px solid #1c1c1c; background: #fff; font-weight: 900;">✕</button>
+        <div class="pcard active" style="padding: 10px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 7px;">
+            <div class="face" style="width: 100px; height: 100px; font-size: 42px;">😊</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px; justify-content: center; margin-bottom: 2px;">
+            <span class="pdot" style="background: #f4c20d; width: 11px; height: 11px;"></span>
+            <span class="pname" style="font-size: 16px;">בן (אתה)</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 19px;">1,500 ₪</div>
+          <div style="display: flex; justify-content: center; margin-top: 6px; border-top: 1px solid #ece9e0; padding-top: 5px; gap: 8px;">
+            <div style="font-size: 16px;">📹</div><div style="font-size: 16px;">🎤</div>
+          </div>
+        </div>
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 7px;">
+          <div style="display: flex; gap: 7px; justify-content: center;">
+            <div class="die" style="width: 40px; height: 40px; font-size: 20px;">5</div>
+            <div class="die" style="width: 40px; height: 40px; font-size: 20px;">3</div>
+          </div>
+          <div class="roll-btn" style="font-size: 15px;">🎲 הטלת קוביות</div>
+        </div>
+      </div>
+      <div class="board">
+        <div class="board-tile" style="top: 4px; left: 4px; width: 55px; height: 35px;">איטליה</div>
+        <div class="board-tile" style="top: 4px; right: 4px; width: 55px; height: 35px;">ספרד</div>
+        <div class="board-tile" style="bottom: 4px; left: 4px; width: 55px; height: 35px;">סין</div>
+        <div class="board-tile" style="bottom: 4px; right: 4px; width: 55px; height: 35px;">הודו</div>
+        <div style="text-align: center;">🗺️<br/>הלוח</div>
+      </div>
+      <div style="width: 190px; flex: none; display: flex; flex-direction: column; gap: 7px;">
+        <div style="font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center;">השחקנים</div>
+        <div class="pcard" style="padding: 9px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+            <div class="face green" style="width: 82px; height: 82px; font-size: 32px;">מ</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: center;">
+            <span class="pdot" style="background: #2f9e3f;"></span>
+            <span class="pname" style="font-size: 14px;">מילי</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 16px;">1,200 ₪</div>
+        </div>
+        <div class="pcard" style="padding: 9px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+            <div class="face blue" style="width: 82px; height: 82px; font-size: 32px;">ד</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px; justify-content: center;">
+            <span class="pdot" style="background: #2f73c9;"></span>
+            <span class="pname" style="font-size: 14px;">דנה</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 16px;">980 ₪</div>
+        </div>
+      </div>
+    </div>
+    <div class="specs">
+      <b>שינויים:</b> פנל ימין 210px (היה 168) · פנל שמאל 190px (היה 150) · וידאו 100x100 · קוביות ופונטים גדולים. הלוח קצת קטן יותר אבל עדיין נוח לראות.
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+  <!-- גרסה 3 — וידאו מלבני (כמו Zoom) -->
+  <!-- ─────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">גרסה 3 — וידאו מלבני בסגנון Zoom</div>
+      <div class="card-desc">וידאו במלבן 4:3 (130x100) שתופס את כל רוחב הקלף. שם וכסף מתחת בכותרת אחת.</div>
+    </div>
+    <div class="phone">
+      <div style="width: 195px; flex: none; display: flex; flex-direction: column; gap: 7px;">
+        <button style="width: 36px; height: 36px; border-radius: 10px; border: 2px solid #1c1c1c; background: #fff; font-weight: 900;">✕</button>
+        <div class="pcard active" style="padding: 0; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #fdd, #fbb); height: 120px; display: flex; align-items: center; justify-content: center; font-size: 50px; border-bottom: 2px solid #1c1c1c;">😊</div>
+          <div style="padding: 6px 9px; background: #f6efdf;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span class="pdot" style="background: #f4c20d;"></span>
+                <span class="pname" style="font-size: 14px;">בן (אתה)</span>
+              </div>
+              <span class="pcash" style="font-size: 15px;">1,500 ₪</span>
+            </div>
+            <div style="display: flex; justify-content: center; gap: 8px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #ddd;">
+              <div style="font-size: 14px;">📹</div><div style="font-size: 14px;">🎤</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; gap: 7px; justify-content: center;">
+            <div class="die" style="width: 38px; height: 38px;">5</div>
+            <div class="die" style="width: 38px; height: 38px;">3</div>
+          </div>
+          <div class="roll-btn" style="font-size: 14px;">🎲 הטלת קוביות</div>
+        </div>
+      </div>
+      <div class="board">
+        <div class="board-tile" style="top: 4px; left: 4px; width: 56px; height: 35px;">איטליה</div>
+        <div class="board-tile" style="top: 4px; right: 4px; width: 56px; height: 35px;">ספרד</div>
+        <div class="board-tile" style="bottom: 4px; left: 4px; width: 56px; height: 35px;">סין</div>
+        <div class="board-tile" style="bottom: 4px; right: 4px; width: 56px; height: 35px;">הודו</div>
+        <div style="text-align: center;">🗺️<br/>הלוח</div>
+      </div>
+      <div style="width: 180px; flex: none; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center;">השחקנים</div>
+        <div class="pcard" style="padding: 0; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #b6d9a3, #5fa650); height: 100px; display: flex; align-items: center; justify-content: center; font-size: 42px; border-bottom: 2px solid #1c1c1c;">מ</div>
+          <div style="padding: 5px 8px; background: #f6efdf; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span class="pdot" style="background: #2f9e3f;"></span>
+              <span style="font-size: 13px; font-weight: 700;">מילי</span>
+            </div>
+            <span style="font-size: 13px; font-weight: 800; color: #1c4e26;">1,200 ₪</span>
+          </div>
+        </div>
+        <div class="pcard" style="padding: 0; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #aacef0, #4a8cc0); height: 100px; display: flex; align-items: center; justify-content: center; font-size: 42px; border-bottom: 2px solid #1c1c1c;">ד</div>
+          <div style="padding: 5px 8px; background: #f6efdf; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span class="pdot" style="background: #2f73c9;"></span>
+              <span style="font-size: 13px; font-weight: 700;">דנה</span>
+            </div>
+            <span style="font-size: 13px; font-weight: 800; color: #1c4e26;">980 ₪</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="specs">
+      <b>שינויים:</b> וידאו מלא רוחב בקלף, גובה 100-120px, בלי גבולות עגולים. כותרת קומפקטית עם שם+כסף בשורה אחת. מנצל יותר טוב את רוחב הקלף.
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+  <!-- גרסה 4 — אני ענק, האחרים קומפקטיים -->
+  <!-- ─────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">גרסה 4 — אני ענק, האחרים קומפקטיים</div>
+      <div class="card-desc">הקלף שלי תופס יותר מקום עם וידאו ענק (140x140). האחרים נשארים קטנים כדי לא להפריע ללוח.</div>
+    </div>
+    <div class="phone">
+      <div style="width: 230px; flex: none; display: flex; flex-direction: column; gap: 7px;">
+        <button style="width: 36px; height: 36px; border-radius: 10px; border: 2px solid #1c1c1c; background: #fff; font-weight: 900;">✕</button>
+        <div class="pcard active" style="padding: 10px;">
+          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+            <div class="face" style="width: 140px; height: 140px; font-size: 60px;">😊</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; justify-content: center;">
+            <span class="pdot" style="background: #f4c20d; width: 12px; height: 12px;"></span>
+            <span class="pname" style="font-size: 17px;">בן (אתה)</span>
+          </div>
+          <div class="pcash" style="text-align: center; font-size: 21px;">1,500 ₪</div>
+          <div style="display: flex; justify-content: center; margin-top: 7px; border-top: 1px solid #ece9e0; padding-top: 5px; gap: 10px;">
+            <div style="font-size: 18px;">📹</div><div style="font-size: 18px;">🎤</div>
+          </div>
+        </div>
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; gap: 7px; justify-content: center;">
+            <div class="die" style="width: 38px; height: 38px;">5</div>
+            <div class="die" style="width: 38px; height: 38px;">3</div>
+          </div>
+          <div class="roll-btn" style="font-size: 14px;">🎲 הטלת קוביות</div>
+        </div>
+      </div>
+      <div class="board">
+        <div class="board-tile" style="top: 4px; left: 4px; width: 55px; height: 35px;">איטליה</div>
+        <div class="board-tile" style="top: 4px; right: 4px; width: 55px; height: 35px;">ספרד</div>
+        <div class="board-tile" style="bottom: 4px; left: 4px; width: 55px; height: 35px;">סין</div>
+        <div class="board-tile" style="bottom: 4px; right: 4px; width: 55px; height: 35px;">הודו</div>
+        <div style="text-align: center;">🗺️<br/>הלוח</div>
+      </div>
+      <div style="width: 135px; flex: none; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center;">השחקנים</div>
+        <div class="pcard" style="padding: 7px; display: flex; flex-direction: row; align-items: center; gap: 7px;">
+          <div class="face green" style="width: 44px; height: 44px; font-size: 18px;">מ</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span class="pdot" style="background: #2f9e3f; width: 8px; height: 8px;"></span>
+              <span class="pname" style="font-size: 12px;">מילי</span>
+            </div>
+            <div class="pcash" style="font-size: 13px;">1,200 ₪</div>
+          </div>
+        </div>
+        <div class="pcard" style="padding: 7px; display: flex; flex-direction: row; align-items: center; gap: 7px;">
+          <div class="face blue" style="width: 44px; height: 44px; font-size: 18px;">ד</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span class="pdot" style="background: #2f73c9; width: 8px; height: 8px;"></span>
+              <span class="pname" style="font-size: 12px;">דנה</span>
+            </div>
+            <div class="pcash" style="font-size: 13px;">980 ₪</div>
+          </div>
+        </div>
+        <div class="pcard" style="padding: 7px; display: flex; flex-direction: row; align-items: center; gap: 7px;">
+          <div class="face orange" style="width: 44px; height: 44px; font-size: 18px;">ר</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span class="pdot" style="background: #e8761f; width: 8px; height: 8px;"></span>
+              <span class="pname" style="font-size: 12px;">רון</span>
+            </div>
+            <div class="pcash" style="font-size: 13px;">750 ₪</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="specs">
+      <b>שינויים:</b> פנל ימין 230px עם וידאו 140x140 ענק · פנל שמאל 135px עם קלפים אופקיים קטנים יותר (44x44 וידאו) · רואים גם עוד שחקנים בלי שזה דוחק את הלוח.
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  💡 <b>שים לב:</b> בגרסה האמיתית יהיו פרצופים אמיתיים מהוידאו במקום העיגולים הצבעוניים. כל ה-4 גרסאות מציגות את אותו תרחיש (אתה + 2-3 שחקנים) — תוכל לבחור באיזה אתה מעדיף.
+</div>
+
+</body>
+</html>

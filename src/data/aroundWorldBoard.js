@@ -50,7 +50,8 @@ export const LEVEL_NAMES = ['', 'מלון', '2 מלונות', '3 מלונות', 
 export const RULES = {
   START_CASH: 1500,
   PASS_START_BONUS: 200,
-  MAX_ROUNDS: 20,
+  MAX_ROUNDS: Infinity,         // ללא הגבלת סיבובים — המשחק נמשך עד שמישהו מנצח או נשאר לבד
+  WIN_NETWORTH_THRESHOLD: 15000, // הראשון שמגיע ל-15,000 ₪ סהכ (מזומן+נכסים) — מנצח
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 4,
   EIN_KNISA_FINE: 100,

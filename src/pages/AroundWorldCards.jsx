@@ -75,11 +75,21 @@ export function CardFooter({ children, color = '#3a3a3a' }) {
   CardsModal - shows a player's owned cards or the full catalog.
   props: player (the panel that was tapped), players (all), owners, hotels, onClose
 */
-export function CardsModal({ player, players, owners, hotels, onClose, rotate = false }) {
+export function CardsModal({ player, players, owners, hotels, onClose, rotate = false, myUid = null, isFriend = true, onAddFriend = null }) {
   const [tab, setTab] = useState('mine'); // mine | all
+  const [friendRequested, setFriendRequested] = useState(false);
   const allProps = TILES.filter((t) => t.type === 'prop');
   const mine = allProps.filter((t) => owners[t.id] === player.uid);
   const shown = tab === 'mine' ? mine : allProps;
+
+  // להציג כפתור "הוסף לחברים"? — רק מול שחקן אחר (לא אני), שעדיין לא חברים, ויש פונקציה למשלוח
+  const canAddFriend = !!myUid && !!onAddFriend && player.uid !== myUid && !isFriend && !friendRequested;
+
+  const handleAddFriend = async () => {
+    if (!canAddFriend) return;
+    setFriendRequested(true); // מסמנים מיד כדי לא ללחוץ פעמיים
+    try { await onAddFriend(); } catch (e) { setFriendRequested(false); }
+  };
 
   const tabBtn = (id, label) => (
     <button key={id} onClick={() => setTab(id)} style={{
@@ -99,6 +109,23 @@ export function CardsModal({ player, players, owners, hotels, onClose, rotate = 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 17, color: INK }}>{player.name} · {player.cash.toLocaleString()} ₪</div>
           </div>
+          {/* כפתור הוסף-לחברים — מופיע רק מול שחקן שלא ברשימת החברים; אחרי לחיצה מתחלף ל-"בקשה נשלחה" */}
+          {(canAddFriend || friendRequested) && (
+            <button
+              onClick={handleAddFriend}
+              disabled={!canAddFriend}
+              aria-label="הוסף לחברים"
+              style={{
+                height: 36, padding: '0 10px', borderRadius: 10,
+                border: `2px solid ${INK}`,
+                background: friendRequested ? '#d3d1c7' : '#2f73c9',
+                color: friendRequested ? INK : '#fff',
+                fontSize: 14, fontWeight: 800, cursor: friendRequested ? 'default' : 'pointer',
+                fontFamily: 'inherit', whiteSpace: 'nowrap',
+              }}>
+              {friendRequested ? '✓ בקשה נשלחה' : '+ הוסף לחברים'}
+            </button>
+          )}
           <button onClick={onClose} aria-label="סגירה" style={{ width: 36, height: 36, borderRadius: 10, border: `2px solid ${INK}`, background: '#fff', fontSize: 17, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
         </div>
 
@@ -107,7 +134,7 @@ export function CardsModal({ player, players, owners, hotels, onClose, rotate = 
           {tabBtn('all', 'כל הכרטיסיות (' + allProps.length + ')')}
         </div>
 
-        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', minHeight: 0, flex: 1, padding: 12 }}>
+        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'auto', minHeight: 0, flex: 1, padding: 12 }}>
           {shown.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 17, color: '#555' }}>
               עוד אין מדינות. הכל לפניו! 🌍
