@@ -922,7 +922,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       }}>
         {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. PlayerVideo מזהה אוטומטית אם המקור portrait או landscape */}
         <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
-          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} />
+          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} rotate={isPortrait ? 90 : 0} />
         </div>
         {/* שם + כסף בשורה אחת. כפתורי וידאו/מיק בתחתית — שלי (מצלמה+מיק) או של אחרים (הסתרת וידאו / השתקת אודיו — חשוב למודרציה מול משתמשים לא רצויים) */}
         <div style={{ padding: '6px 9px', display: 'flex', flexDirection: 'column', gap: 4 }}>
