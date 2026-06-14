@@ -872,13 +872,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
-    const videoH = isMe ? 110 : 100   // ME קצת גדול יותר משאר השחקנים
+    const videoH = isMe ? 88 : 92   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק
     return (
       <div key={p.uid} style={{
         background: CREAM,
         border: isActive ? `3px solid #2f9e3f` : `1px solid ${INK}`,
         borderRadius: 12, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
+        flexShrink: 0,   // הקלף לא מתכווץ — כל התוכן תמיד נראה (וידאו, שם, כסף, כפתורים)
         opacity: p.dead ? 0.4 : 1,
       }}>
         {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. ללא סיבוב — הדפדפן מטפל ב-orientation */}
@@ -919,9 +920,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {state.players.filter(p => p.uid === me.uid).map(panelCard)}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
               {[0, 1].map(i => (
-                <div key={i} style={{ width: 44, height: 44, borderRadius: 10, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 23, color: INK }}>
+                <div key={i} style={{ width: 38, height: 38, borderRadius: 9, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 21, color: INK }}>
                   {dice[i] ?? '·'}
                 </div>
               ))}
@@ -930,8 +931,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               onClick={rollAndWalk}
               disabled={!isMyTurn}
               style={{
-                background: isMyTurn ? '#f4c20d' : '#d9d4c2', border: `3px solid ${INK}`, borderRadius: 14,
-                padding: '12px 6px', fontSize: 17, fontWeight: 800, color: INK, cursor: isMyTurn ? 'pointer' : 'default',
+                background: isMyTurn ? '#f4c20d' : '#d9d4c2', border: `3px solid ${INK}`, borderRadius: 12,
+                padding: '10px 6px', fontSize: 16, fontWeight: 800, color: INK, cursor: isMyTurn ? 'pointer' : 'default',
                 fontFamily: 'inherit', opacity: isMyTurn ? 1 : 0.6,
               }}>
               🎲 הטלת קוביות
@@ -940,7 +941,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               {winner ? '' : isMyTurn ? 'תורך!' : `תור ${active?.name || ''}`}
             </div>
             {/* control row: camera · sound · chat */}
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 5 }}>
               <button
                 onClick={() => {
                   const m = cameraMode === 'zoom' ? 'full' : 'zoom'
@@ -950,18 +951,18 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 }}
                 aria-label="מצלמה"
                 title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'}
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {cameraMode === 'zoom' ? '🎥' : '🗺️'}
               </button>
               <button
                 onClick={() => { const m = !muted; setMuted(m); setMutedState(m) }}
                 aria-label="סאונד"
                 title={muted ? 'הפעל סאונד' : 'השתק'}
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {muted ? '🔇' : '🔊'}
               </button>
               <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '9px 0', fontSize: 18, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
                 💬
               </button>
             </div>
