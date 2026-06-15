@@ -2375,6 +2375,27 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
 
   const senderLine = (showSender && senderName) ? `${senderVerb}: ${senderName}` : ''
 
+  // רישום לפאנל הניהול — ברכה מהמאגר. זהה בדיוק לספירת "ברכות שנוצרו"
+  // של עצוב אישי — אותם תגים ('greeting' לספירה, 'greeting_save'/'greeting_share' לפעולה),
+  // עם תיוג detail "[מאגר]" כדי להבדיל בין המקורות בפאנל הניהול. סופרים "נוצרה"
+  // פעם אחת לכל ברכה (URL) שהמשתמש בוחר — מיד בלחיצת שמירה/שיתוף ראשונה — כמו ב-DesignStep.
+  const createdLoggedRef = useRef(false)
+  useEffect(() => { createdLoggedRef.current = false }, [url])
+  const logReadyGreeting = (action) => {
+    try {
+      const { authUser, profile } = useUserStore.getState()
+      if (!authUser?.uid) return
+      const name = profile?.name || ''
+      const fileName = (url || '').split('/').pop() || ''
+      const detail = ('[מאגר] ' + fileName).slice(0, 80)
+      if (!createdLoggedRef.current) {
+        createdLoggedRef.current = true
+        logActivity({ uid: authUser.uid, name, type: 'greeting', detail })
+      }
+      logActivity({ uid: authUser.uid, name, type: action, detail })
+    } catch { /* לא חוסם */ }
+  }
+
   // מרכיב את התמונה הסופית (עם שם+קרדיט צרובים) — רק כשצריך
   // (בלחיצה). מחזיר blob לשיתוף/שמירה.
   const buildFinalBlob = async () => {
@@ -2392,6 +2413,7 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
       } else {
         await shareReadyImage(url)
       }
+      logReadyGreeting('greeting_share')
     } catch (e) { if (e?.name !== 'AbortError') console.error(e) }
     setBusy(false)
   }
@@ -2402,6 +2424,7 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
       const blob = await buildFinalBlob()
       if (blob) await saveImageBlob(blob, 'ברכה.jpg')
       else await downloadReadyImage(url)
+      logReadyGreeting('greeting_save')
     } catch (e) { console.error(e) }
     setBusy(false)
   }

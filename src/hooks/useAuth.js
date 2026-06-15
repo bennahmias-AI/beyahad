@@ -1,7 +1,7 @@
 // src/hooks/useAuth.js
 import { useEffect } from 'react'
 import { onAuthStateChanged } from '../services/firebase.js'
-import { auth, getUser, setPresence, createOrUpdateUser, logActivity } from '../services/firebase.js'
+import { auth, getUser, watchUser, setPresence, createOrUpdateUser, logActivity } from '../services/firebase.js'
 import { useUserStore } from '../stores/userStore.js'
 
 // uids שכבר נרשמה להם "כניסה" בטעינת העמוד הזו (מונע רישום כפול)
@@ -11,7 +11,12 @@ export function useAuth() {
   const { setAuthUser, setProfile, setAuthLoading } = useUserStore()
 
   useEffect(() => {
+    let unsubUser = null   // מאזין חי למסמך המשתמש — נחתם מחדש על כל login/logout
+
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      // ניקית מאזין קודם של הפרופיל לפני שמטפלים בכניסה/יציאה
+      if (unsubUser) { try { unsubUser() } catch {} ; unsubUser = null }
+
       if (firebaseUser) {
         setAuthUser(firebaseUser)
 
@@ -55,6 +60,13 @@ export function useAuth() {
         setProfile(profile)
         setAuthLoading(false)
 
+        // ── מאזין חי למסמך המשתמש ──
+        // כל עדכון על המסמך (pendingReturn, status, photoURL וכו'') מסונכרן מייד עם ה-store —
+        // חיוני לתקנון שה-PendingReturnToast יזהה pendingReturn מיד כשהמשתמש יוצא ממשחק
+        unsubUser = watchUser(firebaseUser.uid, (updated) => {
+          if (updated) setProfile(updated)
+        })
+
         // Mark online
         await setPresence(firebaseUser.uid, 'available')
 
@@ -79,6 +91,7 @@ export function useAuth() {
 
     return () => {
       unsub()
+      if (unsubUser) { try { unsubUser() } catch {} }
       window.removeEventListener('beforeunload', handleUnload)
     }
   }, [])

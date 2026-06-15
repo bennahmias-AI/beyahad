@@ -97,6 +97,22 @@ export default function AdminDashboardDesktop({ onExit }) {
   const [logLoading, setLogLoading] = useState(true)
   const [reports, setReports] = useState([])   // דיווחי משתמשים
 
+  // ── מיון רשימת המשתמשים ──
+  // sortBy: עמודה פעילה. 'default' = ההתנהגות הקיימת (תפקיד אז שם).
+  // sortDir: 'asc' = עולה, 'desc' = יורד.
+  // לחיצה על כותרת עמודה מחליפה למיון לפיה; לחיצה מחדש על אותה עמודה — מהפכת כיוון.
+  const [sortBy, setSortBy] = useState('default')
+  const [sortDir, setSortDir] = useState('asc')
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(key)
+      // כיוון ברירת מחדל לכל עמודה — תאריך: מהחדש לישן; טקסט: א-ת
+      setSortDir(key === 'lastSeen' ? 'desc' : 'asc')
+    }
+  }
+
   useEffect(() => {
     if (!isAdmin) return
     const unsub = watchAllUsers(list => { setUsers(list); setLoading(false) })
@@ -298,9 +314,23 @@ export default function AdminDashboardDesktop({ onExit }) {
 
   const q = search.trim().toLowerCase()
   const rank = { admin: 0, premium: 1, user: 2 }
+  // משווה למיון: מחזיר -/0/+ לפי העמודה הנבחרת. במצב 'default' — תפקיד הישן (אדמין קודם, ואז שם).
+  const compareUsers = (a, b) => {
+    let cmp = 0
+    if (sortBy === 'default') {
+      cmp = (rank[roleOf(a)] - rank[roleOf(b)]) || fullName(a).localeCompare(fullName(b), 'he')
+      return cmp
+    }
+    if (sortBy === 'name')     cmp = fullName(a).localeCompare(fullName(b), 'he')
+    else if (sortBy === 'email')    cmp = (a.email || '').localeCompare(b.email || '', 'he')
+    else if (sortBy === 'phone')    cmp = (a.phone || '').localeCompare(b.phone || '')
+    else if (sortBy === 'role')     cmp = (rank[roleOf(a)] - rank[roleOf(b)]) || fullName(a).localeCompare(fullName(b), 'he')
+    else if (sortBy === 'lastSeen') cmp = toMs(a.lastSeenAt) - toMs(b.lastSeenAt)
+    return sortDir === 'asc' ? cmp : -cmp
+  }
   const filteredUsers = users
     .filter(u => !q || fullName(u).toLowerCase().includes(q) || (u.phone || '').includes(q) || (u.email || '').toLowerCase().includes(q) || (u.id || '').toLowerCase().includes(q))
-    .sort((a, b) => (rank[roleOf(a)] - rank[roleOf(b)]) || fullName(a).localeCompare(fullName(b), 'he'))
+    .sort(compareUsers)
 
   return (
     <div style={overlay}>
@@ -403,11 +433,11 @@ export default function AdminDashboardDesktop({ onExit }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                     <thead>
                       <tr style={{ background: 'var(--surface-2)' }}>
-                        <Th>משתמש</Th>
-                        <Th>אימייל</Th>
-                        <Th>טלפון</Th>
-                        <Th>תפקיד</Th>
-                        <Th>נראה לאחרונה</Th>
+                        <SortableTh sortKey="name"     sortBy={sortBy} sortDir={sortDir} onSort={handleSort}>משתמש</SortableTh>
+                        <SortableTh sortKey="email"    sortBy={sortBy} sortDir={sortDir} onSort={handleSort}>אימייל</SortableTh>
+                        <SortableTh sortKey="phone"    sortBy={sortBy} sortDir={sortDir} onSort={handleSort}>טלפון</SortableTh>
+                        <SortableTh sortKey="role"     sortBy={sortBy} sortDir={sortDir} onSort={handleSort}>תפקיד</SortableTh>
+                        <SortableTh sortKey="lastSeen" sortBy={sortBy} sortDir={sortDir} onSort={handleSort}>נראה לאחרונה</SortableTh>
                         <Th>פעולות</Th>
                       </tr>
                     </thead>
@@ -535,6 +565,33 @@ function SectionTitle({ children }) {
 
 function Th({ children }) {
   return <th style={{ textAlign: 'right', padding: '11px 14px', fontSize: 12.5, fontWeight: 800, color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{children}</th>
+}
+
+// כותרת טבלה למיון — לחיצה מחליפה למיון לפי שדה זה; לחיצה נוספת מהפכת כיוון.
+// העמודה הפעילה מודגשת בצבע ה-burgundy + חצ מלא; שאר העמודות — אינדיקטור אפור דו-כיווני רמז.
+function SortableTh({ sortKey, sortBy, sortDir, onSort, children }) {
+  const isActive = sortBy === sortKey
+  const arrow = isActive ? (sortDir === 'asc' ? '▲' : '▼') : '⇵'
+  return (
+    <th
+      onClick={() => onSort(sortKey)}
+      title="לחץ למיון לפי עמודה זו"
+      style={{
+        textAlign: 'right', padding: '11px 14px', fontSize: 12.5, fontWeight: 800,
+        color: isActive ? 'var(--burgundy)' : 'var(--ink-2)',
+        whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
+        background: isActive ? 'rgba(126,44,46,.07)' : 'transparent',
+        transition: 'background .15s',
+      }}
+      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(126,44,46,.04)' }}
+      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {children}
+        <span style={{ fontSize: 10, opacity: isActive ? 1 : 0.35 }}>{arrow}</span>
+      </span>
+    </th>
+  )
 }
 
 function StatCard({ label, value, accent, sub }) {

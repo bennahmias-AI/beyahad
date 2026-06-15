@@ -17,6 +17,7 @@ import { IconBackRTL, IconCoffee, IconPodium, IconLightbulb, IconKitchen, IconGr
 import { useRadioStore } from '../stores/radioStore.js'
 import { searchStations } from '../services/radio.js'
 import { GameIcon } from '../icons/gameIcons.jsx'
+import PendingReturnButton from '../components/PendingReturnButton.jsx'
 import { SEED_RECIPES } from '../data/seedRecipes.js'
 import { getOccasion } from '../occasion.js'
 
@@ -89,17 +90,8 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
     setCancelingDeletion(false)
   }
 
-  // באנר "חזור למשחק" — מוצג אם השחקן עזב משחק זמנית ויש לו 60 שניות לחזור
-  const pendingReturn = profile?.pendingReturn || null
-  const [resumeRemainingSec, setResumeRemainingSec] = useState(0)
-  useEffect(() => {
-    if (!pendingReturn?.expiresMs) return
-    const tick = () => setResumeRemainingSec(Math.max(0, Math.ceil((pendingReturn.expiresMs - Date.now()) / 1000)))
-    tick()
-    const i = setInterval(tick, 500)
-    return () => clearInterval(i)
-  }, [pendingReturn?.expiresMs])
-  const resumeActive = pendingReturn && resumeRemainingSec > 0
+  // הכפתור "חזור למשחק" (PendingReturnButton) מוצג ליד הפעמון —
+  // מופיע אוטומטית כש profile.pendingReturn מוגדר.
 
   // התראות
   const { items: notifications, unseenCount } = useNotifications(authUser?.uid)
@@ -140,6 +132,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
 
   // ─── מאגר "מומלצים לשעה הקרובה" ───
   const GAMES = [
+    { id: 'aroundworld', name: 'מסביב לעולם', color: '#7E2C2E' },
     { id: 'bingo', name: 'בינגו', color: '#4F6B4A' },
     { id: 'sheshbesh', name: 'שש-בש', color: '#7E2C2E' },
     { id: 'checkers', name: 'דמקה', color: '#2C5566' },
@@ -153,7 +146,12 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
     ai: { mode: 'ai', label: 'מול המחשב', sub: 'אימון נעים בקצב שלכם' },
     solo: { mode: 'solo', label: 'לבד', sub: 'המספרים עולים אוטומטית' },
   }
-  const GAME_MODES_BY_ID = { bingo: ['friend', 'online', 'solo'] }
+  // עבור משחקים שלא תומכים בכל המצבים — מגדירים רשימת מצבים ספציפית.
+  // bingo: גם לבד. aroundworld: דורש 2+ שחקנים אמיתיים — ללא מחשב/לבד.
+  const GAME_MODES_BY_ID = {
+    bingo: ['friend', 'online', 'solo'],
+    aroundworld: ['friend', 'online'],
+  }
   const DEFAULT_MODES = ['friend', 'online', 'ai']
   const gameSuggestions = GAMES.flatMap(g =>
     (GAME_MODES_BY_ID[g.id] || DEFAULT_MODES).map(mk => {
@@ -200,6 +198,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
   }))
   const STAPLES = [
     { key: 'greeting', title: 'צרו ברכה אישית', sub: 'ברכה יפה למשפחה ולחברים בלחיצה אחת', icon: <IconGreeting size={48} />, go: onGoGreeting, cat: 'staple' },
+    { key: 'greeting-bank', title: 'ברכה מהמאגר', sub: 'מאות ברכות מוכנות לשבת, לחגים ולמועדים', icon: <IconGreeting size={48} />, go: onGoGreeting, cat: 'staple' },
     { key: 'coffee', title: 'קפה בסלון', sub: 'שיחת וידאו אחד-על-אחד, עכשיו', icon: <IconCoffee size={48} />, go: onGoMatch, cat: 'staple' },
     { key: 'parliament', title: 'הצטרפו לפרלמנט', sub: 'דיון קבוצתי מתחיל עוד מעט', icon: <IconPodium size={48} />, go: onGoParliament, cat: 'staple' },
     { key: 'tips', title: 'עצה חדשה מהחברים', sub: 'טיפ שימושי שכדאי להכיר', icon: <IconLightbulb size={48} />, go: onGoTips, cat: 'staple' },
@@ -266,6 +265,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="time">{timeStr}</div>
               <div className="meta">{dateStr}</div>
             </div>
+            <PendingReturnButton onResume={onResumeGame} size="desktop" />
             <button className="icon-btn" aria-label="התראות" onClick={openNotifications}>
               {unseenCount > 0 && <span className="ndot" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>
@@ -278,22 +278,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
 
         <div className="wrap">
 
-          {/* באנר חזרה למשחק שנטש — 60 שניות להתחרט חזרה */}
-          {resumeActive && (
-            <div style={{ background: 'rgba(248,211,91,.18)', border: '2px solid #d4901a', borderRadius: 18, padding: '16px 18px', margin: '20px 0 0' }}>
-              <div className="h-display" style={{ fontSize: 18, color: '#7a4d0c', marginBottom: 6 }}>
-                ⏳ עזבת באמצע משחק <strong>{pendingReturn.gameName}</strong>
-              </div>
-              <div style={{ fontSize: 14, color: '#5a4220', fontWeight: 600, lineHeight: 1.6, marginBottom: 14 }}>
-                נשארו <strong style={{ color: '#d4901a' }}>{resumeRemainingSec} שניות</strong> לחזור לפני שהמשחק ימשיך בלעדיך.
-              </div>
-              <button
-                onClick={() => onResumeGame && onResumeGame(pendingReturn.gameType, pendingReturn.roomId)}
-                style={{ width: '100%', padding: 14, borderRadius: 14, background: '#2f9e3f', color: '#fff', fontWeight: 700, fontSize: '1rem', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                🎮 חזור למשחק
-              </button>
-            </div>
-          )}
+          {/* (הבאנר "חזור למשחק" הוסר — הוחלף ב-PendingReturnButton המהבהב ליד הפעמון) */}
 
           {/* באנר מחיקת חשבון */}
           {deletionPending && (
@@ -479,6 +464,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               {unseenCount > 0 && <span className="nd" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>
             </button>
+            <PendingReturnButton onResume={onResumeGame} size="mobile" />
           </div>
 
           <div className="m-greet">
@@ -500,22 +486,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
             </div>
           )}
 
-          {/* באנר חזרה למשחק שנטש (מובייל) */}
-          {resumeActive && (
-            <div style={{ background: 'rgba(248,211,91,.18)', border: '2px solid #d4901a', borderRadius: 16, padding: '14px 16px', marginTop: 16 }}>
-              <div className="h-display" style={{ fontSize: 16, color: '#7a4d0c', marginBottom: 4 }}>
-                ⏳ עזבת באמצע <strong>{pendingReturn.gameName}</strong>
-              </div>
-              <div style={{ fontSize: 13, color: '#5a4220', fontWeight: 600, lineHeight: 1.5, marginBottom: 12 }}>
-                נשארו <strong style={{ color: '#d4901a' }}>{resumeRemainingSec} שניות</strong> לחזור.
-              </div>
-              <button
-                onClick={() => onResumeGame && onResumeGame(pendingReturn.gameType, pendingReturn.roomId)}
-                style={{ width: '100%', padding: 12, borderRadius: 12, background: '#2f9e3f', color: '#fff', fontWeight: 700, fontSize: '.98rem', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                🎮 חזור למשחק
-              </button>
-            </div>
-          )}
+          {/* (הבאנר הישן של "חזור למשחק" הוסר — הוחלף ב-PendingReturnButton המהבהב ב-header) */}
 
           <button className="m-spot" onClick={onGoGreeting}>
             <div className="row">

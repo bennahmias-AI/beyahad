@@ -347,6 +347,7 @@ export default function App() {
   function handlePlayGame(gameType, mode) {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
+    setAroundWorldRoom(null)
     setPlayFriend(null)
     setGameMode(mode)
     setPage(`${gameType}-game`)
@@ -565,7 +566,7 @@ export default function App() {
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
-      {page === 'aroundworld-game' && <AroundWorldGame initialRoomId={aroundWorldRoom} autoInviteFriend={playFriend} onBack={() => { setAroundWorldRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
+      {page === 'aroundworld-game' && <AroundWorldGame initialRoomId={aroundWorldRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setAroundWorldRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}

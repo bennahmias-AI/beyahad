@@ -102,6 +102,20 @@ export default function AdminDashboard({ onExit }) {
   const [search, setSearch] = useState('')
   const [selectedUid, setSelectedUid] = useState(null)   // משתמש פתוח בחלון הפרטים
 
+  // ── מיון רשימת המשתמשים ──
+  // sortBy: עמודה פעילה. 'default' = תפקיד אז שם (ההתנהגות הקיימת).
+  // sortDir: 'asc'/'desc'. לחיצה על צ'יפ שכבר פעיל — מהפכת כיוון. תאריך: החדש קודם; טקסט: א-ת.
+  const [sortBy, setSortBy] = useState('default')
+  const [sortDir, setSortDir] = useState('asc')
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(key)
+      setSortDir(key === 'lastSeen' ? 'desc' : 'asc')
+    }
+  }
+
   // יומן פעילות + בורר טווח
   const [range, setRange] = useState('today')
   const [customFrom, setCustomFrom] = useState('')
@@ -284,9 +298,22 @@ export default function AdminDashboard({ onExit }) {
   // סינון רשימת המשתמשים
   const q = search.trim().toLowerCase()
   const rank = { admin: 0, premium: 1, user: 2 }
+  // משווה למיון — זהה ל-AdminDashboardDesktop.
+  const compareUsers = (a, b) => {
+    let cmp = 0
+    if (sortBy === 'default') {
+      cmp = (rank[roleOf(a)] - rank[roleOf(b)]) || fullName(a).localeCompare(fullName(b), 'he')
+      return cmp
+    }
+    if (sortBy === 'name')          cmp = fullName(a).localeCompare(fullName(b), 'he')
+    else if (sortBy === 'email')    cmp = (a.email || '').localeCompare(b.email || '', 'he')
+    else if (sortBy === 'phone')    cmp = (a.phone || '').localeCompare(b.phone || '')
+    else if (sortBy === 'lastSeen') cmp = toMs(a.lastSeenAt) - toMs(b.lastSeenAt)
+    return sortDir === 'asc' ? cmp : -cmp
+  }
   const filteredUsers = users
     .filter(u => !q || fullName(u).toLowerCase().includes(q) || (u.phone || '').includes(q) || (u.email || '').toLowerCase().includes(q) || (u.id || '').toLowerCase().includes(q))
-    .sort((a, b) => (rank[roleOf(a)] - rank[roleOf(b)]) || fullName(a).localeCompare(fullName(b), 'he'))
+    .sort(compareUsers)
 
   const sectionTitle = { fontSize: 15, fontWeight: 800, color: 'var(--ink)', margin: '20px 2px 10px' }
 
@@ -408,6 +435,32 @@ export default function AdminDashboard({ onExit }) {
               <span style={{ fontSize: 17 }}>🔍</span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש לפי שם / טלפון / אימייל..." style={{ flex: 1, border: 'none', outline: 'none', background: 'none', fontSize: 15, fontFamily: 'inherit', color: 'var(--ink)', direction: 'rtl' }} />
               {search && <button onClick={() => setSearch('')} aria-label="נקה" style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: 18, padding: 0 }}>✕</button>}
+            </div>
+
+            {/* שורת מיון — לחיצה על צ'יפ הופכת את המיון לעמודה זו; לחיצה נוספת מהפכת כיוון (א-ת / ת-א, או חדש-לישן / לישן-לחדש לתאריך). */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+              {[
+                { key: 'default',  label: 'ברירת מחדל' },
+                { key: 'name',     label: 'שם' },
+                { key: 'lastSeen', label: 'נראה לאחרונה' },
+                { key: 'email',    label: 'אימייל' },
+                { key: 'phone',    label: 'טלפון' },
+              ].map(opt => {
+                const isActive = sortBy === opt.key
+                const arrow = (isActive && opt.key !== 'default') ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+                return (
+                  <button key={opt.key} onClick={() => handleSort(opt.key)} style={{
+                    flexShrink: 0, padding: '7px 14px', borderRadius: 999,
+                    border: isActive ? 'none' : '1px solid var(--line)',
+                    background: isActive ? 'var(--burgundy)' : 'var(--surface)',
+                    color: isActive ? '#fff' : 'var(--ink-2)',
+                    fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {opt.label}{arrow}
+                  </button>
+                )
+              })}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filteredUsers.length === 0 ? (
