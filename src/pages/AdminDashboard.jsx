@@ -428,6 +428,60 @@ export default function AdminDashboard({ onExit }) {
               <StatCard label="לייקים" value={totalLikes} accent={ACCENT} />
             </div>
 
+            {/* ===== הרשמות חדשות לפי יום ===== */}
+            <div style={sectionTitle}>הרשמות חדשות <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink-3)', marginInlineStart: 6 }}>(7 ימים אחרונים)</span></div>
+            {(() => {
+              // מחשבים הרשמות לפי יום — createdAt נשמר על יצירת משתמש. משתמשים ותיקים ללא createdAt לא נספרים.
+              const days = []
+              for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i)
+                let label
+                if (i === 0) label = 'היום'
+                else if (i === 1) label = 'אתמול'
+                else label = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
+                days.push({ time: d.getTime(), label, count: 0 })
+              }
+              const earliest = days[0].time
+              const tomorrow = days[6].time + 24 * 60 * 60 * 1000
+              for (const u of users) {
+                const ms = toMs(u.createdAt)
+                if (!ms || ms < earliest || ms >= tomorrow) continue
+                const d = new Date(ms); d.setHours(0, 0, 0, 0)
+                const slot = days.find(x => x.time === d.getTime())
+                if (slot) slot.count++
+              }
+              const total7d = days.reduce((s, x) => s + x.count, 0)
+              const maxCount = Math.max(1, ...days.map(x => x.count))
+              const newToday = days[6].count
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 12 }}>
+                    <StatCard label="נרשמו היום" value={newToday} accent="#3E6B34" />
+                    <StatCard label="נרשמו השבוע האחרון" value={total7d} accent="#3E6B34" />
+                  </div>
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 110 }}>
+                      {days.map(day => {
+                        const heightPct = (day.count / maxCount) * 100
+                        return (
+                          <div key={day.time} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: day.count > 0 ? '#3E6B34' : 'var(--ink-3)', minHeight: 16 }}>{day.count}</div>
+                            <div style={{
+                              width: '100%', minHeight: day.count > 0 ? 4 : 1,
+                              height: `${heightPct}%`,
+                              background: day.count > 0 ? 'linear-gradient(180deg, #4F8B44 0%, #3E6B34 100%)' : 'var(--line)',
+                              borderRadius: '5px 5px 0 0',
+                            }} />
+                            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.2 }}>{day.label}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+
             {/* ===== ניהול משתמשים ===== */}
             <div style={sectionTitle}>ניהול משתמשים ({users.length})</div>
             <div style={{ fontSize: 12.5, color: 'var(--ink-3)', fontWeight: 600, margin: '-6px 2px 10px' }}>הקש על משתמש לצפייה בכל הפרטים, שליחת הודעה או מחיקה</div>

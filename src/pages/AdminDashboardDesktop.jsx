@@ -362,6 +362,66 @@ export default function AdminDashboardDesktop({ onExit }) {
               <StatCard label="לייקים" value={totalLikes} accent={ACCENT} />
             </div>
 
+            {/* ===== הרשמות חדשות לפי יום ===== */}
+            <SectionTitle>הרשמות חדשות <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-3)', marginInlineStart: 8 }}>(7 ימים אחרונים)</span></SectionTitle>
+            {(() => {
+              // מחשבים הרשמות לפי יום — createdAt נשמר על יצירת משתמש. משתמשים ותיקים ללא createdAt לא נספרים.
+              const days = []
+              for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i)
+                const labelOpts = i === 0 ? null : i === 1 ? null : null
+                let label
+                if (i === 0) label = 'היום'
+                else if (i === 1) label = 'אתמול'
+                else label = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
+                days.push({ time: d.getTime(), label, count: 0, users: [] })
+              }
+              const earliest = days[0].time
+              const tomorrow = days[6].time + 24 * 60 * 60 * 1000
+              for (const u of users) {
+                const ms = toMs(u.createdAt)
+                if (!ms || ms < earliest || ms >= tomorrow) continue
+                const d = new Date(ms); d.setHours(0, 0, 0, 0)
+                const slot = days.find(x => x.time === d.getTime())
+                if (slot) { slot.count++; slot.users.push(fullName(u)) }
+              }
+              const total7d = days.reduce((s, x) => s + x.count, 0)
+              const maxCount = Math.max(1, ...days.map(x => x.count))
+              const newToday = days[6].count
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
+                    <StatCard label="נרשמו היום" value={newToday} accent="#3E6B34" />
+                    <StatCard label="נרשמו השבוע האחרון" value={total7d} accent="#3E6B34" />
+                    <StatCard label="סך הכל משתמשים" value={users.length} accent={ACCENT} />
+                    <StatCard label="ללא תאריך יצירה" value={users.filter(u => !toMs(u.createdAt)).length} accent="#999" sub="משתמשים ותיקים" />
+                  </div>
+                  {/* גרף — עמודה לכל יום. גובה העמודה יחסית ל-maxCount. ריקוף על העמודה מציג תוי עם השמות. */}
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '18px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 140 }}>
+                      {days.map(day => {
+                        const heightPct = (day.count / maxCount) * 100
+                        return (
+                          <div key={day.time} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }} title={day.users.length ? day.users.join(', ') : 'אין הרשמות'}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: day.count > 0 ? '#3E6B34' : 'var(--ink-3)', minHeight: 18 }}>{day.count}</div>
+                            <div style={{
+                              width: '100%', minHeight: day.count > 0 ? 4 : 1,
+                              height: `${heightPct}%`,
+                              background: day.count > 0
+                                ? 'linear-gradient(180deg, #4F8B44 0%, #3E6B34 100%)'
+                                : 'var(--line)',
+                              borderRadius: '6px 6px 0 0',
+                            }} />
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textAlign: 'center' }}>{day.label}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+
             {/* ===== פעילות לפי טווח ===== */}
             <SectionTitle>פעילות</SectionTitle>
             <RangePicker range={range} setRange={setRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />

@@ -21,6 +21,7 @@ import GreetingMaker from './pages/GreetingMaker.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import FriendsPage from './pages/FriendsPage.jsx'
+import FriendSearchPage from './pages/FriendSearchPage.jsx'
 import DirectChatPage from './pages/DirectChatPage.jsx'
 import GamesArenaPage from './pages/GamesArenaPage.jsx'
 import MemoryGame from './pages/MemoryGame.jsx'
@@ -538,6 +539,9 @@ export default function App() {
           onCallFriend={(f) => handleVideoCall(f, true)}
         />
       )}
+      {page === 'friend-search' && (
+        <FriendSearchPage onBack={() => setPage('hub')} onHome={goHome} />
+      )}
       {page === 'chat' && (
         <DirectChatPage
           friend={chatFriend}
@@ -664,6 +668,7 @@ export default function App() {
           onGoProfile={() => setPage('profile')}
           onGoSettings={() => setPage('settings')}
           onGoFriends={() => setPage('friends')}
+          onGoFriendSearch={() => setPage('friend-search')}
           onGoGames={() => setPage('games')}
           onPlayGame={handlePlayGame}
           onResumeGame={handleResumeGame}

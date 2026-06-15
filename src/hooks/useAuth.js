@@ -1,7 +1,7 @@
 // src/hooks/useAuth.js
 import { useEffect } from 'react'
 import { onAuthStateChanged } from '../services/firebase.js'
-import { auth, getUser, watchUser, setPresence, createOrUpdateUser, logActivity } from '../services/firebase.js'
+import { auth, getUser, watchUser, setPresence, createOrUpdateUser, signOut, logActivity } from '../services/firebase.js'
 import { useUserStore } from '../stores/userStore.js'
 
 // uids שכבר נרשמה להם "כניסה" בטעינת העמוד הזו (מונע רישום כפול)
@@ -26,28 +26,19 @@ export function useAuth() {
         // the real name with a blank skeleton.
         let profile = await getUser(firebaseUser.uid)
 
-        if (!profile) {
-          // Wait a moment and retry — AuthPage may still be writing the profile
-          await new Promise(r => setTimeout(r, 1200))
+        // מנסות עד 3 פעמים על פני כ-3 שניות — מספיק ל-AuthPage לכתוב את הפרופיל גם ברשת איטית.
+        for (let i = 0; i < 3 && !profile; i++) {
+          await new Promise(r => setTimeout(r, 1000))
           profile = await getUser(firebaseUser.uid)
         }
 
         if (!profile) {
-          // לפני יצירת שלד — מוודאים שהמשתמש עדיין מחובר. אם AuthPage זיהה משתמש לא רשום
-          // והתנתק בזמן שחיכינו (1.2 שניות) — לא ליצור שלד עבור חשבון שכבר לא קיים.
-          if (auth.currentUser?.uid !== firebaseUser.uid) {
-            return
-          }
-          // Still nothing — this is a genuine first login without a profile.
-          // Create a skeleton, but DO NOT write an empty name (merge:true keeps
-          // any name that gets written later by AuthPage).
-          await createOrUpdateUser(firebaseUser.uid, {
-            phone: firebaseUser.phoneNumber || '',
-            status: 'available',
-            interests: [],
-            onboarded: false,
-          })
-          profile = await getUser(firebaseUser.uid)
+          // משתמש התאמת (דרך SMS) אבל אין לו פרופיל ב-Firestore — משמעו הרשמה לא הושלמה (או משתמש מנסה להתחבר בלי להירשם קודם לכן).
+          // לא יוצרים שלד ללא שם — זה גורם למשתמשי "רפאים" בפאנל הניהול. מנתקים את המשתמש מ-Auth, והוא יוכל להירשם מחדש במידת הצורך.
+          if (auth.currentUser?.uid !== firebaseUser.uid) return  // כבר התנתק בזמן שחיכינו (למשל AuthPage זיהה login או משתמש לא רשום)
+          console.warn('No Firestore profile found for authenticated user after retries — signing out to avoid creating a ghost user')
+          try { await signOut() } catch {}
+          return
         }
 
         // Sync email from Auth -> Firestore doc, so it appears in the admin board.

@@ -48,7 +48,7 @@ function heroLines(gender) {
   return lines
 }
 
-export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoGames, onPlayGame, onResumeGame, onOpenNotification }) {
+export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecipes, onGoRecipe, onGoRadio, onGoTV, onGoGreeting, onGoProfile, onGoSettings, onGoFriends, onGoFriendSearch, onGoGames, onPlayGame, onResumeGame, onOpenNotification }) {
   const { profile, authUser, setProfile } = useUserStore()
   const isAdmin = profile?.role === 'admin'
   const [menuOpen, setMenuOpen] = useState(false)
@@ -268,6 +268,9 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="meta">{dateStr}</div>
             </div>
             <PendingReturnButton onResume={onResumeGame} size="desktop" />
+            <button className="icon-btn" aria-label="חיפוש חברים" onClick={onGoFriendSearch} title="חיפוש חברים">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><line x1="12" y1="12" x2="18.5" y2="5.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
+            </button>
             <button className="icon-btn" aria-label="התראות" onClick={openNotifications}>
               {unseenCount > 0 && <span className="ndot" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>
@@ -462,6 +465,9 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="t">{timeStr}</div>
               <div className="d">{dateStr}</div>
             </div>
+            <button className="m-bell" aria-label="חיפוש חברים" onClick={onGoFriendSearch} title="חיפוש חברים">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><line x1="12" y1="12" x2="18.5" y2="5.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
+            </button>
             <button className="m-bell" aria-label="התראות" onClick={openNotifications}>
               {unseenCount > 0 && <span className="nd" />}
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a6 6 0 0 0-6 6c0 4-1.5 5.5-2.2 6.3-.5.6-.1 1.7.8 1.7h14.8c.9 0 1.3-1.1.8-1.7C19.5 13.5 18 12 18 8a6 6 0 0 0-6-6Zm0 20a2.7 2.7 0 0 0 2.6-2H9.4A2.7 2.7 0 0 0 12 22Z" /></svg>

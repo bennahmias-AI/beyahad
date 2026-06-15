@@ -261,7 +261,12 @@ export async function removeGalleryPhoto(uid, photoId) {
 }
 
 export async function createOrUpdateUser(uid, data) {
-  await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true })
+  // הוספת createdAt רק ביצירה ראשונה (לא בעדכונים עוקבים) — מאפשר לדעת סטטיסטיקה של הרשמות חדשות לפי יום בפאנל הניהול.
+  const ref = doc(db, 'users', uid)
+  const snap = await getDoc(ref)
+  const payload = { ...data, updatedAt: serverTimestamp() }
+  if (!snap.exists()) payload.createdAt = serverTimestamp()
+  await setDoc(ref, payload, { merge: true })
 }
 
 export async function getUser(uid) {
@@ -474,6 +479,58 @@ export function watchAllUsers(cb) {
     console.error('watchAllUsers error:', err)
     cb([])
   })
+}
+
+// מציאת משתמשים מחוברים רנדומלית — למסך "חיפוש חברים".
+// משתמש מחובר = lastSeenAt ב-2 דקות האחרונות. מסנן את עצמי, מסומנים, וחברים קיימים.
+// friendUidSet — אופציונלי: Set של UIDs של חברים קיימים — אם הועבר, מסתננים אותם מהתוצאות.
+export async function findOnlineStrangers(myUid, friendUidSet, limitN = 10) {
+  if (!myUid) return []
+  const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000)
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('lastSeenAt', '>=', twoMinAgo),
+      limit(50),
+    )
+    const snap = await getDocs(q)
+    let users = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.id !== myUid)
+      .filter(u => !u.blocked)
+      .filter(u => !friendUidSet || !friendUidSet.has(u.id))
+    // ערבוב Fisher-Yates — לקבלת N רנדומלים
+    for (let i = users.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[users[i], users[j]] = [users[j], users[i]]
+    }
+    return users.slice(0, limitN)
+  } catch (e) {
+    console.error('findOnlineStrangers error:', e)
+    return []
+  }
+}
+
+// חיפוש משתמשים לפי שם פרטי + שם משפחה (לטוקן בודד). substring search לא נתמך ב-Firestore —
+// לכן מביאים עד 200 משתמשים נשמרו אחרונה ומסננים בצד הלקוח. מחזיר עד 20 תוצאות.
+export async function searchUsersByName(searchText, myUid) {
+  const text = (searchText || '').trim().toLowerCase()
+  if (!text || !myUid) return []
+  try {
+    const q = query(collection(db, 'users'), orderBy('lastSeenAt', 'desc'), limit(200))
+    const snap = await getDocs(q)
+    const tokens = text.split(/\s+/).filter(Boolean)
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => u.id !== myUid && !u.blocked)
+      .filter(u => {
+        const haystack = `${(u.name || '').toLowerCase()} ${(u.lastName || '').toLowerCase()}`.trim()
+        return tokens.every(t => haystack.includes(t))
+      })
+      .slice(0, 20)
+  } catch (e) {
+    console.error('searchUsersByName error:', e)
+    return []
+  }
 }
 
 // שליפה חד-פעמית של כל המשתמשים (לייצוא CSV).
