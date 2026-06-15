@@ -78,7 +78,10 @@ const EMAIL_ERRORS = {
 }
 
 export default function AuthPage() {
-  const [mode, setMode]   = useState('login')   // 'login' | 'register'
+  // אם משתמש ניסה להתחבר עם מספר לא־רשום — מחזירים אותו ישר ללשונית "הרשמה" עם הודעה
+  const [mode, setMode]   = useState(() => {
+    try { return sessionStorage.getItem('beyahad_auth_needsRegister') ? 'register' : 'login' } catch { return 'login' }
+  })   // 'login' | 'register'
   const [loginMethod, setLoginMethod] = useState('phone') // 'phone' | 'email' — בורר שיטת הכניסה
   const [step, setStep]   = useState('form')    // 'form' | 'otp'
   const [channel, setChannel] = useState('sms') // 'sms' | 'email' — הערוץ הפעיל לקוד
@@ -86,7 +89,18 @@ export default function AuthPage() {
   const [sending, setSending] = useState(false) // שליחת הקוד רצה ברקע
   const [resendIn, setResendIn] = useState(0)   // סטופר אחורה לשליחה חוזרת
   const [elapsed, setElapsed] = useState(0)     // שניות שעברו במסך הקוד (להחלפת ערוץ)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    // הודעת "עליך להירשם" שנשמרה לפני שהמשתמש נותק (ניסיון כניסה עם מספר לא־רשום)
+    try {
+      const m = sessionStorage.getItem('beyahad_auth_msg')
+      if (m) {
+        sessionStorage.removeItem('beyahad_auth_msg')
+        sessionStorage.removeItem('beyahad_auth_needsRegister')
+        return m
+      }
+    } catch {}
+    return ''
+  })
 
   const timerRef = useRef(null)
   const elapsedRef = useRef(null)
@@ -243,8 +257,17 @@ export default function AuthPage() {
         // ומנחים אותו לעבור להרשמה. בדיקה מהירה (~200ms) — דוהרת לפני ש-useAuth מספיק ליצור שלד פרופיל.
         const existing = await getUser(uid)
         if (!existing || !existing.name) {
+          // המספר אומת ב-SMS אך אין לו חשבון רשום — שומרים הודעה שתוצג אחרי הניתוק
+          // (הרכיב מתרנדר מחדש כשהמשתמש מתנתק) ומחזירים אותו ישר ללשונית "הרשמה".
+          const msg = 'המספר הזה עדיין לא רשום — עליך להירשם תחילה. מלאו את הפרטים בלשונית "הרשמה".'
+          try {
+            sessionStorage.setItem('beyahad_auth_msg', msg)
+            sessionStorage.setItem('beyahad_auth_needsRegister', '1')
+          } catch {}
           await signOut()
-          setError('המספר הזה עדיין לא רשום. לחצו על הלשונית "הרשמה" כדי לפתוח חשבון חדש')
+          setError(msg)
+          setMode('register')
+          setStep('form')
           setLoading(false)
           return
         }
@@ -351,11 +374,11 @@ export default function AuthPage() {
             <>
               <FormField label="שם פרטי" valid={vName}>
                 <input value={name} onChange={e => setName(e.target.value)}
-                  placeholder="מרים" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
+                  placeholder="הזינו את שמכם" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
               </FormField>
               <FormField label="שם משפחה" valid={vLast}>
                 <input value={lastName} onChange={e => setLastName(e.target.value)}
-                  placeholder="כהן" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
+                  placeholder="הזינו שם משפחה" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
               </FormField>
               <FormField label="מגדר" valid={!!gender}>
                 <div style={{ display: 'flex', gap: 10 }}>
@@ -377,7 +400,7 @@ export default function AuthPage() {
               </FormField>
               <FormField label="שנת לידה" valid={vYear}>
                 <input value={birthYear} onChange={e => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="1955" inputMode="numeric" dir="ltr" maxLength={4}
+                  placeholder="הזינו שנת לידה" inputMode="numeric" dir="ltr" maxLength={4}
                   style={{ ...underlineInput, textAlign: 'left', letterSpacing: '0.1em' }}/>
               </FormField>
               {/* הודעה ישרה מתחת לשדה — מופיעה רק כששנה שלמה נמצאת מתחת לגיל 18 */}
@@ -393,11 +416,11 @@ export default function AuthPage() {
               )}
               <FormField label="עיר" valid={vCity}>
                 <input value={city} onChange={e => setCity(e.target.value)}
-                  placeholder="תל אביב" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
+                  placeholder="הזינו עיר מגורים" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
               </FormField>
               <FormField label="כתובת מייל (לא חובה)" valid={email.trim() ? vEmail : false}>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="miriam@gmail.com" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                  placeholder="הזינו כתובת מייל" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
               </FormField>
             </>
           )}
@@ -425,12 +448,12 @@ export default function AuthPage() {
               {loginMethod === 'phone' ? (
                 <FormField label="מספר טלפון" valid={vPhone}>
                   <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                    placeholder="050-1234567" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                    placeholder="הזינו מספר טלפון" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
                 </FormField>
               ) : (
                 <FormField label="כתובת מייל" valid={vEmail}>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="miriam@gmail.com" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                    placeholder="הזינו כתובת מייל" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
                 </FormField>
               )}
             </>
@@ -439,7 +462,7 @@ export default function AuthPage() {
           {mode === 'register' && (
             <FormField label="מספר טלפון" valid={vPhone}>
               <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="050-1234567" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
+                placeholder="הזינו מספר טלפון" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
             </FormField>
           )}
 

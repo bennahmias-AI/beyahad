@@ -484,20 +484,29 @@ export function watchAllUsers(cb) {
 // מציאת משתמשים מחוברים רנדומלית — למסך "חיפוש חברים".
 // משתמש מחובר = lastSeenAt ב-2 דקות האחרונות. מסנן את עצמי, מסומנים, וחברים קיימים.
 // friendUidSet — אופציונלי: Set של UIDs של חברים קיימים — אם הועבר, מסתננים אותם מהתוצאות.
-export async function findOnlineStrangers(myUid, friendUidSet, limitN = 10) {
+export async function findOnlineStrangers(myUid, friendUidSet, limitN = 10, opts = {}) {
   if (!myUid) return []
   const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000)
   try {
     const q = query(
       collection(db, 'users'),
       where('lastSeenAt', '>=', twoMinAgo),
-      limit(50),
+      limit(opts.all ? 1000 : 50),
     )
     const snap = await getDocs(q)
     let users = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(u => u.id !== myUid)
       .filter(u => !u.blocked)
       .filter(u => !friendUidSet || !friendUidSet.has(u.id))
+    // opts.all (אדמין) — כל המחוברים, ממוינים לפי הנראה-לאחרונה (החדש קודם), בלי הגרלה/חיתוך
+    if (opts.all) {
+      users.sort((a, b) => {
+        const am = a.lastSeenAt && a.lastSeenAt.toMillis ? a.lastSeenAt.toMillis() : 0
+        const bm = b.lastSeenAt && b.lastSeenAt.toMillis ? b.lastSeenAt.toMillis() : 0
+        return bm - am
+      })
+      return users
+    }
     // ערבוב Fisher-Yates — לקבלת N רנדומלים
     for (let i = users.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))

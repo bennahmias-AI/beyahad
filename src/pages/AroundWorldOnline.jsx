@@ -924,7 +924,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
-    const videoH = isMe ? 50 : 72   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק. ה-isMe מוקטן יותר — כל הפאנל הימני (X, קוביות, כפתורים) נכנס בחלון אחד בלי גלילה
+    const videoH = isMe ? 40 : 56   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק. ה-isMe מוקטן יותר — כל הפאנל הימני (X, קוביות, כפתורים) נכנס בחלון אחד בלי גלילה
     const videoW = isMe ? 193 : 178  // רוחב מספרי (לא 100%) — חיוני למנגנון סיבוב תקין ב-PlayerVideo
     return (
       <div key={p.uid} style={{
@@ -967,10 +967,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
+        {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
+        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, zIndex: 80, width: 38, height: 38, borderRadius: 11, border: `2px solid ${INK}`, background: 'rgba(255,255,255,.92)', fontSize: 18, fontWeight: 900, cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
 
         {/* right panel: ME only + dice + controls */}
         <div style={{ width: 195, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
-          <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {state.players.filter(p => p.uid === me.uid).map(panelCard)}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>

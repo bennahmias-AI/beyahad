@@ -21,6 +21,7 @@ import {
 export default function FriendSearchPage({ onBack, onHome }) {
   const { authUser, profile } = useUserStore()
   const myUid = authUser?.uid
+  const isAdmin = profile?.role === 'admin'   // אדמין רואה את כל המחוברים (לא רק 10 רנדומליים)
 
   const [searchText, setSearchText] = useState('')
   const [randomUsers, setRandomUsers] = useState([])      // הרשימה הראשונית הרנדומלית
@@ -43,7 +44,7 @@ export default function FriendSearchPage({ onBack, onHome }) {
     if (!myUid) return
     setScanning(true)
     const start = Date.now()
-    findOnlineStrangers(myUid, friendUids, 10).then(list => {
+    findOnlineStrangers(myUid, isAdmin ? null : friendUids, isAdmin ? 1000 : 10, { all: isAdmin }).then(list => {
       const elapsed = Date.now() - start
       const remaining = Math.max(0, 3000 - elapsed) // לפחות 3 שניות אנימציה
       setTimeout(() => {
@@ -87,7 +88,8 @@ export default function FriendSearchPage({ onBack, onHome }) {
 
   const searching = !!searchText.trim()
   // מסננים חברים קיימים מהתצוגה — המסך הזה למציאת חברים חדשים. אם מישהו כבר חבר — מוצאים אותו דרך עמוד החברים הרגיל.
-  const displayed = (searching ? searchResults : randomUsers).filter(u => !friendUids.has(u.id))
+  // אדמין רואה את כולם (גם חברים קיימים); משתמש רגיל — רק מי שעוד לא חבר שלו
+  const displayed = (searching ? searchResults : randomUsers).filter(u => isAdmin ? true : !friendUids.has(u.id))
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
@@ -135,7 +137,7 @@ export default function FriendSearchPage({ onBack, onHome }) {
                 ? (searchResults.length > 0
                     ? `נמצאו ${searchResults.length} תוצאות`
                     : 'אין תוצאות לחיפוש')
-                : `💡 משתמשים מחוברים עכשיו (${randomUsers.length})`}
+                : (isAdmin ? `👑 כל המחוברים עכשיו (${randomUsers.length})` : `💡 משתמשים מחוברים עכשיו (${randomUsers.length})`)}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -498,6 +498,19 @@ export default function App() {
     )
   }
 
+  // משתמש אומת אך עדיין אין לו פרופיל — הפרופיל בטעינה, או שזה מספר לא־רשום
+  // ש-useAuth עומד לנתק. לא מרנדרים את האפליקציה (או מסך onboarding) ללא פרופיל —
+  // מציגים טעינה קצרה עד שההכרעה נופלת (פרופיל נטען / ניתוק → חזרה למסך הכניסה).
+  if (authUser && !profile) {
+    return (
+      <div className="app-shell" style={{ alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <AppLogo size={88} />
+        <div style={{ fontFamily: "'Assistant', sans-serif", fontWeight: 800, fontSize: 28, color: colors.burgundy }}>ביחד</div>
+        <div style={{ fontSize: 16, color: colors.ink2 }}>טוענת...</div>
+      </div>
+    )
+  }
+
   // שלב התמונה בהרשמה — מוצג מיד אחרי אימות הטלפון (onboarded:false). משתמשים ותיקים (ללא השדה) לא נלכדים.
   if (authUser && profile && profile.onboarded === false) {
     return (
