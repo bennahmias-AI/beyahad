@@ -123,17 +123,25 @@ export function usePlayerProfile(uid, fallbackName = '', fallbackPhoto = null) {
 //   me           — { uid, name }
 //   enabled      — האם הווידאו הופעל (אחרי אישור הסכמה). אם false — לא מתחבר.
 //   startWithCam — האם להיכנס עם מצלמה דולקת (לפי בחירת השחקן באישור)
-export function GameVideoProvider({ roomId, me, enabled, startWithCam = true, children }) {
+export function GameVideoProvider({ roomId, me, enabled, startWithCam = true, isPortrait = false, children }) {
   const [token, setToken] = useState(null)
   const [error, setError] = useState(false)
   const roomName = roomId ? `game-${roomId}` : null
+
+  // שומרים את isPortrait ב-ref כדי שלא נחזור להתחבר אם הוא משתנה באמצע משחק
+  const isPortraitRef = useRef(isPortrait)
+  useEffect(() => { isPortraitRef.current = isPortrait })
 
   useEffect(() => {
     if (!enabled || !roomName || !me?.uid) return
     let cancelled = false
     ;(async () => {
       try {
-        const t = await fetchLiveKitToken(roomName, me.name || 'שחקן', me.uid)
+        // מקדדים את אוריינטציית המקור בתחילית השם — הצופים יקראו ויסיקו אם לסובב את הוידאו
+        // (P|... = השחקן בפורטרייט, L|... = בלנדסקייפ). זה אמין יותר מזיהוי לפי dimensions של WebRTC.
+        const baseName = me.name || 'שחקן'
+        const taggedName = `${isPortraitRef.current ? 'P' : 'L'}|${baseName}`
+        const t = await fetchLiveKitToken(roomName, taggedName, me.uid)
         if (!cancelled) setToken(t)
       } catch (e) {
         console.error('GameVideo token error:', e)
@@ -231,7 +239,12 @@ function VideoBridge({ me, startWithCam, children }) {
       tracksByUid[p.identity] = t   // גם ה-identity המלא, ליתר ביטחון
       participantsByUid[baseUid] = p
     }
-    if (p.name) tracksByName[p.name] = t
+    if (p.name) {
+      tracksByName[p.name] = t
+      // לתאימות לאחור — גם השם בלי תחילית האוריינטציה (P|/L|), כדי שחיפושים לפי שם המקורי עדיין יעבדו
+      const stripped = String(p.name).replace(/^[PL]\|/, '')
+      if (stripped !== p.name) tracksByName[stripped] = t
+    }
   })
 
   // מחילים את ההשתקות המקומיות על עוצמת האודיו של המשתתפים המרוחקים
@@ -279,6 +292,9 @@ function VideoBridge({ me, startWithCam, children }) {
 // ═══════════════════════════════════════════════════════════════
 export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, width, height }) {
   const { active, tracksByUid, tracksByName, hiddenVideo } = useGameVideo()
+  // מזהה אוריינטציית מקור מהתחילית של שם המשתתף ב-LiveKit (P|/L|) — האמין ביותר
+  const partName = String((tracksByUid?.[uid]?.participant?.name) || '')
+  const portraitFromName = partName.startsWith('P|') ? true : partName.startsWith('L|') ? false : null
   // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
   const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
   // מנסים להתאים לפי uid (identity), ואם אין — לפי שם
@@ -323,8 +339,15 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, wi
     return () => { cancelled = true; clearInterval(interval) }
   }, [hasVideo, trackRef])
 
-  // אם ה-caller העביר rotate מפורש — מכבדים אותו (תאימות לאחור). אחרת — משתמשים בזיהוי האוטומטי
-  const effectiveRotate = (rotate != null && rotate !== undefined) ? rotate : autoRotate
+  // עדיפויות לבחירת הסיבוב:
+  //   1. rotate מפורש מה-caller (תאימות לאחור)
+  //   2. אוריינטציה לפי שם המשתתף (P|/L|) — אמין ביותר
+  //   3. זיהוי אוטומטי לפי dimensions של הוידאו — fallback
+  const effectiveRotate =
+    (rotate != null && rotate !== undefined) ? rotate
+      : (portraitFromName === true) ? 90
+      : (portraitFromName === false) ? 0
+      : autoRotate
 
   if (hasVideo) {
     // rotate counter-rotates the video to compensate for the parent CSS rotation

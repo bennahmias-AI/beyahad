@@ -920,9 +920,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         flexShrink: 0,   // הקלף לא מתכווץ — כל התוכן תמיד נראה (וידאו, שם, כסף, כפתורים)
         opacity: p.dead ? 0.4 : 1,
       }}>
-        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. PlayerVideo מזהה אוטומטית אם המקור portrait או landscape */}
+        {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. PlayerVideo מזהה אוטומטית את כיוון המקור מתחילית שם המשתתף ב-LiveKit */}
         <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
-          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} rotate={isPortrait ? 90 : 0} />
+          <PlayerVideo uid={p.uid} name={p.name} width={videoW} height={videoH} />
         </div>
         {/* שם + כסף בשורה אחת. כפתורי וידאו/מיק בתחתית — שלי (מצלמה+מיק) או של אחרים (הסתרת וידאו / השתקת אודיו — חשוב למודרציה מול משתמשים לא רצויים) */}
         <div style={{ padding: '6px 9px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1116,7 +1116,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   return (
     <ProfilesProvider uids={state.players.map(p => p.uid)} myUid={me.uid}>
-    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
+    <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true} isPortrait={isPortrait}>
       {isPortrait ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center' }}>
