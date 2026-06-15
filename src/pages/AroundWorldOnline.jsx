@@ -38,6 +38,7 @@ import {
 import {
   createAroundWorldRoom, joinAroundWorldRoom, startAroundWorldGame,
   updateAroundWorldState, watchAroundWorldRoom, leaveAroundWorldRoom,
+  removePlayerFromAroundWorldRoom,
   findOrCreateAroundWorldMatch, watchFriendships, sendGameInvite,
   watchUser, sendAroundWorldChat, sendFriendRequest, quitAroundWorldGame,
   pauseAroundWorldGame, returnToAroundWorldGame,
@@ -414,8 +415,22 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
 
   const handleLeave = async () => {
     if (isHost) await leaveAroundWorldRoom(roomId)
+    else await removePlayerFromAroundWorldRoom(roomId, me.uid)
     onBack()
   }
+
+  // שמירת מצב למה ל-cleanup ללא stale closure — ה-WaitingRoom לעולם לא מתמונתט מחדש.
+  const meRef = useRef(me)
+  useEffect(() => { meRef.current = me })
+
+  // Cleanup — אם השחקן עוזב דרך אחרת (כפתור אחור של אנדרואד, סגירת טאב, טעינה מחדש) מסירים
+  // אותו מרשימת השחקנים. הפונקציה מתעלמת מעצמה במצב 'playing' — אז ה-unmount שקורה במעבר למשחק לא מסיר בטעות.
+  useEffect(() => {
+    return () => {
+      if (!isHost) removePlayerFromAroundWorldRoom(roomId, meRef.current.uid).catch(() => {})
+    }
+    // eslint-disable-next-line
+  }, [])
 
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>

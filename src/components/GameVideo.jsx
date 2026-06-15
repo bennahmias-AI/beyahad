@@ -295,6 +295,32 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, wi
   // מזהה אוריינטציית מקור מהתחילית של שם המשתתף ב-LiveKit (P|/L|) — האמין ביותר
   const partName = String((tracksByUid?.[uid]?.participant?.name) || '')
   const portraitFromName = partName.startsWith('P|') ? true : partName.startsWith('L|') ? false : null
+
+  // סיבוב ידני לפי צופה (מקומי) — לחיצה על כפתור ה-↻ מסובבת את הוידאו של השחקן המוצג ב-90° נוסף.
+  // נשמר ב-localStorage לפי uid — ההעדפה נשמרת גם אחרי ריענון. מחזור אוטומטי (null) → 0° → 90° → 180° → 270° → אוטומטי.
+  const rotKey = `beyahad_video_rotation_${uid}`
+  const [userRotation, setUserRotation] = useState(() => {
+    try {
+      const raw = localStorage.getItem(rotKey)
+      if (raw === null) return null
+      const n = parseInt(raw, 10)
+      return [0, 90, 180, 270].includes(n) ? n : null
+    } catch { return null }
+  })
+  const cycleRotation = useCallback((e) => {
+    if (e) e.stopPropagation()
+    setUserRotation(prev => {
+      const cycle = [null, 0, 90, 180, 270]
+      const idx = cycle.indexOf(prev)
+      const next = cycle[(idx + 1) % cycle.length]
+      try {
+        if (next === null) localStorage.removeItem(rotKey)
+        else localStorage.setItem(rotKey, String(next))
+      } catch {}
+      return next
+    })
+  }, [rotKey])
+
   // פרופיל חי — תמונה ושם מלא (עם fallback למה שהועבר)
   const { name: fullName, photoURL: livePhoto } = usePlayerProfile(uid, name, photoURL)
   // מנסים להתאים לפי uid (identity), ואם אין — לפי שם
@@ -340,11 +366,13 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, wi
   }, [hasVideo, trackRef])
 
   // עדיפויות לבחירת הסיבוב:
-  //   1. rotate מפורש מה-caller (תאימות לאחור)
-  //   2. אוריינטציה לפי שם המשתתף (P|/L|) — אמין ביותר
-  //   3. זיהוי אוטומטי לפי dimensions של הוידאו — fallback
+  //   1. סיבוב ידני מהמשתמש (כפתור ↻) — מעקף את הכל
+  //   2. rotate מפורש מה-caller (תאימות לאחור)
+  //   3. אוריינטציה לפי שם המשתתף (P|/L|) — אמין ביותר
+  //   4. זיהוי אוטומטי לפי dimensions של הוידאו — fallback
   const effectiveRotate =
-    (rotate != null && rotate !== undefined) ? rotate
+    (userRotation != null) ? userRotation
+      : (rotate != null && rotate !== undefined) ? rotate
       : (portraitFromName === true) ? 90
       : (portraitFromName === false) ? 0
       : autoRotate
@@ -393,6 +421,24 @@ export function PlayerVideo({ uid, name, size = 42, photoURL, online, rotate, wi
         position: 'relative',
       }}>
         <VideoTrack trackRef={trackRef} style={videoStyle} />
+        {/* כפתור סיבוב ידני — מוצג רק כשיש וידאו חי. לחיצה מסובבת ב-90° נוסף. נשמר בדפדפן. */}
+        <button
+          onClick={cycleRotation}
+          title="סובב וידאו (90° נוסף)"
+          aria-label="סובב וידאו"
+          style={{
+            position: 'absolute', top: 4, insetInlineStart: 4,
+            width: 26, height: 26, borderRadius: '50%',
+            background: userRotation != null ? 'rgba(244,194,13,.92)' : 'rgba(0,0,0,.55)',
+            color: userRotation != null ? '#1c1c1c' : '#fff',
+            border: userRotation != null ? '1.5px solid #1c1c1c' : 'none',
+            cursor: 'pointer', padding: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 800, fontFamily: 'inherit',
+            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 2, lineHeight: 1,
+          }}
+        >↻</button>
       </div>
     )
   }

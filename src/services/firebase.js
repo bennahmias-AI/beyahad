@@ -2204,6 +2204,21 @@ export async function leaveAroundWorldRoom(roomId) {
   catch (e) { console.error('leaveAroundWorldRoom error:', e) }
 }
 
+// הסרת שחקן בודד מהרשימה (ללא מחיקת החדר) — משמש כשמוזמן (לא-מארח) עוזב
+// את חדר המתנה לפני שהמשחק התחיל. רק למצב 'waiting' — לא נוגעים במשחק פעיל.
+export async function removePlayerFromAroundWorldRoom(roomId, uid) {
+  if (!roomId || !uid) return
+  try {
+    const ref = doc(db, 'aroundworldRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const data = snap.data()
+    if (data.status !== 'waiting') return   // לא מסירים שחקנים לאחר שהמשחק התחיל — הלוגיקה שם מטופלת במנגנון אחר
+    const players = (data.players || []).filter(p => p.uid !== uid)
+    await updateDoc(ref, { players })
+  } catch (e) { console.error('removePlayerFromAroundWorldRoom error:', e) }
+}
+
 // נטישת משחק באמצע — במקום למחוק את כל החדר (לשאר השחקנים רואים "המשחק נסגר"),
 // מסמנים את השחקן כ-dead במצב המשחק — הנכסים שלו חוזרים לקופה והמשחק ממשיך בין השאר.
 // אם המשחק כבר נגמר או במצב אחר — מוחקים את החדר כרגיל.

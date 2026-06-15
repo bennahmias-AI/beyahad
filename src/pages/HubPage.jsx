@@ -109,7 +109,9 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
              : hour < 17 ? 'צהריים טובים'
              : hour < 20 ? 'אחר צהריים טובים'
              : 'ערב טוב'
-  const userName = profile?.name || 'אורח'
+  // ללא flash של "אורח" בערך הממתנה — מציגים מקום שומר (NBSP) עד ש-profile נטען
+  // מ-Firestore. רק אחרי ש-profile נטען, מציגים את השם. אם השם ריק נמשיך ל-'אורח' כרגיל.
+  const userName = profile?.name || (profile ? 'אורח' : ' ')
   const weekday = now.toLocaleDateString('he-IL', { weekday: 'long' })
   const dateStr = `${weekday} · ${now.getDate()} ב${now.toLocaleDateString('he-IL', { month: 'long' })}`
   const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
