@@ -924,7 +924,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
-    const videoH = isMe ? 62 : 92   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק. ה-isMe מוקטן יותר — כל הפאנל הימני (X, קוביות, כפתורים) נכנס בחלון אחד בלי גלילה
+    const videoH = isMe ? 50 : 72   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק. ה-isMe מוקטן יותר — כל הפאנל הימני (X, קוביות, כפתורים) נכנס בחלון אחד בלי גלילה
     const videoW = isMe ? 193 : 178  // רוחב מספרי (לא 100%) — חיוני למנגנון סיבוב תקין ב-PlayerVideo
     return (
       <div key={p.uid} style={{
