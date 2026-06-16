@@ -127,6 +127,20 @@ function injectAllFonts() {
   document.head.appendChild(style)
 }
 
+// טוען פונטים ספציפיים עם תקרת-זמן קשיחה — בלי להמתין ל-document.fonts.ready.
+// קריטי לאפליקציה: ב-WebView של אנדרואיד document.fonts.ready עלול להיתקע
+// ~20 שניות (או לא להסתיים כלל) כשיש הרבה @font-face כבדים (base64) —
+// וזו הסיבה שהשיתוף "נתקע 20 שניות" או נכשל. כאן טוענים רק את הפונט הדרוש
+// וממתינים לכל היותר ms; אחרת ממשיכים מיד לרינדור (אמין ומהיר).
+async function loadFontsBounded(specs, ms = 1500) {
+  if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) return
+  try {
+    const loads = specs.map(s => document.fonts.load(s.font, s.sample || 'אבגדהו').catch(() => {}))
+    const timeout = new Promise(r => setTimeout(r, ms))
+    await Promise.race([Promise.all(loads), timeout])
+  } catch { /* ממשיכים בכל מקרה */ }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // פלטות צבע
 // ═══════════════════════════════════════════════════════════════
@@ -924,15 +938,15 @@ function DesignStep({
   const renderPNG = async () => {
     const W = 1080, H = 1080
 
-    // מוודא שהפונט נטען לגמרי לפני הציור
-    if (document.fonts && document.fonts.load) {
+    // מוודא שהפונטים הדרושים נטענו — עם תקרת-זמן (בלי document.fonts.ready
+    // שנתקע ב-WebView). זה התיקון ל"שיתוף נתקע 20 שניות".
+    {
       const fam = (font.css.match(/'([^']+)'/) || [])[1] || font.css
-      try {
-        await document.fonts.load(`${font.weight} 100px '${fam}'`, text.trim().slice(0, 40) || 'אבגד')
-        await document.fonts.load("700 28px 'M PLUS Rounded 1c'", 'מאחלאבגד')
-        await document.fonts.load("600 21px 'Huninn'", 'ברכהזונוצרה')
-        await document.fonts.ready
-      } catch (e) { /* ממשיכים */ }
+      await loadFontsBounded([
+        { font: `${font.weight} 100px '${fam}'`, sample: text.trim().slice(0, 40) || 'אבגד' },
+        { font: "700 28px 'M PLUS Rounded 1c'", sample: 'מאחלאבגד' },
+        { font: "600 21px 'Huninn'", sample: 'ברכהזונוצרה' },
+      ])
     }
 
     const canvas = document.createElement('canvas')
@@ -1000,15 +1014,10 @@ function DesignStep({
     })
   }
 
-  // מוודא שהפונט הנבחר נטען לפני רינדור (אחרת ה-PNG יוצא בפונט ברירת מחדל)
+  // מוודא שהפונט הנבחר נטען לפני רינדור (עם תקרת-זמן — בלי document.fonts.ready)
   const ensureFontLoaded = async () => {
-    if (!document.fonts || !document.fonts.load) return
-    // מחלץ את שם המשפחה מתוך ה-css (החלק שבמרכאות)
     const fam = (font.css.match(/'([^']+)'/) || [])[1] || font.css
-    try {
-      await document.fonts.load(`${font.weight} 100px '${fam}'`, 'אבגדהו')
-      await document.fonts.ready
-    } catch (e) { /* אם נכשל — ממשיכים בכל מקרה */ }
+    await loadFontsBounded([{ font: `${font.weight} 100px '${fam}'`, sample: 'אבגדהו' }])
   }
 
   const handleSave = async () => {
@@ -2329,11 +2338,10 @@ async function composeReadyImage(url, senderLine) {
 
   const scale = W / 1080
   injectAllFonts()
-  try {
-    await document.fonts.load(`700 ${Math.round(28 * scale)}px 'M PLUS Rounded 1c'`, 'מאחל')
-    await document.fonts.load(`600 ${Math.round(21 * scale)}px 'Huninn'`, 'ברכה')
-    await document.fonts.ready
-  } catch (e) { /* ממשיכים */ }
+  await loadFontsBounded([
+    { font: `700 ${Math.round(28 * scale)}px 'M PLUS Rounded 1c'`, sample: 'מאחל' },
+    { font: `600 ${Math.round(21 * scale)}px 'Huninn'`, sample: 'ברכה' },
+  ])
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
