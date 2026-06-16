@@ -47,8 +47,8 @@ const RANGES = [
   { key: 'custom', label: 'מותאם' },
 ]
 const RANGE_LABEL = { today: 'היום', yesterday: 'אתמול', week: 'השבוע', month: 'החודש', year: 'השנה', custom: 'בטווח' }
-const ACTIVITY_LABEL = { login: 'כניסה', cafe: 'קפה בסלון', parliament: 'פרלמנט', singing: 'שירה בציבור', game: 'משחק', radio: 'רדיו', tv: 'טלוויזיה', greeting: 'ברכה', greeting_share: 'שיתוף ברכה', greeting_save: 'שמירת ברכה' }
-const ACTIVITY_COLOR = { login: '#5E7CA6', cafe: '#2C5566', parliament: '#7E2C2E', singing: '#6B3A4F', game: '#4F6B4A', radio: '#6B3A4F', tv: '#2C5566', greeting: '#B8860B', greeting_share: '#4F6B4A', greeting_save: '#7E2C2E' }
+const ACTIVITY_LABEL = { login: 'כניסה', cafe: 'קפה בסלון', parliament: 'פרלמנט', singing: 'שירה בציבור', game: 'משחק', radio: 'רדיו', tv: 'טלוויזיה', greeting: 'ברכה', greeting_share: 'שיתוף ברכה', greeting_save: 'שמירת ברכה', greeting_open: 'פתיחת ברכה' }
+const ACTIVITY_COLOR = { login: '#5E7CA6', cafe: '#2C5566', parliament: '#7E2C2E', singing: '#6B3A4F', game: '#4F6B4A', radio: '#6B3A4F', tv: '#2C5566', greeting: '#B8860B', greeting_share: '#4F6B4A', greeting_save: '#7E2C2E', greeting_open: '#B8860B' }
 const GAME_LABEL = { connect4: '4 בשורה', checkers: 'דמקה', chess: 'שחמט', sheshbesh: 'שש-בש', rummikub: 'רמיקוב', arena: 'מלך הזירה', bingo: 'בינגו', millionaire: 'מי רוצה להיות מיליונר', memory: 'משחק הזיכרון' }
 
 function rangeBounds(key, customFrom, customTo) {

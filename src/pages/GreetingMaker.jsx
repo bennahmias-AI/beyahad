@@ -679,6 +679,20 @@ function DesignStep({
     } catch { /* לא חוסם */ }
   }
 
+  // רישום "פתיחת ברכה" — מיד עם הכניסה לעורך, בלי תלות בשיתוף/שמירה.
+  // כך גם אם המשתמש לא שלח בסוף, רואים בפאנל שהוא ניגש ליצור ברכה.
+  const openLoggedRef = useRef(false)
+  useEffect(() => {
+    if (openLoggedRef.current) return
+    openLoggedRef.current = true
+    try {
+      const { authUser, profile } = useUserStore.getState()
+      if (authUser?.uid) {
+        logActivity({ uid: authUser.uid, name: profile?.name || '', type: 'greeting_open', detail: (text || '').trim().slice(0, 80) })
+      }
+    } catch { /* לא חוסם */ }
+  }, [])
+
   // מזריק את כל הפונטים ל-<head> פעם אחת בכניסה למסך,
   // ואז מבקש מהדפדפן לטעון אותם — כדי שיהיו זמינים בתוך הגרפיקה.
   const [fontsReady, setFontsReady] = useState(false)
@@ -2716,6 +2730,17 @@ function BankStep({ senderName, senderVerb, isPremium, quotaCats, onPersistQuota
     else registerBack(null)
     return () => registerBack(null)
   }, [registerBack, occ])
+
+  // רישום "פתיחת ברכה" מהמאגר — כשנכנסים לגלריית אירוע (בלי תלות בשיתוף).
+  useEffect(() => {
+    if (!occ) return
+    try {
+      const { authUser, profile } = useUserStore.getState()
+      if (authUser?.uid) {
+        logActivity({ uid: authUser.uid, name: profile?.name || '', type: 'greeting_open', detail: ('[מאגר] ' + (occ.label || '')).slice(0, 80) })
+      }
+    } catch { /* לא חוסם */ }
+  }, [occ])
 
   useEffect(() => {
     fetch('/ready/manifest.json')
