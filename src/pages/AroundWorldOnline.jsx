@@ -59,6 +59,8 @@ const LOTTO_CARDS = [
   { text: 'מילאת טופס כפול בטעות.', amount: -40 },
   { text: 'זכית בפרס ניחומים.', amount: +30 },
   { text: 'חבר מילא עליך כרטיס - והוא זכה!', amount: +120 },
+  { text: 'זכייה גדולה במפעל הפיס!', amount: +500 },
+  { text: 'הג׳קפוט! זכית בפרס הענק!', amount: +1000 },
 ]
 const CHANCE_CARDS = [
   { text: 'מצאת ארנק ברחוב והחזרת אותו. קיבלת פרס.', amount: +100 },
@@ -69,6 +71,7 @@ const CHANCE_CARDS = [
   { text: 'מכרת מזכרות מהטיול ברווח.', amount: +80 },
   { text: 'נסיעה ישר להתחלה! קבל 200.', goto: 0, amount: +200 },
   { text: 'שכחת את הדרכון - חוזרים 3 צעדים.', back: 3 },
+  { text: 'קח כרטיס פיס חינם!', freeLotto: true },
 ]
 
 // ── עזרי מצב ────────────────────────────────────────────────
@@ -783,7 +786,12 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       const c = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)]
       card = { kind: 'lotto', tileId: tile.id, uid, ...c }
     } else if (tile.type === 'chance') {
-      const c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)]
+      let c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)]
+      // "קח כרטיס פיס חינם" — מגריל תוצאת לוטו אמיתית (כמו כרטיס שנמשך)
+      if (c.freeLotto) {
+        const l = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)]
+        c = { text: 'כרטיס פיס חינם! ' + l.text, amount: l.amount }
+      }
       card = { kind: 'chance', tileId: tile.id, uid, ...c }
     } else {
       if (tile.key === 'einKnisa') { card = { kind: 'pay', tileId: tile.id, uid, amount: -RULES.EIN_KNISA_FINE }; playSound('badStep') }
@@ -1026,7 +1034,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         {/* board center — לחיצה כפולה = הצצה (כשלא בתורי) */}
         <div
           style={{ flex: 1, minWidth: 0, position: 'relative' }}
-          onDoubleClick={() => { if (!isMyTurn) setPeek(v => !v) }}
+          onDoubleClick={() => setPeek(v => !v)}
         >
           <AroundWorldBoard
             focusTiles={showFull ? null : focusTiles}
@@ -1036,9 +1044,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
             tokenColors={tokenColors}
             priceIndex={state.priceIndex}
           />
-          {peek && !isMyTurn && (
+          {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              👁 מצב הצצה — לחיצה כפולה לחזרה
+              🔍 לוח מלא — לחיצה כפולה לזום חזרה
             </div>
           )}
         </div>
@@ -1213,7 +1221,7 @@ function LandingCard({ card, players, myUid, onAction }) {
         actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)]
       } else {
         // אין מספיק כסף — מסירים את כפתור הקנייה, משאירים רק "המשך" עם הודעה
-        sideSub += ' · אין מספיק כסף לקנייה'
+        sideSub += ' · אין לך מספיק כסף לרכוש'
         actions = [btn('המשך', 'no', '#d8402a')]
       }
     } else if (card.kind === 'hotel') {

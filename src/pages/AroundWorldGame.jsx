@@ -34,6 +34,8 @@ const LOTTO_CARDS = [
   { text: 'הכרטיס לא זכה הפעם. קנית עוד אחד.', amount: -20 },
   { text: 'מילאת טופס כפול בטעות.', amount: -40 },
   { text: 'זכית בפרס ניחומים.', amount: +30 },
+  { text: 'זכייה גדולה במפעל הפיס!', amount: +500 },
+  { text: 'הג׳קפוט! זכית בפרס הענק!', amount: +1000 },
   { text: 'חבר מילא עליך כרטיס - והוא זכה!', amount: +120 },
 ];
 
@@ -46,6 +48,7 @@ const CHANCE_CARDS = [
   { text: 'מכרת מזכרות מהטיול ברווח.', amount: +80 },
   { text: 'נסיעה ישר להתחלה! קבל 200.', goto: 0, amount: +200 },
   { text: 'שכחת את הדרכון - חוזרים 3 צעדים.', back: 3 },
+  { text: 'קח כרטיס פיס חינם!', freeLotto: true },
 ];
 
 // ---- helpers ----------------------------------------------------------------
@@ -238,7 +241,12 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
       const c = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)];
       setCard({ kind: 'lotto', tile, uid, ...c });
     } else if (tile.type === 'chance') {
-      const c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
+      let c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
+      // "קח כרטיס פיס חינם" — מגריל תוצאת לוטו אמיתית (כמו כרטיס שנמשך)
+      if (c.freeLotto) {
+        const l = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)];
+        c = { text: 'כרטיס פיס חינם! ' + l.text, amount: l.amount };
+      }
       setCard({ kind: 'chance', tile, uid, ...c });
     } else {
       // corner
@@ -539,7 +547,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
         {/* board center */}
         <div
           style={{ flex: 1, minWidth: 0, position: 'relative' }}
-          onDoubleClick={() => { if (!isMyTurn) setPeek((v) => !v); }}
+          onDoubleClick={() => setPeek((v) => !v)}
         >
           <AroundWorldBoard
             focusTiles={peek ? null : focusTiles}
@@ -549,9 +557,9 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
             tokenColors={tokenColors}
             priceIndex={priceIndex}
           />
-          {peek && !isMyTurn && (
+          {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              👁 מצב הצצה — לחיצה כפולה לחזרה
+              🔍 לוח מלא — לחיצה כפולה לזום חזרה
             </div>
           )}
         </div>
@@ -811,9 +819,15 @@ function LandingCard({ card, players, onAction }) {
     if (card.kind === 'buy') {
       const eff = card.price ?? t.price;
       const pct = (eff !== t.price && card.price != null) ? Math.round((eff / t.price - 1) * 100) : 0;
+      const canAfford = actor && actor.cash >= eff;
       sideTitle = 'מדינה פנויה';
       sideSub = grp.label + (pct ? ' · מדד ' + (pct > 0 ? '+' : '') + pct + '%' : '');
-      actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)];
+      if (canAfford) {
+        actions = [btn('לקנות · ' + eff + ' ₪', 'yes', '#2f9e3f'), btn('לא עכשיו', 'no', '#fff', INK)];
+      } else {
+        sideSub += ' · אין לך מספיק כסף לרכוש';
+        actions = [btn('המשך', 'no', '#d8402a')];
+      }
     } else if (card.kind === 'hotel') {
       hl = card.level + 1;
       const cost = buildCost(t, card.level);
