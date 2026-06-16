@@ -2398,7 +2398,7 @@ export async function quitAroundWorldGame(roomId, uid) {
 // נטישה זמנית ממשחק — מסמן שהשחקן עזב עם חלון 60 שניות לחזור.
 // מצב המשחק נעצר לכולם (שאר השחקנים רואים מודאל עם ספירת לאחור וחוסמים מפעולות).
 // השחקן שיצא מקבל pendingReturn במסמך users שלו — להצגת באנר בדף הבית.
-export async function pauseAroundWorldGame(roomId, uid, name) {
+export async function pauseAroundWorldGame(roomId, uid, name, windowMs = 60 * 1000) {
   if (!roomId || !uid) return false
   try {
     const ref = doc(db, 'aroundworldRooms', roomId)
@@ -2424,7 +2424,7 @@ export async function pauseAroundWorldGame(roomId, uid, name) {
     }
 
     const nowMs = Date.now()
-    const RETURN_WINDOW_MS = 60 * 1000
+    const RETURN_WINDOW_MS = windowMs   // ברירת מחדל 60ש'; יציאה יזומה ב-✕ מעבירה 30ש'
     gameState.pendingLeave = {
       uid,
       name: name || player.name,

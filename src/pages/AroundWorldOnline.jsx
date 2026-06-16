@@ -649,6 +649,69 @@ function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemov
 // ════════════════════════════════════════════════════════
 // מסך המשחק המסונכרן
 // ════════════════════════════════════════════════════════
+// רשימת קובצי מוזיקת רקע (public/music). מתנגנים מקומית בכל מכשיר, רנדומלית, בעוצמה חלשה.
+const MUSIC_TRACKS = [
+  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
+  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
+  '/music/kontraa-water-afro-pop-music-445661.mp3',
+  '/music/moodmode-no-copyright-music-201745.mp3',
+  '/music/nastelbom-background-music-463062.mp3',
+  '/music/paulyudin-pop-uplifting-182523.mp3',
+  '/music/starostin-jazz-jazz-music-515630.mp3',
+  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
+]
+const MUSIC_VOLUME = 0.15   // עוצמה חלשה
+
+// ── אייקוני שמע (SVG מצוירים, לא אימוג'י) ──
+function IcSound({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9v6h3l4 3V6L7 9H4z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18 6a8 8 0 0 1 0 12" />
+    </svg>
+  )
+}
+function IcSoundOff({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9v6h3l4 3V6L7 9H4z" />
+      <line x1="15" y1="9" x2="21" y2="15" />
+      <line x1="21" y1="9" x2="15" y2="15" />
+    </svg>
+  )
+}
+function IcMusic({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 17V5l10-2v12" />
+      <circle cx="6" cy="17" r="3" />
+      <circle cx="16" cy="15" r="3" />
+    </svg>
+  )
+}
+function IcMusicOff({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 17V5l10-2v12" />
+      <circle cx="6" cy="17" r="3" />
+      <circle cx="16" cy="15" r="3" />
+      <line x1="3" y1="3" x2="21" y2="21" />
+    </svg>
+  )
+}
+function IcShuffle({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  )
+}
+
 function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
 
@@ -687,6 +750,12 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const [walkingTiles, setWalkingTiles] = useState(null)  // אנימציית הליכה מקומית (לכותב בלבד)
   const [localTokens, setLocalTokens] = useState(null)    // מיקומי דיסקיות מקומיים בזמן צעידה (לכותב בלבד)
   const [muted, setMutedState] = useState(() => isMuted())
+  const [musicOn, setMusicOn] = useState(() => {
+    try { return localStorage.getItem('beyahad_aroundworld_music') !== 'off' } catch { return true }
+  })
+  const [musicMenuOpen, setMusicMenuOpen] = useState(false)
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const audioRef = useRef(null)
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const [friendUids, setFriendUids] = useState(() => new Set())  // רשימת ה-uids שעל ה-uid המחובר — למי מהשחקנים שקיימת בקשת חברות
   const busyRef = useRef(false)                   // נועל מהלך בזמן ריצה
@@ -715,6 +784,32 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     return () => unsub && unsub()
   }, [me.uid])
 
+  // מוזיקת רקע מקומית (נגן פר-מכשיר, רנדומלי, עוצמה חלשה). לא עובר דרך LiveKit — כל אחד שומע מהמכשיר שלו.
+  const nextRandomTrack = () => setTrackIdx(i => {
+    if (MUSIC_TRACKS.length <= 1) return i
+    let n = i; while (n === i) n = Math.floor(Math.random() * MUSIC_TRACKS.length); return n
+  })
+  const toggleMusic = () => setMusicOn(v => {
+    const nv = !v
+    try { localStorage.setItem('beyahad_aroundworld_music', nv ? 'on' : 'off') } catch {}
+    return nv
+  })
+  const changeMusic = () => {
+    nextRandomTrack()
+    setMusicOn(true)
+    try { localStorage.setItem('beyahad_aroundworld_music', 'on') } catch {}
+  }
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    a.volume = MUSIC_VOLUME
+    if (musicOn && videoChoice !== null) {
+      const p = a.play(); if (p && p.catch) p.catch(() => {})   // חסימת autoplay — יתחיל בלחיצה הבאה
+    } else {
+      a.pause()
+    }
+  }, [musicOn, trackIdx, videoChoice])
+
   const myIndex = state ? state.players.findIndex(p => p.uid === me.uid) : -1
   const turnIdx = state?.turn ?? state?.turnIdx ?? 0
   const isMyTurn = state && turnIdx === myIndex && state.phase === 'idle' && !state.winner
@@ -724,7 +819,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // אם השחקן חזר למשחק אחרי נטישה זמנית (לחץ על הבאנר בדף הבית) — מנקה את pendingLeave והמשחק חוזר.
   // appActiveRef: באפליקציה הנייטיב, כשהמשתמש ברקע לא מבטלים את ה-pendingLeave — כך הטיימר ממשיך לרוץ לשאר.
   const appActiveRef = useRef(true)
+  const handledLeaveRef = useRef(false)   // המשתמש בתהליך יציאה יזומה (✕/חזור) — לא לבטל לו את ה-pendingLeave
   useEffect(() => {
+    if (handledLeaveRef.current) return    // יצא ביזום — משאירים את הנטישה כדי שהשעון יופיע לאחרים
     if (state?.pendingLeave?.uid === me.uid && appActiveRef.current) {
       returnToAroundWorldGame(roomId, me.uid).catch(() => {})
     }
@@ -734,7 +831,6 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // Refs ל-cleanup ב-unmount — למיכל שהשחקן יוצא דרך כפתור החזרה של אנדרואיד / סגירת טאב (בלי ללחוץ על ה-✕ הראשי)
   const leaveRefs = useRef({ roomId, uid: me.uid, name: me.name })
   useEffect(() => { leaveRefs.current = { roomId, uid: me.uid, name: me.name } })
-  const handledLeaveRef = useRef(false)   // לא לקרוא ל-pause פעמיים כש handleLeave כבר רץ
 
   // On unmount — fallback: אם השחקן עזב בכל דרך אחרת (לא דרך ה-handleLeave) — עדיין מסמןים pendingLeave
   // pauseAroundWorldGame בדיקה פנימית שהמשחק עדיין 'playing'; אם לא — no-op.
@@ -1048,7 +1144,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     if (gameEnded) {
       await quitAroundWorldGame(roomId, me.uid)
     } else {
-      await pauseAroundWorldGame(roomId, me.uid, me.name)
+      await pauseAroundWorldGame(roomId, me.uid, me.name, 30 * 1000)   // יציאה יזומה ב-✕ — 30 שניות לחזור
     }
     onExit ? onExit() : onBack()
   }
@@ -1058,9 +1154,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const OTHER_INFO_H = 68          // גובה אזור השם+כסף+כפתורים בכרטיס יריב
   const OTHER_MIN_CARD = 56 + OTHER_INFO_H
   let otherCardH = null
-  let otherVideoH = 120
+  const OTHER_MAX_CARD = 250      // תקרה — כדי שיריב בודד/שניים לא יתנפחו לכל הגובה
+  let otherVideoH = 150
   if (othersPanelH > 0) {
-    const per = Math.floor((othersPanelH - 22 - 8 * otherCount) / otherCount)
+    let per = Math.floor((othersPanelH - 22 - 8 * otherCount) / otherCount)
+    per = Math.min(per, OTHER_MAX_CARD)
     if (per >= OTHER_MIN_CARD) { otherCardH = per; otherVideoH = per - OTHER_INFO_H }
     else { otherCardH = null; otherVideoH = 56 }   // צפוף מדי — חוזרים לקומפקטי + גלילה
   }
@@ -1068,7 +1166,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
-    const videoH = isMe ? 40 : otherVideoH   // היריבים: גובה דינמי שממלא את הפאנל (אופציה 4). שלי: קומפקטי לתת מקום לקוביות/כפתורים
+    const videoH = isMe ? 170 : otherVideoH   // היריבים: גובה דינמי שממלא את הפאנל (אופציה 4). שלי: קומפקטי לתת מקום לקוביות/כפתורים
     const videoW = isMe ? 193 : 178  // רוחב מספרי (לא 100%) — חיוני למנגנון סיבוב תקין ב-PlayerVideo
     return (
       <div key={p.uid} style={{
@@ -1109,11 +1207,21 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   const chatMsgs = room.chat || []
 
+  const audioMenuBtn = {
+    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+    background: '#fff', border: `1.5px solid ${INK}`, borderRadius: 9,
+    padding: '9px 11px', fontSize: 14, fontWeight: 700, color: INK,
+    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'start',
+  }
+
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
         <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, zIndex: 80, width: 38, height: 38, borderRadius: 11, border: `2px solid ${INK}`, background: 'rgba(255,255,255,.92)', fontSize: 18, fontWeight: 900, cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+
+        {/* נגן מוזיקת רקע מקומי (ללא שליטה גלויה) — מתנגן בכל מכשיר בנפרד */}
+        <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextRandomTrack} style={{ display: 'none' }} />
 
         {/* right panel: ME only + dice + controls */}
         <div style={{ width: 195, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
@@ -1154,11 +1262,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 {cameraMode === 'zoom' ? '🎥' : '🗺️'}
               </button>
               <button
-                onClick={() => { const m = !muted; setMuted(m); setMutedState(m) }}
-                aria-label="סאונד"
-                title={muted ? 'הפעל סאונד' : 'השתק'}
+                onClick={() => setMusicMenuOpen(o => !o)}
+                aria-label="שמע ומוזיקה"
+                title="שמע ומוזיקה"
                 style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {muted ? '🔇' : '🔊'}
+                {muted ? <IcSoundOff size={18} /> : <IcSound size={18} />}
               </button>
               <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
                 style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -1196,6 +1304,24 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           {state.players.filter(p => p.uid !== me.uid).map(panelCard)}
         </div>
       </div>
+
+      {/* תפריט שמע — נפתח מכפתור הרמקול: צלילים / מוזיקה / החלפה */}
+      {musicMenuOpen && (
+        <>
+          <div onClick={() => setMusicMenuOpen(false)} style={{ position: 'absolute', inset: 0, zIndex: 70 }} />
+          <div style={{ position: 'absolute', bottom: 56, insetInlineStart: 8, zIndex: 71, background: CREAM, border: `2px solid ${INK}`, borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 5, width: 210, boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
+            <button onClick={() => { const m = !muted; setMuted(m); setMutedState(m) }} style={audioMenuBtn}>
+              <span>{muted ? <IcSoundOff /> : <IcSound />}</span><span>{muted ? 'הפעל צלילי משחק' : 'השתק צלילי משחק'}</span>
+            </button>
+            <button onClick={toggleMusic} style={audioMenuBtn}>
+              <span>{musicOn ? <IcMusic /> : <IcMusicOff />}</span><span>{musicOn ? 'השתק מוזיקת רקע' : 'הפעל מוזיקת רקע'}</span>
+            </button>
+            <button onClick={() => { changeMusic(); setMusicMenuOpen(false) }} style={audioMenuBtn}>
+              <span><IcShuffle /></span><span>החלף מוזיקת רקע</span>
+            </button>
+          </div>
+        </>
+      )}
 
       {/* player cards modal */}
       {viewPlayer && (
@@ -1265,7 +1391,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       {confirmLeave && (
         <LeaveConfirmModal
           title="לעזוב את המשחק?"
-          subtitle="המשחק הנוכחי יסתיים והיריבים יקבלו הודעה"
+          subtitle="תוכל לחזור תוך 30 שניות — אחרת המשחק ימשיך בלעדיך"
           stayLabel="לא, להישאר במשחק"
           leaveLabel="כן, לעזוב"
           onStay={() => setConfirmLeave(false)}
