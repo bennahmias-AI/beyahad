@@ -25,7 +25,178 @@ import { GREETING_FONTS } from '../greetingFonts.js'
 import { getOccasion } from '../occasion.js'
 import { GREETING_GROUPS, READY_OCCASIONS, occasionsByGroup, findOccasion, fillName, randomGreeting } from '../data/readyGreetings.js'
 import { saveImageBlob, shareImageBlob } from '../utils/saveImage.js'
-import { pickShareText } from '../data/shareTexts.js'
+// ── מללי שיתוף (מוטמע כאן ישירות) ──
+// הכיתוב שמתלווה לתמונת הברכה בשיתוף. לכל הקשר (אירוע) מאגר מללים,
+// ונבחר אחד רנדומלי לפי הקשר הברכה. המפתחות תואמים ל-id של READY_OCCASIONS.
+const SHARE_TEXTS = {
+  YOM_RISHON: [
+    'בוקר אור! שבוע חדש מתחיל, שיהיה מלא בעשייה מבורכת.',
+    'יום ראשון הגיע! שיהיה שבוע של התחלות חדשות ומוצלחות.',
+    'שבוע טוב לכולם, בואו נתחיל את היום באנרגיות שיא!',
+    'יום ראשון בפתח, מאחלת לכולנו שבוע רגוע ומלא השראה.',
+    'הנה זה בא – שבוע חדש! שיהיה יום ראשון נפלא.',
+    'שיהיה שבוע מנצח ויום ראשון מלא בחיוכים.',
+    'שבוע טוב! שהיום הראשון יניח יסודות מעולים לכל השבוע.',
+    'יום ראשון של אור, של עשייה ושל התקדמות.',
+    'שבוע חדש, הזדמנויות חדשות. יום ראשון נהדר לכולם!',
+    'שבוע נפלא! שנזכה לנצל כל יום השבוע בתבונה ובאהבה.',
+  ],
+  YOM_SHENI: [
+    'יום שני מצוין! כבר עברנו את תחילת השבוע, ממשיכים חזק.',
+    'יום שני בפתח – שיהיה יום פרודוקטיבי ומהנה.',
+    'מאחלת לכם יום שני מלא בשלווה והצלחה.',
+    'יום שני הוא יום של עשייה, בואו נפיק ממנו את המיטב!',
+    'שהיום הזה יביא איתו בשורות טובות והרבה חיוכים.',
+    'יום שני שמח! שנצליח להגשים את המטרות שלנו היום.',
+    'אווירה טובה ליום שני! תהיו יצירתיים ותהנו מהדרך.',
+    'יום שני מלא באנרגיה חיובית לכל חברי הקהילה!',
+    'שיהיה יום שני פורה, מלא בהישגים קטנים וגדולים.',
+    'יום שני – האמצע מתקרב, שיהיה יום מלא בנחת.',
+  ],
+  YOM_SHLISHI: [
+    'יום שלישי, פעמיים כי טוב! שיהיה יום נפלא.',
+    'יום שלישי בפתח – בואו נהפוך אותו ליום מיוחד.',
+    'יום שלישי שמח! שנזכה לראות ברכה בעמלנו היום.',
+    'פעמיים כי טוב – מאחלת לכולכם יום מוצלח ומלא שפע.',
+    'יום שלישי הגיע, זמן מצוין לעצור ולהעריך את מה שיש.',
+    'יום שלישי טוב לכולם, שיהיה מלא בהפתעות נעימות!',
+    'יום שלישי כבר כאן! שיהיה יום של אור ושמחה בלב.',
+    'פעמיים כי טוב, אז שיהיו לכם היום שתי סיבות לפחות לחייך.',
+    'יום שלישי בפתח, שהאנרגיה החיובית תלווה אתכם כל היום.',
+    'שיהיה יום שלישי נהדר, מלא בחוויות טובות.',
+  ],
+  YOM_RVII: [
+    'יום רביעי הגיע! סוף השבוע כבר נראה באופק.',
+    'יום רביעי שמח, שיהיה יום של סיומים מוצלחים והתחלות חדשות.',
+    'יום רביעי בפתח, מאחלת לכם יום רגוע ומספק.',
+    'כבר יום רביעי! בואו נסיים את השבוע בשיא העוצמה.',
+    'שיהיה יום רביעי מקסים, מלא בהצלחה בכל מה שתיגעו בו.',
+    'יום רביעי של אור, שיהיה יום שכולו נחת.',
+    'יום רביעי הנהדר, תנו לעצמכם רגע של שקט והנאה.',
+    'שיהיה לכם יום רביעי מלא בהשראה ויצירתיות.',
+    'יום רביעי הגיע, זמן מושלם לתכנן את סוף השבוע שלכם.',
+    'יום רביעי שמח! שהיום הזה יזרום בנעימים ובכיף.',
+  ],
+  YOM_CHAMISHI: [
+    'חמישי הגיע! איזה כיף, סוף השבוע כבר כאן.',
+    'יום חמישי שמח! שיהיה יום של סגירת מעגלים וחיוכים.',
+    'חמישי זה היום הכי טוב בשבוע – שיהיה מוצלח ומלא נחת.',
+    'יום חמישי בפתח, בואו נסיים את השבוע עם טעם טוב.',
+    'שיהיה יום חמישי קליל ונעים לכולם!',
+    'חמישי הגיע! הגיע הזמן לנשום לרווחה ולהתכונן למנוחה.',
+    'מאחלת לכם יום חמישי מלא באופטימיות ואנרגיות של סופ"ש.',
+    'יום חמישי נפלא! שכל מה שתכננתם לשבוע הזה יצליח.',
+    'חמישי שמח, תהיו גאים בעצמכם על כל מה שהספקתם.',
+    'הנה זה מגיע – חמישי! שיהיה סופ"ש מושלם בפתח.',
+  ],
+  SHABAT: [
+    'שבת שלום ומבורכת לכל בית ישראל.',
+    'שבת של מנוחה, שקט ושלווה בלב ובבית.',
+    'שבת שלום! שהשבת הזו תביא איתה שקט נפשי ורגיעה.',
+    'מאחלת לכולנו שבת שלום, של אוכל טוב וזמן איכות.',
+    'שבת שלום! שנזכה להתמלא באנרגיות חדשות לשבוע הבא.',
+    'שבת מבורכת, שיהיה זמן של חיבור ומשפחתיות.',
+    'שבת שלום! שתהיה שבת של שקט, רוגע ואושר.',
+    'שבת של שלום ואהבה לכל הקהילה המופלאה שלנו.',
+    'מאחלת לכם שבת רגועה ומלאה בכל טוב.',
+    'שבת שלום! תנו לעצמכם לנוח, מגיע לכם.',
+  ],
+  SHAVUA_TOV: [
+    'שבוע טוב ומבורך! שיהיו לנו ימים של בשורות טובות.',
+    'שבוע טוב! שנתחיל את השבוע עם חיוך והרבה אופטימיות.',
+    'שבוע טוב ומלא הצלחות לכולם!',
+    'שבוע טוב – שיהיה שבוע של שפע, בריאות וטוב לב.',
+    'מאחלת לכולנו שבוע נפלא, מלא בעשייה ברוכה.',
+    'שבוע טוב! שכל השבוע יזרום בנעימים ובשמחה.',
+    'שבוע טוב ומבורך, בואו נפיק את המיטב מהשבוע הזה.',
+    'שבוע טוב! ימים יפים לפנינו, בואו נקבל אותם באהבה.',
+    'שבוע טוב לכולם, שיהיה מלא בהצלחות והישגים.',
+    'שבוע טוב ומואר! שהשבוע הזה יביא איתו רק אור.',
+  ],
+  ROSH_HASHANA: [
+    'שתהיה שנה טובה ומתוקה כדבש.',
+    'שנה של הגשמת חלומות ושאיפות!',
+    'שנה של בריאות, אושר ושלווה.',
+    'שתהיה שנה מלאה בהצלחות ובשורות טובות.',
+    'שנה של פריחה, צמיחה ואהבה.',
+    'שנה של רגעים יפים ושמחים יחד.',
+    'שנה של שפע, ברכה והצלחה בכל.',
+    'שנה טובה! שנכתב ונחתם לחיים טובים.',
+    'שנה של עשייה פורייה וסיפוק אישי.',
+    'שנה מופלאה שמתחילה ברגל ימין!',
+  ],
+  MAZAL_TOV: [
+    'מזל טוב! שתזכה להרבה שנים של אושר.',
+    'מזל טוב! שהחיים יאירו לך פנים תמיד.',
+    'המון מזל טוב, שכל משאלות הלב יתגשמו.',
+    'מזל טוב! שתהיה שנה מלאה בחיוכים ושמחה.',
+    'המון מזל טוב! תמשיך להאיר את העולם בחיוך שלך.',
+    'מזל טוב מכל הלב, הרבה בריאות ונחת.',
+    'מזל טוב! שפע של הצלחות ואהבה.',
+    'יום מיוחד לאדם מיוחד – מזל טוב!',
+    'מזל טוב! שנזכה לחגוג איתך עוד המון רגעים משמחים.',
+    'מזל טוב! תהנה מהיום המיוחד הזה.',
+  ],
+  BEHATZLACHA: [
+    'בהצלחה רבה בכל אשר תפנה!',
+    'מאחלת לך המון הצלחה בדרך החדשה.',
+    'בהצלחה! אין לי ספק שתעשה חיל.',
+    'בהצלחה רבה, האמן בעצמך – אתה מסוגל להכל.',
+    'מאחלת המון הצלחה! תהנה מהדרך ומהיעד.',
+    'בהצלחה! שתראה ברכה בכל מעשה ידיך.',
+    'בהצלחה רבה! תהיה בטוח בעצמך, אתה מדהים.',
+    'המון בהצלחה, השמיים הם הגבול!',
+    'בהצלחה! מחזיקה לך אצבעות בכל צעד.',
+    'בהצלחה רבה, אני כאן תמיד בשבילך.',
+  ],
+}
+
+// מללים כלליים — לאירועים שאין להם רשימה ייעודית או כשלא זוהה הקשר.
+const SHARE_GENERIC = [
+  'שלחתי לך ברכה קטנה שתאיר את היום 🌸',
+  'ברכה חמה מכל הלב — חשבתי עליך!',
+  'מאחל/ת לך רק טוב, ברכה ממני אליך 💛',
+  'ברכה מיוחדת בשבילך, שיהיה לך יום נפלא!',
+  'קצת אור ואהבה אליך — ברכה מאפליקציית ביחד.',
+]
+
+// מילות מפתח לזיהוי הקשר מתוך טקסט הברכה (כשאין מזהה אירוע מפורש). הסדר חשוב.
+const SHARE_KEYWORDS = [
+  { id: 'YOM_RISHON',   kws: ['יום ראשון'] },
+  { id: 'YOM_SHENI',    kws: ['יום שני'] },
+  { id: 'YOM_SHLISHI',  kws: ['יום שלישי'] },
+  { id: 'YOM_RVII',     kws: ['יום רביעי'] },
+  { id: 'YOM_CHAMISHI', kws: ['יום חמישי', 'חמישי'] },
+  { id: 'SHABAT',       kws: ['שבת'] },
+  { id: 'SHAVUA_TOV',   kws: ['שבוע טוב'] },
+  { id: 'ROSH_HASHANA', kws: ['שנה טובה', 'ראש השנה'] },
+  { id: 'MAZAL_TOV',    kws: ['מזל טוב'] },
+  { id: 'BEHATZLACHA',  kws: ['בהצלחה'] },
+]
+
+function shareRandomFrom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// מנרמל מזהה אירוע למפתח של SHARE_TEXTS (רווח → קו תחתון) — כך 'שבוע טוב' עם רווח תואם.
+function normalizeOccId(id) {
+  return String(id || '').trim().toUpperCase().replace(/\s+/g, '_')
+}
+
+// בוחר מלל שיתוף רנדומלי לפי הקשר. ctx = { id?, text? } — מעדיף מזהה אירוע;
+// אחרת לפי מילות מפתח בטקסט; אם אין התאמה — מלל כללי.
+function pickShareText(ctx = {}) {
+  const { id, text } = ctx
+  const key = normalizeOccId(id)
+  if (key && SHARE_TEXTS[key]) return shareRandomFrom(SHARE_TEXTS[key])
+  const t = text || ''
+  for (const entry of SHARE_KEYWORDS) {
+    if (entry.kws.some(kw => t.includes(kw)) && SHARE_TEXTS[entry.id]) {
+      return shareRandomFrom(SHARE_TEXTS[entry.id])
+    }
+  }
+  return shareRandomFrom(SHARE_GENERIC)
+}
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
 const bgDataCache = {}
@@ -1054,17 +1225,25 @@ function DesignStep({
     setBusy(false)
   }
 
-  const handleShare = async () => {
+  // מלל השיתוף — חלון שנפתח בלחיצת "שתף" עם מלל מומלץ לפי הקשר הברכה (null = סגור).
+  // הבחירה מיידית; הרינדור וטעינת הפונטים רצים רק אחרי "המשך לשיתוף" — כמו קודם.
+  const [shareSuggest, setShareSuggest] = useState(null)
+  const openShareModal = () => {
+    if (busy) return
+    setShareSuggest(pickShareText({ id: bgMeta?.category, text }))
+  }
+
+  const doShareWith = async (shareMsg) => {
     setBusy(true); setMsg('')
     try {
       await ensureFontLoaded()
       const blob = await renderPNG()
-      const res = await shareImageBlob(blob, 'ברכה-אישית.jpg', text)
+      const res = await shareImageBlob(blob, 'ברכה-אישית.jpg', shareMsg)
       if (res.ok) {
         logGreeting('greeting_share')
       } else if (res.notSupported) {
         // דפדפן ללא תמיכה בשיתוף — פתיחת וואטסאפ עם הטקסט
-        const t = encodeURIComponent(text + '\n\nנוצר באמצעות אפליקציית ביחד')
+        const t = encodeURIComponent((shareMsg || text) + '\n\nנוצר באמצעות אפליקציית ביחד')
         window.open(`https://wa.me/?text=${t}`, '_blank')
         logGreeting('greeting_share')
       } else {
@@ -1113,7 +1292,7 @@ function DesignStep({
         <div style={{ flex: 1, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
           עצבו את הברכה
         </div>
-        <button onClick={handleShare} disabled={busy} style={{
+        <button onClick={openShareModal} disabled={busy} style={{
           padding: '10px 16px', borderRadius: 12,
           background: 'var(--burgundy)', color: 'white',
           border: 'none', fontSize: 14, fontWeight: 700,
@@ -1524,6 +1703,15 @@ function DesignStep({
           initial={customColor}
           onCancel={() => setShowColorPicker(false)}
           onConfirm={(hexVal) => { setCustomColor(hexVal); setTextColorId('custom'); setShowColorPicker(false) }}
+        />
+      )}
+
+      {/* חלון המלל לשיתוף — מלל מומלץ לפי הקשר, עם המשך/עריכה */}
+      {shareSuggest !== null && (
+        <ShareTextModal
+          initialText={shareSuggest}
+          onCancel={() => setShareSuggest(null)}
+          onConfirm={(t) => { setShareSuggest(null); doShareWith(t) }}
         />
       )}
     </div>
@@ -2500,15 +2688,23 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
     return blob
   }
 
-  const doShare = async () => {
+  // מלל השיתוף — חלון שנפתח בלחיצת "שיתוף" עם מלל מומלץ לפי הקשר הברכה (null = סגור)
+  const [shareSuggest, setShareSuggest] = useState(null)
+  const openShare = () => {
+    if (busy) return
+    const occId = (url || '').split('/')[2] || null   // /ready/<occId>/<n>.jpg
+    setShareSuggest(pickShareText({ id: occId }))
+  }
+
+  const doShareWith = async (shareMsg) => {
     setBusy(true)
     try {
       const blob = await buildFinalBlob()
       if (blob) {
-        const res = await shareImageBlob(blob, 'ברכה.jpg', 'ברכה מאפליקציית ביחד')
-        if (!res.ok && res.notSupported) await shareReadyImage(url)
+        const res = await shareImageBlob(blob, 'ברכה.jpg', shareMsg)
+        if (!res.ok && res.notSupported) await shareReadyImage(url, shareMsg)
       } else {
-        await shareReadyImage(url)
+        await shareReadyImage(url, shareMsg)
       }
       logReadyGreeting('greeting_share')
     } catch (e) { if (e?.name !== 'AbortError') console.error(e) }
@@ -2559,7 +2755,7 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
         </label>
       ) : null}
       <div style={{ display: 'flex', gap: 10, marginTop: senderName ? 6 : 16 }}>
-        <button className="big-btn big-btn--primary" disabled={busy} style={{ flex: 1, opacity: busy ? 0.6 : 1 }} onClick={doShare}>
+        <button className="big-btn big-btn--primary" disabled={busy} style={{ flex: 1, opacity: busy ? 0.6 : 1 }} onClick={openShare}>
           {busy ? 'מכין…' : 'שיתוף'}
         </button>
         <button className="big-btn" disabled={busy} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink)', opacity: busy ? 0.6 : 1 }} onClick={doSave}>
@@ -2570,6 +2766,15 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
       <button onClick={onBack} style={{ marginTop: 14, width: '100%', background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', padding: 10, cursor: 'pointer' }}>
         {backLabel}
       </button>
+
+      {/* חלון המלל לשיתוף — מלל מומלץ לפי הקשר, עם המשך/עריכה */}
+      {shareSuggest !== null && (
+        <ShareTextModal
+          initialText={shareSuggest}
+          onCancel={() => setShareSuggest(null)}
+          onConfirm={(t) => { setShareSuggest(null); doShareWith(t) }}
+        />
+      )}
     </div>
   )
 }
