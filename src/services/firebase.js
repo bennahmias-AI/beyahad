@@ -2237,6 +2237,23 @@ export async function joinAroundWorldRoom(roomId, player) {
   })
 }
 
+// מוסיף שחקן מחשב (בוט) לחדר — רק במצב המתנה. הבוט הוא שחקן רגיל ברשימה
+// עם isBot:true; המכשיר של המארח מריץ את התורים שלו בזמן המשחק.
+export async function addBotToAroundWorldRoom(roomId, bot) {
+  const ref = doc(db, 'aroundworldRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === bot.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 4)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: bot.uid, name: bot.name || 'המחשב', isBot: true }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
 // המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
 export async function startAroundWorldGame(roomId, gameState) {
   await updateDoc(doc(db, 'aroundworldRooms', roomId), {

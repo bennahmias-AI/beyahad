@@ -38,7 +38,7 @@ import {
 import {
   createAroundWorldRoom, joinAroundWorldRoom, startAroundWorldGame,
   updateAroundWorldState, watchAroundWorldRoom, leaveAroundWorldRoom,
-  removePlayerFromAroundWorldRoom,
+  removePlayerFromAroundWorldRoom, addBotToAroundWorldRoom,
   findOrCreateAroundWorldMatch, watchFriendships, sendGameInvite,
   watchUser, sendAroundWorldChat, sendFriendRequest, quitAroundWorldGame,
   pauseAroundWorldGame, returnToAroundWorldGame,
@@ -48,6 +48,13 @@ const INK = '#1c1c1c'
 const CREAM = '#f6efdf'
 const AW_BLUE = '#2f73c9'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// שחקני מחשב (בוטים) שאפשר להוסיף לחדר פרטי (שחק עם חברים)
+const AW_BOTS = [
+  { uid: 'bot_1', name: 'דניאל התותח' },
+  { uid: 'bot_2', name: 'רינת המתוקה' },
+  { uid: 'bot_3', name: 'רומי היפה' },
+]
 
 // ── חפיסות זמניות (זהות ל-AroundWorldGame עד שבן יאשר את נתוני האקסל) ──
 const LOTTO_CARDS = [
@@ -89,7 +96,7 @@ function focusWindow(pos) {
 // מצב התחלתי למשחק אונליין — נשמר כאובייקט פשוט (JSON-safe).
 function initAroundWorldState(playerDefs) {
   const players = playerDefs.map((p, i) => ({
-    uid: p.uid, name: p.name, color: TOKEN_COLORS[i].color,
+    uid: p.uid, name: p.name, isBot: !!p.isBot, color: TOKEN_COLORS[i].color,
     cash: RULES.START_CASH, pos: 0, skip: 0, dead: false,
   }))
   return {
@@ -402,10 +409,21 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
     } catch (e) { console.error('invite more error:', e) }
   }
 
+  // הוספת שחקן מחשב (בוט) לחדר המתנה
+  const handleAddBot = async (bot) => {
+    try { await addBotToAroundWorldRoom(roomId, bot) }
+    catch (e) { console.error('add bot error:', e) }
+  }
+  // הסרת שחקן מחשב מהחדר
+  const handleRemoveBot = async (uid) => {
+    try { await removePlayerFromAroundWorldRoom(roomId, uid) }
+    catch (e) { console.error('remove bot error:', e) }
+  }
+
   const handleStart = async () => {
     if (startedRef.current) return
     startedRef.current = true
-    const defs = players.map(p => ({ uid: p.uid, name: p.name }))
+    const defs = players.map(p => ({ uid: p.uid, name: p.name, isBot: !!p.isBot }))
     const state = initAroundWorldState(defs)
     await startAroundWorldGame(roomId, state)
   }
@@ -508,7 +526,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
       </div>
 
       {showInvite && (
-        <InvitePicker me={me} players={players} onClose={() => setShowInvite(false)} onInvite={handleInviteMore} />
+        <InvitePicker me={me} players={players} maxPlayers={maxPlayers} onClose={() => setShowInvite(false)} onInvite={handleInviteMore} onAddBot={handleAddBot} onRemoveBot={handleRemoveBot} />
       )}
     </div>
   )
@@ -517,7 +535,7 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
 function WaitPlayerRow({ p, meUid, hostUid }) {
   const [prof, setProf] = useState({ name: p.name, photoURL: null })
   useEffect(() => {
-    if (!p.uid) return
+    if (!p.uid || p.isBot) return
     const unsub = watchUser(p.uid, u => {
       const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ') || p.name
       setProf({ name: fullName, photoURL: u?.photoURL || null })
@@ -530,12 +548,14 @@ function WaitPlayerRow({ p, meUid, hostUid }) {
       <div style={{ flex: 1, fontFamily: 'Rubik, Heebo, sans-serif', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
         {prof.name}{p.uid === meUid ? ' (אתה)' : ''}
       </div>
-      {p.uid === hostUid && <span style={{ fontSize: 12, color: AW_BLUE, fontWeight: 800 }}>👑 מארח</span>}
+      {p.isBot
+        ? <span style={{ fontSize: 12, color: '#2C5566', fontWeight: 800 }}>🤖 מחשב</span>
+        : p.uid === hostUid && <span style={{ fontSize: 12, color: AW_BLUE, fontWeight: 800 }}>👑 מארח</span>}
     </div>
   )
 }
 
-function InvitePicker({ me, players, onInvite, onClose }) {
+function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemoveBot, onClose }) {
   const [friends, setFriends] = useState([])
   const [invited, setInvited] = useState({})
   const [profileMap, setProfileMap] = useState({})
@@ -560,6 +580,7 @@ function InvitePicker({ me, players, onInvite, onClose }) {
 
   const inRoom = new Set(players.map(p => p.uid))
   const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
+  const roomFull = players.length >= maxPlayers
 
   const pick = (f) => {
     setInvited(prev => ({ ...prev, [f.otherUid]: true }))
@@ -570,11 +591,14 @@ function InvitePicker({ me, players, onInvite, onClose }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(20,15,8,.72)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', direction: 'rtl' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '72vh', overflowY: 'auto', padding: '20px 18px 28px', boxShadow: '0 -8px 30px rgba(0,0,0,.4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>הזמן חבר ללוח</div>
+          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>הוסף שחקנים ללוח</div>
           <button onClick={onClose} aria-label="סגור" style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--line)', color: 'var(--ink)', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
+
+        {/* חברים אמיתיים */}
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-2)', margin: '0 2px 8px' }}>חברים אמיתיים</div>
         {available.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '26px 0', fontSize: 15 }}>אין חברים נוספים זמינים להזמנה</div>
+          <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '12px 0 16px', fontSize: 14 }}>אין חברים נוספים זמינים להזמנה</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {available.map(f => {
@@ -584,17 +608,38 @@ function InvitePicker({ me, players, onInvite, onClose }) {
                 <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <Avatar name={dispName} size={46} photoURL={prof?.photoURL} />
                   <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
-                  <button disabled={!!invited[f.otherUid]} onClick={() => pick(f)} style={{
+                  <button disabled={!!invited[f.otherUid] || roomFull} onClick={() => pick(f)} style={{
                     background: invited[f.otherUid] ? 'var(--success)' : AW_BLUE,
                     color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
                     fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
-                    cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                    cursor: (invited[f.otherUid] || roomFull) ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                    opacity: roomFull && !invited[f.otherUid] ? 0.5 : 1,
                   }}>{invited[f.otherUid] ? '✓ נשלח' : '🎮 הזמן'}</button>
                 </div>
               )
             })}
           </div>
         )}
+
+        {/* המחשב */}
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-2)', margin: '16px 2px 8px' }}>המחשב</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {AW_BOTS.map(b => {
+            const added = inRoom.has(b.uid)
+            return (
+              <div key={b.uid} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#2C5566', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flex: 'none' }}>🤖</div>
+                <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)' }}>{b.name}</div>
+                {added ? (
+                  <button onClick={() => onRemoveBot(b.uid)} style={{ background: '#fff', color: '#a32d2d', border: '1px solid #a32d2d', borderRadius: 12, padding: '10px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>הסר</button>
+                ) : (
+                  <button disabled={roomFull} onClick={() => onAddBot(b)} style={{ background: AW_BLUE, color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: roomFull ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: roomFull ? 0.5 : 1 }}>＋ הוסף</button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {roomFull && <div style={{ textAlign: 'center', color: 'var(--ink-3)', fontSize: 13, marginTop: 12 }}>הלוח מלא — 4 שחקנים</div>}
       </div>
     </div>
   )
@@ -689,6 +734,29 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     if (isMyTurn && peek) setPeek(false)
   }, [isMyTurn]) // eslint-disable-line
 
+  // ── המארח מריץ את תורי המחשב (בוטים) ──
+  // לבוט אין מכשיר, אז המכשיר של המארח מנהל אותו: מטיל כשתורו ומכריע קלפים
+  // לפי AI פשוט (כמו נגד-המחשב). שאר השחקנים רק צופים. busyRef מונע ריצה כפולה.
+  const isHost = !!state && room.hostUid === me.uid
+  useEffect(() => {
+    if (!isHost || !state || state.winner || state.pendingLeave) return
+    const act = state.players[turnIdx]
+    if (!act || !act.isBot) return
+    if (state.phase === 'idle' && !busyRef.current) {
+      const t = setTimeout(() => { rollAndWalk(true) }, 1200)
+      return () => clearTimeout(t)
+    }
+    if (state.phase === 'card' && state.pendingCard && !busyRef.current) {
+      const card = state.pendingCard
+      const isFlip = card.kind === 'lotto' || card.kind === 'chance'
+      let action = 'ok'
+      if (card.kind === 'buy') action = (act.cash - (card.price ?? TILES[card.tileId].price) >= 300) ? 'yes' : 'no'
+      else if (card.kind === 'hotel') action = (act.cash - buildCost(TILES[card.tileId], card.level) >= 200) ? 'yes' : 'no'
+      const t = setTimeout(() => { resolveCard(action, true) }, isFlip ? 2600 : 1500)
+      return () => clearTimeout(t)
+    }
+  }, [isHost, turnIdx, state?.phase, state?.seq]) // eslint-disable-line
+
   if (!state || myIndex < 0) {
     return (
       <div className="scroll-area" style={{ direction: 'rtl' }}>
@@ -717,8 +785,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const focus = (ids) => setFocusTiles((cameraMode === 'zoom' && !peek) ? ids : null)
 
   // ── המהלך: הטלה → צעידה → נחיתה → קלף (רק מי שבתורו) ──
-  async function rollAndWalk() {
-    if (!isMyTurn || busyRef.current) return
+  async function rollAndWalk(botMode = false) {
+    if ((!isMyTurn && !botMode) || busyRef.current) return
     if (state.pendingLeave) return    // המשחק מושהה עד שהשחקן יחזור או שהזמן יפוג
     busyRef.current = true
     const d1 = 1 + Math.floor(Math.random() * 6)
@@ -761,7 +829,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   async function landOn(s) {
-    const uid = me.uid
+    const uid = s.players[turnIdx].uid
     const p = s.players[turnIdx]
     const tile = TILES[p.pos]
     let card = null
@@ -805,11 +873,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   // ── הכרעת קלף (רק מי שבתורו) ──
-  async function resolveCard(action) {
+  async function resolveCard(action, botMode = false) {
     if (busyRef.current) return
     if (state.pendingLeave) return    // המשחק מושהה
     const c = state.pendingCard
-    if (!c || c.uid !== me.uid) return
+    if (!c || (!botMode && c.uid !== me.uid)) return
     busyRef.current = true
 
     let s = { ...state, players: state.players.map(p => ({ ...p })), owners: { ...state.owners }, hotels: { ...state.hotels } }
@@ -819,7 +887,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
     if (c.kind === 'buy' && action === 'yes') {
       meP.cash -= (c.price ?? tile.price)
-      s.owners[c.tileId] = me.uid
+      s.owners[c.tileId] = meP.uid
     } else if (c.kind === 'hotel' && action === 'yes') {
       meP.cash -= buildCost(tile, c.level)
       s.hotels[c.tileId] = (s.hotels[c.tileId] || 0) + 1
@@ -831,9 +899,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       meP.cash += c.amount
     } else if (c.kind === 'birthday') {
       playSound('win')
-      const others = s.players.filter(p => p.uid !== me.uid && !p.dead)
+      const others = s.players.filter(p => p.uid !== meP.uid && !p.dead)
       meP.cash += RULES.BIRTHDAY_GIFT * others.length
-      s.players.forEach(p => { if (p.uid !== me.uid && !p.dead) p.cash -= RULES.BIRTHDAY_GIFT })
+      s.players.forEach(p => { if (p.uid !== meP.uid && !p.dead) p.cash -= RULES.BIRTHDAY_GIFT })
     } else if (c.kind === 'lotto' || c.kind === 'chance') {
       if (typeof c.amount === 'number') { meP.cash += c.amount; if (c.amount > 0) playSound('win') }
     } else if (c.kind === 'atzor') {
