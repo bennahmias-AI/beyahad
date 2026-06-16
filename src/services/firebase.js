@@ -2355,6 +2355,15 @@ export async function quitAroundWorldGame(roomId, uid) {
 
     const living = gameState.players.filter(p => !p.dead)
 
+    // אם היחיד שנותר במשחק הוא דווקא השחקן שעזב זמנית (או שלא נשאר אף אחד),
+    // אין למי להמשיך: סוגרים את החדר ומעלימים לו את הודעת "חזור למשחק".
+    if (gameState.pendingLeave && (living.length === 0 || (living.length === 1 && living[0].uid === gameState.pendingLeave.uid))) {
+      const leaverUid = gameState.pendingLeave.uid
+      try { await updateDoc(doc(db, 'users', leaverUid), { pendingReturn: null }) } catch {}
+      await deleteDoc(ref).catch(() => {})
+      return
+    }
+
     if (living.length <= 1) {
       // נשאר אחד (או אף אחד) — מסתיים את המשחק
       gameState.winner = living[0]?.uid || null

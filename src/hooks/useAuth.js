@@ -80,10 +80,23 @@ export function useAuth() {
     }
     window.addEventListener('beforeunload', handleUnload)
 
+    // ── דופק נוכחות אפליקציה-רחב ──
+    // מרענן lastSeenAt כל 50 שניות כל עוד מחוברים, כך שהמשתמש מוצג "מחובר"
+    // בכל מסך באפליקציה (לא רק במסך הבית) — ולכן זמין לשיחות/הזמנות/הודעות מחברים מכל מקום.
+    const beat = () => {
+      const uid = useUserStore.getState().authUser?.uid
+      if (uid) setPresence(uid, 'available')
+    }
+    const heartbeat = setInterval(beat, 50 * 1000)
+    const onVisible = () => { if (document.visibilityState === 'visible') beat() }
+    document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       unsub()
       if (unsubUser) { try { unsubUser() } catch {} }
       window.removeEventListener('beforeunload', handleUnload)
+      clearInterval(heartbeat)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
 }

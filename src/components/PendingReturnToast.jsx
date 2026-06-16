@@ -13,12 +13,27 @@
 import { useState, useEffect } from 'react'
 import { useUserStore } from '../stores/userStore.js'
 import { GameIcon } from '../icons/gameIcons.jsx'
+import { quitAroundWorldGame } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
 
 export default function PendingReturnToast({ onResume }) {
-  const { profile } = useUserStore()
+  const { profile, authUser } = useUserStore()
   const pendingReturn = profile?.pendingReturn || null
   const [remainingSec, setRemainingSec] = useState(0)
+  const [busy, setBusy] = useState(false)
+
+  // ביטול — המשתמש לא רוצה לחזור: מסיים את ההשתתפות (פותח לאחרים להמשיך)
+  const handleDismiss = async (e) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try {
+      if (pendingReturn?.gameType === 'aroundworld') {
+        await quitAroundWorldGame(pendingReturn.roomId, authUser?.uid)
+      }
+    } catch {}
+    setBusy(false)
+  }
 
   useEffect(() => {
     if (!pendingReturn?.expiresMs) { setRemainingSec(0); return }
@@ -32,6 +47,7 @@ export default function PendingReturnToast({ onResume }) {
 
   const userName = profile?.name || 'אתה'
   const photoURL = profile?.photoURL || null
+  const backWord = profile?.gender === 'female' ? 'חזרי למשחק' : 'חזור למשחק'
 
   return (
     <>
@@ -64,8 +80,17 @@ export default function PendingReturnToast({ onResume }) {
           border: '2px solid rgba(255,255,255,.25)',
         }}
         role="button"
-        aria-label="חזור למשחק"
+        aria-label={backWord}
       >
+        <button onClick={handleDismiss} disabled={busy} aria-label="לא לחזור" style={{
+          position: 'absolute', top: -8, insetInlineEnd: -8,
+          width: 26, height: 26, borderRadius: '50%',
+          background: '#fff', color: '#1b6b27',
+          border: '2px solid #1b6b27', cursor: busy ? 'default' : 'pointer',
+          display: 'grid', placeItems: 'center', padding: 0,
+          fontSize: 15, fontWeight: 900, lineHeight: 1, zIndex: 1,
+          boxShadow: '0 2px 6px rgba(0,0,0,.25)', fontFamily: 'inherit',
+        }}>✕</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <Avatar name={userName} size={42} photoURL={photoURL} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -91,7 +116,7 @@ export default function PendingReturnToast({ onResume }) {
           fontWeight: 800, fontSize: 15,
           border: '1px solid rgba(255,255,255,.2)',
         }}>
-          <span>🎮 חזור למשחק</span>
+          <span>🎮 {backWord}</span>
           <span style={{ fontWeight: 900, fontSize: 18, minWidth: 32, textAlign: 'left' }}>{remainingSec}s</span>
         </div>
       </div>

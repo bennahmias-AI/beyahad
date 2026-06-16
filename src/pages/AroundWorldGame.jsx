@@ -64,6 +64,19 @@ function focusWindow(pos) {
   return ids;
 }
 
+// מוזיקת רקע — נגן מקומי לכל מכשיר (זהה למצב האונליין). 8 רצועות; מתחלפות אקראית.
+const MUSIC_TRACKS = [
+  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
+  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
+  '/music/kontraa-water-afro-pop-music-445661.mp3',
+  '/music/moodmode-no-copyright-music-201745.mp3',
+  '/music/nastelbom-background-music-463062.mp3',
+  '/music/paulyudin-pop-uplifting-182523.mp3',
+  '/music/starostin-jazz-jazz-music-515630.mp3',
+  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
+];
+const MUSIC_VOLUME = 0.15;
+
 const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];
 
 // ============================================================================
@@ -129,6 +142,23 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   // אישור יציאה + הצצה (משחק מקומי נגד המחשב)
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [peek, setPeek] = useState(false);
+
+  // ---- מוזיקת רקע ----
+  const [musicOn, setMusicOn] = useState(() => {
+    try { return localStorage.getItem('beyahad_aroundworld_music') !== 'off'; } catch { return true; }
+  });
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length));
+  const audioRef = useRef(null);
+  const nextRandomTrack = () => setTrackIdx((i) => {
+    if (MUSIC_TRACKS.length <= 1) return i;
+    let n = i; while (n === i) n = Math.floor(Math.random() * MUSIC_TRACKS.length);
+    return n;
+  });
+  const toggleMusic = () => setMusicOn((on) => {
+    const next = !on;
+    try { localStorage.setItem('beyahad_aroundworld_music', next ? 'on' : 'off'); } catch {}
+    return next;
+  });
 
   // refs mirror state for the async engine
   const S = useRef({});
@@ -426,6 +456,22 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     }
   }, [phase, turnIdx, card, players]);
 
+  // ---- מוזיקת רקע: הפעלה/עצירה + עקיפת חסימת autoplay ----
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.volume = MUSIC_VOLUME;
+    if (musicOn) a.play().catch(() => {});
+    else a.pause();
+  }, [musicOn, trackIdx]);
+  useEffect(() => {
+    if (!musicOn) return;
+    const kick = () => { const a = audioRef.current; if (a && a.paused && musicOn) a.play().catch(() => {}); };
+    window.addEventListener('pointerdown', kick);
+    window.addEventListener('touchstart', kick);
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick); };
+  }, [musicOn]);
+
   // ---- derived ----
   const tokens = players.filter((p) => !p.dead).map((p) => ({ uid: p.uid, color: p.color, tileId: p.pos }));
   const tokenColors = Object.fromEntries(players.map((p) => [p.uid, p.color]));
@@ -436,6 +482,13 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   useEffect(() => {
     if (isMyTurn && peek) setPeek(false);
   }, [isMyTurn]); // eslint-disable-line
+
+  // גלגול אוטומטי — אם לא הטלת קוביות תוך 5 שניות, המשחק מטיל בשבילך
+  useEffect(() => {
+    if (!isMyTurn) return;
+    const t = setTimeout(() => rollAndWalk(), 5000);
+    return () => clearTimeout(t);
+  }, [isMyTurn, turnIdx, phase]);
 
   // ---- UI pieces ----
   const panelCard = (p, isActive) => (
@@ -500,7 +553,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     : null;
 
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -523,6 +576,11 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
               onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step'); }}
               style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
               {muted ? '🔇 צלילים כבויים' : '🔊 צלילים פועלים'}
+            </button>
+            <button
+              onClick={toggleMusic}
+              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {musicOn ? '🎵 מוזיקה פועלת' : '🎵 מוזיקה כבויה'}
             </button>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0, 1].map((i) => (
@@ -621,6 +679,16 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     />
   ) : null;
 
+  const audioEl = (
+    <audio
+      ref={audioRef}
+      src={MUSIC_TRACKS[trackIdx]}
+      onEnded={nextRandomTrack}
+      onCanPlay={() => { if (musicOn) audioRef.current?.play().catch(() => {}); }}
+      style={{ display: 'none' }}
+    />
+  );
+
   if (isPortrait) {
     return (
       <>
@@ -628,6 +696,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
           <div style={rotateInner}>{gameInner}</div>
         </div>
         {leaveModal}
+        {audioEl}
       </>
     );
   }
@@ -635,6 +704,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     <>
       {gameInner}
       {leaveModal}
+      {audioEl}
     </>
   );
 }

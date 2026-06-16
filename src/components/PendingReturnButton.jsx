@@ -38,6 +38,7 @@ export default function PendingReturnButton({ onResume, size = 'desktop' }) {
   const isMob = size === 'mobile'
   const buttonSize = isMob ? 42 : 50
   const iconSize = isMob ? 22 : 26
+  const backWord = profile?.gender === 'female' ? 'חזרי למשחק' : 'חזור למשחק'
 
   const handleResume = () => {
     setOpen(false)
@@ -76,7 +77,7 @@ export default function PendingReturnButton({ onResume, size = 'desktop' }) {
         }
       `}</style>
       <button
-        aria-label="חזור למשחק"
+        aria-label={backWord}
         onClick={() => setOpen(true)}
         style={{
           width: buttonSize, height: buttonSize, borderRadius: '50%',
@@ -143,7 +144,7 @@ export default function PendingReturnButton({ onResume, size = 'desktop' }) {
                 fontFamily: 'inherit', marginBottom: 10,
                 opacity: busy ? 0.6 : 1,
               }}>
-              🎮 חזור למשחק
+              🎮 {backWord}
             </button>
             <button
               onClick={handleQuit}

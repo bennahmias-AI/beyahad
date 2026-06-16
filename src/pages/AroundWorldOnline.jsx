@@ -629,7 +629,7 @@ function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemov
             const added = inRoom.has(b.uid)
             return (
               <div key={b.uid} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#2C5566', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flex: 'none' }}>🤖</div>
+                <div style={{ width: 46, height: 46, borderRadius: '50%', background: '#2C5566', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', color: '#fff' }}><IcComputer size={26} /></div>
                 <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)' }}>{b.name}</div>
                 {added ? (
                   <button onClick={() => onRemoveBot(b.uid)} style={{ background: '#fff', color: '#a32d2d', border: '1px solid #a32d2d', borderRadius: 12, padding: '10px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>הסר</button>
@@ -708,6 +708,16 @@ function IcShuffle({ size = 18 }) {
       <polyline points="21 16 21 21 16 21" />
       <line x1="15" y1="15" x2="21" y2="21" />
       <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  )
+}
+
+function IcComputer({ size = 22, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
     </svg>
   )
 }
@@ -809,6 +819,18 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       a.pause()
     }
   }, [musicOn, trackIdx, videoChoice])
+
+  // מבטיח שהמוזיקה מתחילה: כל נגיעה במסך מנסה לנגן (עודף על חסימת autoplay בדפדפן). לא מפעיל אם המוזיקה מושתקת.
+  useEffect(() => {
+    if (videoChoice === null) return
+    const kick = () => {
+      const a = audioRef.current
+      if (a && musicOn && a.paused) { const p = a.play(); if (p && p.catch) p.catch(() => {}) }
+    }
+    window.addEventListener('pointerdown', kick)
+    window.addEventListener('touchstart', kick)
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+  }, [videoChoice, musicOn])
 
   const myIndex = state ? state.players.findIndex(p => p.uid === me.uid) : -1
   const turnIdx = state?.turn ?? state?.turnIdx ?? 0
@@ -1132,6 +1154,13 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   // ── derived for the board ──
+  // גלגול אוטומטי — אם השחקן הפעיל (אנושי) לא הטיל קוביות תוך 5 שניות, מטילים בשבילו כדי לא לעכב את המשחק
+  useEffect(() => {
+    if (!isMyTurn || winner || state.pendingLeave || state.pendingCard) return
+    const t = setTimeout(() => { if (!busyRef.current) rollAndWalk() }, 5000)
+    return () => clearTimeout(t)
+  }, [isMyTurn, state.seq, winner])
+
   const tokens = localTokens || state.players.filter(p => !p.dead).map(p => ({ uid: p.uid, color: p.color, tileId: p.pos }))
   const tokenColors = Object.fromEntries(state.players.map(p => [p.uid, p.color]))
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
@@ -1214,22 +1243,61 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'start',
   }
 
+  // כרטיס שחקן קומפקטי (אופקי): וידאו קטן ליד שם/כסף/כפתורים. כל השחקנים בטור שמאל.
+  // גודל הוידאו מתאים את עצמו למספר השחקנים (כדי ש-4 ייכנסו במסך לרוחב).
+  const playerCard = (p) => {
+    const isActive = active?.uid === p.uid
+    const isMe = p.uid === me.uid
+    const vs = state.players.length >= 4 ? 72 : state.players.length === 3 ? 92 : 116
+    return (
+      <div key={p.uid} style={{
+        background: CREAM,
+        border: isActive ? `3px solid #2f9e3f` : `1px solid ${INK}`,
+        borderRadius: 12, overflow: 'hidden',
+        display: 'flex', flexDirection: 'row', alignItems: 'stretch',
+        flexShrink: 0, opacity: p.dead ? 0.4 : 1,
+      }}>
+        <div onClick={() => setViewPlayer(p)} role="button" style={{ cursor: 'pointer', flex: 'none', borderInlineEnd: `2px solid ${INK}` }}>
+          <PlayerVideo uid={p.uid} name={p.name} width={vs} height={vs} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0, padding: '4px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: p.color, border: `1.5px solid ${INK}`, flex: 'none' }} />
+            <span style={{ fontWeight: 700, fontSize: 13, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+            </span>
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
+            {p.cash.toLocaleString()} ₪
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            {isMe ? <VideoControls size={26} /> : <RemoteVideoToggles uid={p.uid} size={24} />}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(160deg, #2f6ea0 0%, #1d557f 55%, #14405f 100%)', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
-        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineEnd: 8, zIndex: 80, width: 38, height: 38, borderRadius: 11, border: `2px solid ${INK}`, background: 'rgba(255,255,255,.92)', fontSize: 18, fontWeight: 900, cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineStart: 8, zIndex: 80, width: 38, height: 38, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(255,255,255,.18)', fontSize: 18, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
 
         {/* נגן מוזיקת רקע מקומי (ללא שליטה גלויה) — מתנגן בכל מכשיר בנפרד */}
-        <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextRandomTrack} style={{ display: 'none' }} />
 
-        {/* right panel: ME only + dice + controls */}
-        <div style={{ width: 195, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
-          {state.players.filter(p => p.uid === me.uid).map(panelCard)}
-          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+
+        {/* right panel — glass concept: dice + roll + turn + controls */}
+        <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflowY: 'auto' }}>
+          <div style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.22)', borderRadius: 22, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 999, padding: '3px 12px' }}>
+                סבב {state.round || 1}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 11, justifyContent: 'center' }}>
               {[0, 1].map(i => (
-                <div key={i} style={{ width: 38, height: 38, borderRadius: 9, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 21, color: INK }}>
+                <div key={i} style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 30, color: '#fff' }}>
                   {dice[i] ?? '·'}
                 </div>
               ))}
@@ -1238,17 +1306,18 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               onClick={rollAndWalk}
               disabled={!isMyTurn}
               style={{
-                background: isMyTurn ? '#f4c20d' : '#d9d4c2', border: `3px solid ${INK}`, borderRadius: 12,
-                padding: '10px 6px', fontSize: 16, fontWeight: 800, color: INK, cursor: isMyTurn ? 'pointer' : 'default',
-                fontFamily: 'inherit', opacity: isMyTurn ? 1 : 0.6,
+                background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.14)', border: isMyTurn ? '1px solid #d8b974' : '1px solid rgba(255,255,255,.16)', borderRadius: 15,
+                padding: '15px 6px', fontSize: 17, fontWeight: 700, color: isMyTurn ? '#3a2e07' : 'rgba(255,255,255,.6)',
+                cursor: isMyTurn ? 'pointer' : 'default', fontFamily: 'inherit',
               }}>
               🎲 הטלת קוביות
             </button>
-            <div style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)' }}>
-              {winner ? '' : isMyTurn ? 'תורך!' : `תור ${active?.name || ''}`}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: '#fff' }}>
+              {!winner && <span style={{ width: 7, height: 7, borderRadius: '50%', background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.5)', flex: 'none' }} />}
+              <span>{winner ? '' : isMyTurn ? 'תורך!' : `תור ${active?.name || ''}`}</span>
             </div>
-            {/* control row: camera · sound · chat */}
-            <div style={{ display: 'flex', gap: 5 }}>
+            {/* control row (glass segmented): camera, sound, chat */}
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 999, overflow: 'hidden' }}>
               <button
                 onClick={() => {
                   const m = cameraMode === 'zoom' ? 'full' : 'zoom'
@@ -1258,18 +1327,18 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 }}
                 aria-label="מצלמה"
                 title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'}
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, background: 'none', border: 'none', borderInlineEnd: '1px solid rgba(255,255,255,.16)', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
                 {cameraMode === 'zoom' ? '🎥' : '🗺️'}
               </button>
               <button
                 onClick={() => setMusicMenuOpen(o => !o)}
                 aria-label="שמע ומוזיקה"
                 title="שמע ומוזיקה"
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {muted ? <IcSoundOff size={18} /> : <IcSound size={18} />}
+                style={{ flex: 1, background: 'none', border: 'none', borderInlineEnd: '1px solid rgba(255,255,255,.16)', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center' }}>
+                {muted ? <IcSoundOff size={19} /> : <IcSound size={19} />}
               </button>
               <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
-                style={{ flex: 1, background: '#fff', border: `2px solid ${INK}`, borderRadius: 11, padding: '7px 0', fontSize: 17, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, background: 'none', border: 'none', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
                 💬
               </button>
             </div>
@@ -1297,11 +1366,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         </div>
 
         {/* left panel: ALL OTHER players */}
-        <div ref={othersPanelRef} style={{ width: 180, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+        <div ref={othersPanelRef} style={{ width: 200, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)', textAlign: 'center', padding: '2px 0' }}>
             השחקנים
           </div>
-          {state.players.filter(p => p.uid !== me.uid).map(panelCard)}
+          {state.players.map(playerCard)}
         </div>
       </div>
 
@@ -1404,6 +1473,14 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   return (
     <ProfilesProvider uids={state.players.map(p => p.uid)} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true} isPortrait={isPortrait}>
+      {/* נגן מוזיקת רקע קבוע (מחוץ ל-gameInner כדי שלא יתרענן בסיבוב אוריינטציה) */}
+      <audio
+        ref={audioRef}
+        src={MUSIC_TRACKS[trackIdx]}
+        onEnded={nextRandomTrack}
+        onPause={() => { const a = audioRef.current; if (a && musicOn && videoChoice !== null && !a.ended) a.play().catch(() => {}) }}
+        style={{ display: 'none' }}
+      />
       {isPortrait ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center' }}>
