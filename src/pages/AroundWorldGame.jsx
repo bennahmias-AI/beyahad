@@ -553,7 +553,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     : null;
 
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg.jpeg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 

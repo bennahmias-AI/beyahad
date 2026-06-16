@@ -2307,6 +2307,8 @@ export async function removePlayerFromAroundWorldRoom(roomId, uid) {
 // אם המשחק כבר נגמר או במצב אחר — מוחקים את החדר כרגיל.
 export async function quitAroundWorldGame(roomId, uid) {
   if (!roomId || !uid) return
+  // תמיד מנקים תחילה את pendingReturn של המשתמש שיוצא — גם אם החדר נסגר/לא קיים/לא במהלך (אחרת הבאנר \"חזור למשחק\" נתקע וה-✕ לא עושה כלום)
+  try { await updateDoc(doc(db, 'users', uid), { pendingReturn: null }) } catch {}
   try {
     const ref = doc(db, 'aroundworldRooms', roomId)
     const snap = await getDoc(ref)

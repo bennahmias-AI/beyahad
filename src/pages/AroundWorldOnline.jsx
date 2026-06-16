@@ -447,9 +447,14 @@ function WaitingRoom({ room, roomId, me, onBack, onHome }) {
 
   // Cleanup — אם השחקן עוזב דרך אחרת (כפתור אחור של אנדרואד, סגירת טאב, טעינה מחדש) מסירים
   // אותו מרשימת השחקנים. הפונקציה מתעלמת מעצמה במצב 'playing' — אז ה-unmount שקורה במעבר למשחק לא מסיר בטעות.
+  const removalTimerRef = useRef(null)
   useEffect(() => {
+    if (removalTimerRef.current) { clearTimeout(removalTimerRef.current); removalTimerRef.current = null }
     return () => {
-      if (!isHost) removePlayerFromAroundWorldRoom(roomId, meRef.current.uid).catch(() => {})
+      if (isHost) return
+      removalTimerRef.current = setTimeout(() => {
+        removePlayerFromAroundWorldRoom(roomId, meRef.current.uid).catch(() => {})
+      }, 1500)
     }
     // eslint-disable-next-line
   }, [])
@@ -573,7 +578,10 @@ function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemov
       if (!f.otherUid) return null
       return watchUser(f.otherUid, u => {
         const fullName = [u?.name, u?.lastName].filter(Boolean).join(' ')
-        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null } }))
+        const seen = u?.lastSeenAt
+        const seenMs = seen && typeof seen.toMillis === 'function' ? seen.toMillis() : 0
+        const online = Boolean(seenMs && (Date.now() - seenMs) < 2 * 60 * 1000) && ['available', 'busy'].includes(u?.status)
+        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: u?.photoURL || null, online } }))
       })
     })
     return () => unsubs.forEach(u => u && u())
@@ -607,8 +615,11 @@ function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemov
               const dispName = prof?.name || f.otherName
               return (
                 <div key={f.docId} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <Avatar name={dispName} size={46} photoURL={prof?.photoURL} />
-                  <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
+                  <Avatar name={dispName} size={46} photoURL={prof?.photoURL} online={prof?.online} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="h-display" style={{ fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: prof?.online ? 'var(--success)' : 'var(--ink-3)' }}>{prof?.online ? 'מחובר עכשיו' : 'לא מחובר'}</div>
+                  </div>
                   <button disabled={!!invited[f.otherUid] || roomFull} onClick={() => pick(f)} style={{
                     background: invited[f.otherUid] ? 'var(--success)' : AW_BLUE,
                     color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
@@ -723,7 +734,10 @@ function IcComputer({ size = 22, color = 'currentColor' }) {
 }
 
 function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
-  const state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null
+  // parse מוגן — JSON פגום/חלקי לא יקריס את כל המסך (מסך ריק); במקרה כזה state=null → מסך טעינה
+  let state = null
+  try { state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null }
+  catch { state = null }
 
   // אוריינטציה — סיבוב אוטומטי לרוחב (זהה ל-AroundWorldGame)
   const [isPortrait, setIsPortrait] = useState(
@@ -930,6 +944,13 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     const t = setTimeout(() => { resolveCard(discretionary ? 'no' : 'ok', true) }, discretionary ? 10000 : 4000)
     return () => clearTimeout(t)
   }, [isHost, turnIdx, state?.phase, state?.seq, state?.pendingCard?.uid]) // eslint-disable-line
+
+  // auto-roll: if the active human doesn't roll within 5s, roll for them. MUST be before early returns (Rules of Hooks)
+  useEffect(() => {
+    if (!state || !isMyTurn || winner || state.pendingLeave || state.pendingCard) return
+    const t = setTimeout(() => { if (!busyRef.current) rollAndWalk() }, 5000)
+    return () => clearTimeout(t)
+  }, [isMyTurn, state?.seq, winner])
 
   if (!state || myIndex < 0) {
     return (
@@ -1155,11 +1176,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   // ── derived for the board ──
   // גלגול אוטומטי — אם השחקן הפעיל (אנושי) לא הטיל קוביות תוך 5 שניות, מטילים בשבילו כדי לא לעכב את המשחק
-  useEffect(() => {
-    if (!isMyTurn || winner || state.pendingLeave || state.pendingCard) return
-    const t = setTimeout(() => { if (!busyRef.current) rollAndWalk() }, 5000)
-    return () => clearTimeout(t)
-  }, [isMyTurn, state.seq, winner])
+  // auto-roll effect moved above early-returns (Rules of Hooks)
 
   const tokens = localTokens || state.players.filter(p => !p.dead).map(p => ({ uid: p.uid, color: p.color, tileId: p.pos }))
   const tokenColors = Object.fromEntries(state.players.map(p => [p.uid, p.color]))
@@ -1279,7 +1296,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg.jpeg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
         <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineStart: 8, zIndex: 80, width: 38, height: 38, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(255,255,255,.18)', fontSize: 18, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
@@ -1289,7 +1306,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
         {/* right panel — glass concept: dice + roll + turn + controls */}
         <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflowY: 'auto' }}>
-          <div style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.22)', borderRadius: 22, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 15 }}>
+          <div style={{ background: 'rgba(15,28,42,.72)', border: '1px solid rgba(255,255,255,.30)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 22, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 15 }}>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', borderRadius: 999, padding: '3px 12px' }}>
                 סבב {state.round || 1}
@@ -1297,7 +1314,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
             </div>
             <div style={{ display: 'flex', gap: 11, justifyContent: 'center' }}>
               {[0, 1].map(i => (
-                <div key={i} style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 30, color: '#fff' }}>
+                <div key={i} style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 30, color: '#fff' }}>
                   {dice[i] ?? '·'}
                 </div>
               ))}
