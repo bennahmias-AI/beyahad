@@ -105,8 +105,16 @@ export default function ProfilePage({ onBack, onHome }) {
   const [phone, setPhone]         = useState(profile?.phone || '')
   const [about, setAbout]         = useState(profile?.about || '')
   const [photoURL, setPhotoURL]   = useState(profile?.photoURL || null)
-  const [saving, setSaving]       = useState(false)
+  const [saveState, setSaveState] = useState('idle')   // idle | saving | saved
   const [msg, setMsg]             = useState('')
+  // צילום מצב הפרופיל בכניסה — לכפתור "בטל שינויים"
+  const originalRef = useRef({
+    name: profile?.name || '', lastName: profile?.lastName || '',
+    gender: profile?.gender || '', phone: profile?.phone || '',
+    about: profile?.about || '', photoURL: profile?.photoURL || null,
+  })
+  const didMountRef = useRef(false)
+  const saveTimerRef = useRef(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [gallery, setGallery] = useState([])
   const [galBusy, setGalBusy] = useState(false)
@@ -159,14 +167,10 @@ export default function ProfilePage({ onBack, onHome }) {
     }
   }
 
-  const handleSave = async () => {
-    if (!authUser?.uid || saving) return
-    if (!firstName.trim()) {
-      setMsg('יש להזין שם פרטי')
-      return
-    }
-    setSaving(true)
-    setMsg('')
+  // שמירה אוטומטית — נשמר מעצמו אחרי כל שינוי (בלי כפתור "שמור").
+  const autoSave = async () => {
+    if (!authUser?.uid) return
+    setSaveState('saving')
     try {
       const data = {
         name: firstName.trim(),
@@ -174,24 +178,53 @@ export default function ProfilePage({ onBack, onHome }) {
         gender,
         phone: phone.trim(),
         about: about.trim(),
+        photoURL: photoURL || null,
       }
-      if (photoURL) data.photoURL = photoURL
       if (email) data.email = email
-
       await createOrUpdateUser(authUser.uid, data)
-
-      // refresh the profile in the store
       const fresh = await getUser(authUser.uid)
       if (fresh) setProfile(fresh)
-
-      setMsg('✓ הפרטים נשמרו!')
-      setTimeout(() => onBack(), 800)
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 1500)
     } catch (e) {
-      console.error('profile save error:', e)
+      console.error('profile autosave error:', e)
+      setSaveState('idle')
       setMsg('לא הצלחנו לשמור — נסו שוב')
     }
-    setSaving(false)
   }
+
+  // טריגר השמירה האוטומטית — דחוי ~700ms אחרי השינוי האחרון.
+  // מדלגים על הריצה הראשונית (טעינת הדף), ולא שומרים שם פרטי ריק.
+  useEffect(() => {
+    if (!authUser?.uid) return
+    if (!didMountRef.current) { didMountRef.current = true; return }
+    if (!firstName.trim()) { setMsg('יש להזין שם פרטי'); return }
+    setMsg('')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => { autoSave() }, 700)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+    // eslint-disable-next-line
+  }, [firstName, lastName, gender, phone, about, photoURL])
+
+  // החזרת כל השדות למצב שהיה כשנכנסת לעריכה (וגם נשמר אוטומטית).
+  const handleRevert = () => {
+    const o = originalRef.current
+    setFirstName(o.name)
+    setLastName(o.lastName)
+    setGender(o.gender)
+    setPhone(o.phone)
+    setAbout(o.about)
+    setPhotoURL(o.photoURL)
+    setMsg('')
+  }
+
+  // האם יש שינויים לעומת המצב המקורי (להצגת כפתור הביטול)
+  const orig = originalRef.current
+  const dirty = (
+    firstName !== orig.name || lastName !== orig.lastName ||
+    gender !== orig.gender || phone !== orig.phone ||
+    about !== orig.about || (photoURL || null) !== (orig.photoURL || null)
+  )
 
   const displayName = firstName.trim() || 'אורח'
 
@@ -382,14 +415,20 @@ export default function ProfilePage({ onBack, onHome }) {
         </Field>
 
         {/* ── Save ───────────────────────────────────────── */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="big-btn big-btn--primary"
-          style={{ width: '100%', marginTop: 12, opacity: saving ? 0.7 : 1 }}
-        >
-          {saving ? 'שומר...' : 'שמור שינויים'}
-        </button>
+        <div style={{ textAlign: 'center', minHeight: 22, marginTop: 16, fontSize: 14, fontWeight: 700 }}>
+          {saveState === 'saving' && <span style={{ color: 'var(--ink-3)' }}>שומר…</span>}
+          {saveState === 'saved' && <span style={{ color: 'var(--success)' }}>✓ נשמר</span>}
+        </div>
+
+        {dirty && (
+          <button
+            onClick={handleRevert}
+            className="big-btn"
+            style={{ width: '100%', marginTop: 4, background: 'var(--surface-2)', color: 'var(--ink)', border: '1px solid var(--line-strong)' }}
+          >
+            ↩ בטל שינויים
+          </button>
+        )}
 
         {msg && (
           <div style={{

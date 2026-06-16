@@ -25,6 +25,7 @@ import { GREETING_FONTS } from '../greetingFonts.js'
 import { getOccasion } from '../occasion.js'
 import { GREETING_GROUPS, READY_OCCASIONS, occasionsByGroup, findOccasion, fillName, randomGreeting } from '../data/readyGreetings.js'
 import { saveImageBlob, shareImageBlob } from '../utils/saveImage.js'
+import { pickShareText } from '../data/shareTexts.js'
 
 // מטמון לתמונות רקע שכבר הומרו ל-base64 (לפי url)
 const bgDataCache = {}
@@ -1706,6 +1707,80 @@ function HScroll({ children }) {
   )
 }
 
+// ════════════════════════════════════════════════════════════════
+// ShareTextModal — חלון המלל לשיתוף
+// ════════════════════════════════════════════════════════════════
+// מוצג בלחיצת "שתף": מלל מומלץ לפי הקשר הברכה. למשתמש
+// שתי אפשרויות: "המשך לשיתוף" (עם המלל כמות שהוא) או "שנה מלל" (עריכה).
+function ShareTextModal({ initialText, onConfirm, onCancel }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(initialText || '')
+  return (
+    <div onClick={onCancel} style={{
+      position: 'fixed', inset: 0, zIndex: 9000,
+      background: 'rgba(0,0,0,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 20, direction: 'rtl',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 380,
+        background: 'var(--surface)', borderRadius: 20,
+        padding: '20px 20px 16px',
+        boxShadow: '0 16px 50px rgba(0,0,0,.35)', fontFamily: 'inherit',
+      }}>
+        <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--ink)', marginBottom: 4, textAlign: 'center' }}>
+          טקסט שילווה את הברכה
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--ink-3)', textAlign: 'center', marginBottom: 14 }}>
+          זהו הכיתוב שיישלח יחד עם התמונה
+        </div>
+
+        {editing ? (
+          <textarea
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            rows={4}
+            autoFocus
+            style={{
+              width: '100%', fontSize: 17, fontFamily: 'inherit',
+              padding: '12px', borderRadius: 12,
+              border: '2px solid var(--line-strong)',
+              background: 'var(--bg-app)', color: 'var(--ink)',
+              direction: 'rtl', resize: 'vertical', lineHeight: 1.5,
+              marginBottom: 14,
+            }}
+          />
+        ) : (
+          <div style={{
+            fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.5,
+            background: 'var(--bg-app)', border: '1px solid var(--line)',
+            borderRadius: 12, padding: '14px 16px', marginBottom: 14,
+            textAlign: 'center', minHeight: 56,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{val}</div>
+        )}
+
+        <button
+          onClick={() => onConfirm((val || '').trim())}
+          className="big-btn big-btn--primary"
+          style={{ width: '100%', marginBottom: 10 }}
+        >
+          ✓ המשך לשיתוף
+        </button>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="big-btn"
+            style={{ width: '100%', background: 'var(--surface)', border: '1.5px solid var(--burgundy)', color: 'var(--burgundy)' }}
+          >
+            ✏️ שנה מלל
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // בוני SVG — איורים מובנים
 // ═══════════════════════════════════════════════════════════════
@@ -2307,11 +2382,11 @@ function buildCardSVG({ blocks, selected, cardName, senderVerb = 'מאחל', pal
 
 // ════════ מסך כניסה + מסך המאגר (ברכה מהירה) ════════
 // שיתוף/שמירה של תמונת ברכה מוכנה (קובץ סטטי)
-async function shareReadyImage(url) {
+async function shareReadyImage(url, title = 'ברכה מאפליקציית ביחד') {
   try {
     const res = await fetch(url)
     const blob = await res.blob()
-    const r = await shareImageBlob(blob, 'ברכה.jpg', 'ברכה מאפליקציית ביחד')
+    const r = await shareImageBlob(blob, 'ברכה.jpg', title)
     if (r.ok || r.notSupported === false) return
   } catch (e) { if (e?.name === 'AbortError') return }
   downloadReadyImage(url)

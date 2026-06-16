@@ -17,7 +17,7 @@
       והדיסקיות זזות בתנועה חלקה (CSS) למקום החדש.
 */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { IconBackRTL } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import HomeButton from '../components/HomeButton.jsx'
@@ -43,6 +43,7 @@ import {
   watchUser, sendAroundWorldChat, sendFriendRequest, quitAroundWorldGame,
   pauseAroundWorldGame, returnToAroundWorldGame,
 } from '../services/firebase.js'
+import { isNativeApp } from '../services/nativePush.js'
 
 const INK = '#1c1c1c'
 const CREAM = '#f6efdf'
@@ -690,6 +691,21 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const [friendUids, setFriendUids] = useState(() => new Set())  // רשימת ה-uids שעל ה-uid המחובר — למי מהשחקנים שקיימת בקשת חברות
   const busyRef = useRef(false)                   // נועל מהלך בזמן ריצה
 
+  // מדידת גובה פאנל היריבים — כדי שהאריחים ימלאו את כל הגובה (אופציה 4)
+  const [othersPanelH, setOthersPanelH] = useState(0)
+  const othersRoRef = useRef(null)
+  const othersPanelRef = useCallback((el) => {
+    if (othersRoRef.current) { othersRoRef.current.disconnect(); othersRoRef.current = null }
+    if (!el) return
+    const update = () => setOthersPanelH(el.clientHeight)
+    update()
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(update)
+      ro.observe(el)
+      othersRoRef.current = ro
+    }
+  }, [])
+
   // מעקב אחר חברים הקיימים — כך הכפתור "הוסף לחברים" מופיע רק מול מי שלא ברשימת החברים שלי
   useEffect(() => {
     if (!me.uid) return
@@ -705,9 +721,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const active = state?.players[turnIdx]
   const winner = state?.winner ? state.players.find(p => p.uid === state.winner) : null
 
-  // אם השחקן חזר למשחק אחרי נטישה זמנית (לחץ על הבאנר בדף הבית) — מנקה את pendingLeave והמשחק חוזר
+  // אם השחקן חזר למשחק אחרי נטישה זמנית (לחץ על הבאנר בדף הבית) — מנקה את pendingLeave והמשחק חוזר.
+  // appActiveRef: באפליקציה הנייטיב, כשהמשתמש ברקע לא מבטלים את ה-pendingLeave — כך הטיימר ממשיך לרוץ לשאר.
+  const appActiveRef = useRef(true)
   useEffect(() => {
-    if (state?.pendingLeave?.uid === me.uid) {
+    if (state?.pendingLeave?.uid === me.uid && appActiveRef.current) {
       returnToAroundWorldGame(roomId, me.uid).catch(() => {})
     }
   // eslint-disable-next-line
@@ -726,6 +744,29 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       const { roomId: rId, uid, name } = leaveRefs.current
       pauseAroundWorldGame(rId, uid, name).catch(() => {})
     }
+  // eslint-disable-next-line
+  }, [])
+
+  // ── אפליקציה נייטיב — מעבר לרקע = יציאה זמנית (טיימר 60ש' רץ לשאר) ──
+  // בדפדפן ה-unmount מטפל ביציאה; באפליקציה לחיצת home / נעילת מסך / מעבר
+  // לאפליקציה אחרת לא מבצעת unmount, אז מאזינים ל-appStateChange:
+  // מעבר לרקע → pause (פעולת היציאה), חזרה לחזית → return (ביטול תוך 60ש').
+  useEffect(() => {
+    if (!isNativeApp()) return
+    let handle
+    import('@capacitor/app').then(({ App: CapApp }) =>
+      CapApp.addListener('appStateChange', ({ isActive }) => {
+        const { roomId: rId, uid, name } = leaveRefs.current
+        if (!isActive) {
+          appActiveRef.current = false
+          pauseAroundWorldGame(rId, uid, name).catch(() => {})
+        } else {
+          appActiveRef.current = true
+          returnToAroundWorldGame(rId, uid).catch(() => {})
+        }
+      })
+    ).then(h => { handle = h }).catch(() => {})
+    return () => { try { handle && handle.remove() } catch {} }
   // eslint-disable-next-line
   }, [])
 
@@ -756,6 +797,21 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       return () => clearTimeout(t)
     }
   }, [isHost, turnIdx, state?.phase, state?.seq]) // eslint-disable-line
+
+  // ── המארח מאכף timeout על שחקנים אנושיים איטיים (לא בוטים, לא עצמו) ──
+  // קלף רכישת מדינה / בניית מלון (לא הכרחי): 10 שניות → ברירת מחדל "לא לרכוש".
+  // קלף חובה (מפעל הפיס / הפתעה / שכירות / תשלום / יום הולדת / וכו'): 4 שניות → מבוצע אוטומטית וממשיכים.
+  useEffect(() => {
+    if (!isHost || !state || state.winner || state.pendingLeave) return
+    if (state.phase !== 'card' || !state.pendingCard || busyRef.current) return
+    const c = state.pendingCard
+    const owner = state.players.find(p => p.uid === c.uid)
+    if (!owner || owner.isBot) return     // בוטים מטופלים במנגנון הנפרד
+    if (c.uid === me.uid) return           // הקלף שלי — אני מכריע ידנית, בלי timeout
+    const discretionary = c.kind === 'buy' || c.kind === 'hotel'
+    const t = setTimeout(() => { resolveCard(discretionary ? 'no' : 'ok', true) }, discretionary ? 10000 : 4000)
+    return () => clearTimeout(t)
+  }, [isHost, turnIdx, state?.phase, state?.seq, state?.pendingCard?.uid]) // eslint-disable-line
 
   if (!state || myIndex < 0) {
     return (
@@ -997,10 +1053,22 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     onExit ? onExit() : onBack()
   }
 
+  // אופציה 4 — האריחים של היריבים נמתחים למלא את גובה הפאנל
+  const otherCount = state.players.filter(p => p.uid !== me.uid).length || 1
+  const OTHER_INFO_H = 68          // גובה אזור השם+כסף+כפתורים בכרטיס יריב
+  const OTHER_MIN_CARD = 56 + OTHER_INFO_H
+  let otherCardH = null
+  let otherVideoH = 120
+  if (othersPanelH > 0) {
+    const per = Math.floor((othersPanelH - 22 - 8 * otherCount) / otherCount)
+    if (per >= OTHER_MIN_CARD) { otherCardH = per; otherVideoH = per - OTHER_INFO_H }
+    else { otherCardH = null; otherVideoH = 56 }   // צפוף מדי — חוזרים לקומפקטי + גלילה
+  }
+
   const panelCard = (p) => {
     const isActive = active?.uid === p.uid
     const isMe = p.uid === me.uid
-    const videoH = isMe ? 40 : 56   // מקטן לתת מקום לשם+כסף+כפתורי וידאו/מיק. ה-isMe מוקטן יותר — כל הפאנל הימני (X, קוביות, כפתורים) נכנס בחלון אחד בלי גלילה
+    const videoH = isMe ? 40 : otherVideoH   // היריבים: גובה דינמי שממלא את הפאנל (אופציה 4). שלי: קומפקטי לתת מקום לקוביות/כפתורים
     const videoW = isMe ? 193 : 178  // רוחב מספרי (לא 100%) — חיוני למנגנון סיבוב תקין ב-PlayerVideo
     return (
       <div key={p.uid} style={{
@@ -1009,6 +1077,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         borderRadius: 12, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
         flexShrink: 0,   // הקלף לא מתכווץ — כל התוכן תמיד נראה (וידאו, שם, כסף, כפתורים)
+        height: isMe ? undefined : (otherCardH || undefined),  // אופציה 4 — גובה ממלא-פאנל ליריבים
         opacity: p.dead ? 0.4 : 1,
       }}>
         {/* וידאו מלבני בראש הקלף — תופס את כל הרוחב, בסגנון Zoom. PlayerVideo מזהה אוטומטית את כיוון המקור מתחילית שם המשתתף ב-LiveKit */}
@@ -1120,7 +1189,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         </div>
 
         {/* left panel: ALL OTHER players */}
-        <div style={{ width: 180, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+        <div ref={othersPanelRef} style={{ width: 180, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.4)', textAlign: 'center', padding: '2px 0' }}>
             השחקנים
           </div>
