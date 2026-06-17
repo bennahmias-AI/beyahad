@@ -24,6 +24,7 @@ import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, AddFriendButton, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
+import { MUSIC_TRACKS } from '../utils/gameSounds.js'
 
 // ════════════════════════════════════════════════════════
 // פלטת עץ ופליז (משותף לעיצוב)
@@ -41,16 +42,6 @@ const CREAM      = '#F3E2BE'
 // מנוע המשחק — פונקציות טהורות
 // ════════════════════════════════════════════════════════
 const SB_MUSIC_VOLUME = 0.10
-const MUSIC_TRACKS = [
-  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
-  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
-  '/music/kontraa-water-afro-pop-music-445661.mp3',
-  '/music/moodmode-no-copyright-music-201745.mp3',
-  '/music/nastelbom-background-music-463062.mp3',
-  '/music/paulyudin-pop-uplifting-182523.mp3',
-  '/music/starostin-jazz-jazz-music-515630.mp3',
-  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
-]
 
 function initialState() {
   const points = Array(24).fill(0)

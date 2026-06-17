@@ -15,6 +15,28 @@
 //   isMuted()              // האם מושתק?
 // ─────────────────────────────────────────────────────────────
 
+// רשימת רצועות מוזיקת רקע — משותפת לכל המשחקים.
+// להוספת מוזיקה: שמור mp3 ב-public/music ותוסיף כאן שורה. זהו.
+export const MUSIC_TRACKS = [
+  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
+  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
+  '/music/atlasaudio-fun-fun-music-507832.mp3',
+  '/music/kontraa-water-afro-pop-music-445661.mp3',
+  '/music/lnplusmusic-fun-upbeat-background-music-311769.mp3',
+  '/music/mondamusic-synthwave-retro-80s-529570.mp3',
+  '/music/monument_music-yesterday-jazz-elevator-147660.mp3',
+  '/music/moodmode-no-copyright-music-201745.mp3',
+  '/music/nastelbom-background-music-463062.mp3',
+  '/music/paulyudin-energy-rock-152073.mp3',
+  '/music/paulyudin-pop-uplifting-182523.mp3',
+  '/music/rediskasound-bossa-latino-background-music-548472.mp3',
+  '/music/rediskasound-calm-bossa-background-music-548485.mp3',
+  '/music/solarflex-classical-499255.mp3',
+  '/music/sonican-classical-for-happiness-537297.mp3',
+  '/music/starostin-jazz-jazz-music-515630.mp3',
+  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
+]
+
 // מפתח ב-localStorage לשמירת ההעדפה
 const STORAGE_KEY = 'beyahad-game-sound-muted'
 

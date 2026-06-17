@@ -20,6 +20,7 @@ import HomeButton from '../components/HomeButton.jsx';
 import { GameIcon } from '../icons/gameIcons.jsx';
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx';
 import AroundWorldOnline from './AroundWorldOnline.jsx';
+import { MUSIC_TRACKS } from '../utils/gameSounds.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INK = '#1c1c1c';
@@ -96,16 +97,6 @@ function awBgStyle() {
   return `url(/${img}) center/cover no-repeat #14405f`;
 }
 
-const MUSIC_TRACKS = [
-  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
-  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
-  '/music/kontraa-water-afro-pop-music-445661.mp3',
-  '/music/moodmode-no-copyright-music-201745.mp3',
-  '/music/nastelbom-background-music-463062.mp3',
-  '/music/paulyudin-pop-uplifting-182523.mp3',
-  '/music/starostin-jazz-jazz-music-515630.mp3',
-  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
-];
 const MUSIC_VOLUME = 0.10;
 
 const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];

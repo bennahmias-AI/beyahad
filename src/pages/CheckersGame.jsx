@@ -34,6 +34,7 @@ import Avatar from '../components/Avatar.jsx'
 import { ChatToast, ChatHeaderButton, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx'
+import { MUSIC_TRACKS } from '../utils/gameSounds.js'
 
 // ── קבועים ─────────────────────────────────────────────
 const SIZE = 8
@@ -48,16 +49,6 @@ const other = (p) => (p === P1 ? P2 : P1)
 
 // מוזיקת רקע (אותם קבצים כמו במסביב לעולם)
 const CK_MUSIC_VOLUME = 0.10
-const MUSIC_TRACKS = [
-  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
-  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
-  '/music/kontraa-water-afro-pop-music-445661.mp3',
-  '/music/moodmode-no-copyright-music-201745.mp3',
-  '/music/nastelbom-background-music-463062.mp3',
-  '/music/paulyudin-pop-uplifting-182523.mp3',
-  '/music/starostin-jazz-jazz-music-515630.mp3',
-  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
-]
 
 // ════════════════════════════════════════════════════════
 // מנוע המשחק — פונקציות טהורות

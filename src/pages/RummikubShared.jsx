@@ -7,6 +7,7 @@
 // האריחים, הכפתור, ראש המסך, וה-banner של "האריח החדש".
 // כך שני המסכים נראים זהים לחלוטין ואין כפילות קוד.
 // ─────────────────────────────────────────────────────────────
+import { useState, useEffect } from 'react'
 import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
 import { isValidSet, sortSetForDisplay, sortRack } from '../utils/rummikubEngine.js'
 
@@ -18,6 +19,26 @@ export const GOLD_DEEP   = '#C9A24A'
 export const CREAM       = '#F3E2BE'
 export const TILE_COLORS = { red: '#c0392b', blue: '#1c5fa8', orange: '#d4820e', green: '#1f7a44' }
 export const JOKER_COLOR = '#b8332f'
+
+// עטיפת סיבוב לרוחב: כשהמכשיר אנכי מסובבים 90° כך שהמשחק מוצג לרוחב.
+export function LandscapeRotate({ children, bg = '#1c1108' }) {
+  const [isPortrait, setIsPortrait] = useState(() => { try { return window.matchMedia('(orientation: portrait)').matches } catch { return false } })
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const fn = (e) => setIsPortrait(e.matches)
+    mq.addEventListener('change', fn)
+    try { const so = window.screen && window.screen.orientation; if (so && so.lock) so.lock('landscape').catch(() => {}) } catch {}
+    return () => { mq.removeEventListener('change', fn); try { const so = window.screen && window.screen.orientation; if (so && so.unlock) so.unlock() } catch {} }
+  }, [])
+  if (!isPortrait) return <>{children}</>
+  return (
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: bg, zIndex: 1 }}>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center', overflow: 'hidden' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 // ════════════════════════════════════════════════════════
 // אריח תלת-ממדי — אבן הבניין הויזואלית
