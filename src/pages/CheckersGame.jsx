@@ -699,7 +699,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
       })
       setInviteId(newInviteId)
       setInvitedFriend(friend)
-      setPhase('waiting-for-friend')
+      setPhase('waiting')   // ממתין במסך ההמתנה הנקי (כמו במסביב לעולם) — בלי כרטיס "נשלחה הזמנה"
 
       inviteUnsubRef.current = watchInvite(newInviteId, (data) => {
         if (!data) return
@@ -736,6 +736,9 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
     setInviteId(null); setCreatedRoomId(null); setInvitedFriend(null); setPhase('friend-list')
   }
 
+  // ביטול ממסך ההמתנה: אם זו הזמנת חבר — מנקה הזמנה+חדר; אחרת (רנדומלי) — יציאה
+  const handleCancelWait = () => { if (inviteId) cancelInvite(); else onBack() }
+
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 
   if (phase === 'searching' || phase === 'waiting') {
@@ -747,7 +750,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
         padding: '32px 24px 28px', direction: 'rtl', zIndex: 100,
       }}>
         <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-          <button onClick={onBack} style={{
+          <button onClick={handleCancelWait} style={{
             width: 52, height: 52, borderRadius: 16,
             background: 'rgba(255,255,255,.12)', color: 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -767,7 +770,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>
-              {phase === 'searching' ? 'מחפש לך יריב...' : 'מחכים ליריב...'}
+              {invitedFriend ? `מחכים ל${invitedFriend.otherName}...` : (phase === 'searching' ? 'מחפש לך יריב...' : 'מחכים ליריב...')}
             </div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
           </div>
@@ -775,10 +778,10 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
             background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px',
             fontSize: 15, fontWeight: 500, textAlign: 'center', lineHeight: 1.5, maxWidth: 320,
           }}>
-            💡 כשעוד מישהו ילחץ על "דמקה"<br />תתחבר אליו אוטומטית
+            {invitedFriend ? 'שלחנו הזמנה — המשחק יתחיל ברגע שהחבר יצטרף 🎲' : <>💡 כשעוד מישהו ילחץ על "דמקה"<br />תתחבר אליו אוטומטית</>}
           </div>
         </div>
-        <button onClick={onBack} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
+        <button onClick={handleCancelWait} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
         <style>{`@keyframes ckLobbyPulse { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }`}</style>
       </div>
     )
@@ -1754,7 +1757,7 @@ function CkSteam() {
 function CkPlayerPanel({ name, active, captured, dark, withVideo, uid, you, photoURL, addFriendNode }) {
   const showVideo = withVideo && uid
   return (
-    <div style={{ background: active ? 'rgba(201,168,94,.22)' : 'rgba(255,255,255,.07)', border: active ? '2px solid #C9A85E' : '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ background: active ? 'rgba(74,54,26,.92)' : 'rgba(26,17,9,.85)', border: active ? '2px solid #E8C879' : '1px solid rgba(255,255,255,.22)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: active ? '0 6px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(232,200,121,.35)' : '0 6px 18px rgba(0,0,0,.5)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}>
       {showVideo && (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <PlayerVideo uid={uid} name={name} width={108} height={108} photoURL={photoURL} />
@@ -1822,8 +1825,8 @@ function CheckersStage({
   const youCap = flip ? p2Captured : p1Captured
   const oppCap = flip ? p1Captured : p2Captured
 
-  const ctlBtn = { height: 44, width: '100%', borderRadius: 12, background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 20, color: '#E8C879', fontFamily: 'inherit' }
-  const exitBtn = { ...ctlBtn, background: 'rgba(216,120,108,.22)', border: '1px solid rgba(216,120,108,.4)', color: '#f0c4bc' }
+  const ctlBtn = { height: 44, width: '100%', borderRadius: 12, background: 'rgba(26,17,9,.88)', border: '1px solid rgba(255,255,255,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 20, color: '#E8C879', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(0,0,0,.45)' }
+  const exitBtn = { ...ctlBtn, background: 'rgba(150,52,46,.92)', border: '1px solid rgba(216,120,108,.65)', color: '#ffd9d2' }
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/checkers-bg.jpg) center/cover no-repeat #2A1C10', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden', display: 'flex', gap: 10, padding: 12, boxSizing: 'border-box' }}>
@@ -1831,7 +1834,7 @@ function CheckersStage({
       <div style={{ width: 172, flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <CkPlayerPanel name={bottomName} active={bottomActive} captured={youCap} dark={false} withVideo={withVideo} uid={bottomUid} you photoURL={myPhoto} />
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ textAlign: 'center', color: '#F0E2C6', fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, lineHeight: 1.2, minHeight: 20 }}>{statusText}</div>
+          <div style={{ textAlign: 'center', color: '#F6E8C8', fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, lineHeight: 1.2, minHeight: 20, background: 'rgba(26,17,9,.85)', borderRadius: 10, padding: '6px 8px', boxShadow: '0 3px 10px rgba(0,0,0,.45)' }}>{statusText}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <button onClick={onReset} title="משחק חדש" aria-label="משחק חדש" style={ctlBtn}>🔄</button>
             <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? <IconSpeakerOff size={20} color="#E8C879" /> : <IconSpeaker size={20} color="#E8C879" />}</button>

@@ -877,8 +877,12 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // On unmount — fallback: אם השחקן עזב בכל דרך אחרת (לא דרך ה-handleLeave) — עדיין מסמןים pendingLeave
   // pauseAroundWorldGame בדיקה פנימית שהמשחק עדיין 'playing'; אם לא — no-op.
   useEffect(() => {
+    const mountedAt = Date.now()
     return () => {
       if (handledLeaveRef.current) return
+      // מתעלמים מ-unmount מידי (StrictMode mount→cleanup→mount ב-DEV, או remount חולף) —
+      // אחרת נסמן pendingLeave כבר בכניסה למשחק והלוח נתקע (הקוביות לא עובדות מול חבר)
+      if (Date.now() - mountedAt < 1500) return
       const { roomId: rId, uid, name } = leaveRefs.current
       pauseAroundWorldGame(rId, uid, name).catch(() => {})
     }

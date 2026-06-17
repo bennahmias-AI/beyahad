@@ -40,6 +40,18 @@ const CREAM      = '#F3E2BE'
 // ════════════════════════════════════════════════════════
 // מנוע המשחק — פונקציות טהורות
 // ════════════════════════════════════════════════════════
+const SB_MUSIC_VOLUME = 0.10
+const MUSIC_TRACKS = [
+  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
+  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
+  '/music/kontraa-water-afro-pop-music-445661.mp3',
+  '/music/moodmode-no-copyright-music-201745.mp3',
+  '/music/nastelbom-background-music-463062.mp3',
+  '/music/paulyudin-pop-uplifting-182523.mp3',
+  '/music/starostin-jazz-jazz-music-515630.mp3',
+  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
+]
+
 function initialState() {
   const points = Array(24).fill(0)
   points[23] = 2; points[12] = 5; points[7] = 3; points[5] = 5     // P1
@@ -683,7 +695,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     : (mode === 'ai' ? 'תורך!' : `תור שחקן ${side === 'P1' ? '1' : '2'}`)
 
   return (
-    <SheshLayout
+    <SbStage
       isOnline={false} me={{ name: meName, photoURL: mode === 'ai' ? profile?.photoURL : null }} opponent={{ name: oppName }}
       myColor="P1" topActive={side === 'P2' && !winner} topOff={state.off.P2} bottomActive={side === 'P1' && !winner} bottomOff={state.off.P1}
       state={state} selected={effectiveSelected} targets={targets} centerLabel={centerLabel}
@@ -693,7 +705,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       onReset={reset} onLeave={onBack} onHome={onHome}
     >
       {winner && <LocalEndModal mode={mode} winner={winner} onPlayAgain={reset} onExit={onExit} />}
-    </SheshLayout>
+    </SbStage>
   )
 }
 
@@ -826,7 +838,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   return (
     <ProfilesProvider uids={(room.players || []).map(p => p.uid)} myUid={myUid}>
     <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
-    <SheshLayout
+    <SbStage
       isOnline={true} roomId={roomId} me={me ? { ...me, photoURL: profile?.photoURL } : { name: 'אתה' }} opponent={opponent}
       myColor={myColor} topActive={state.turn === oppColor && !winner} topOff={state.off[oppColor]} bottomActive={isMyTurn} bottomOff={state.off[myColor]}
       state={state} selected={effectiveSelected} targets={targets} centerLabel={centerLabel}
@@ -839,7 +851,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
     >
       {winner && <OnlineEndModal result={winner === myColor ? 'win' : 'lose'} opponentName={opponent?.name || 'היריב'} iRequested={iRequested} oppRequested={oppRequested} onRematch={requestRematch} onFindOther={handleFindOther} onEnd={handleEnd} />}
       {!winner && (iRequested || oppRequested) && <RematchPrompt opponentName={opponent?.name || 'היריב'} iRequested={iRequested} onConfirm={requestRematch} onCancel={cancelRematch} />}
-    </SheshLayout>
+    </SbStage>
     </GameVideoProvider>
     </ProfilesProvider>
   )
@@ -941,6 +953,124 @@ function SheshLayout({
       {children}
     </div>
   )
+}
+
+// ════════════════════════════════════════════════════════
+// SbStage — פריסת רוחב (מסילות צד דקות): לוח במרכז, שחקן+בקרות בצדדים
+// ════════════════════════════════════════════════════════
+function SbStage({
+  isOnline, roomId, me, opponent, myColor = 'P1',
+  topActive, topOff, bottomActive, bottomOff,
+  state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel,
+  canRoll, onRoll, showPass, onPass, canUndo, onUndo, onReset, onLeave, onHome,
+  chat = [], addFriendNode = null, children,
+  withVideo, myUid, oppUid,
+}) {
+  const [isPortrait, setIsPortrait] = useState(typeof window !== 'undefined' ? window.matchMedia('(orientation: portrait)').matches : false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [muted, setMutedState] = useState(() => isMuted())
+  const [confirmExit, setConfirmExit] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const h = (e) => setIsPortrait(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+  const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
+
+  // מוזיקת רקע — רצוצה אקראית, עוצמה נמוכה, נשמרת בהעדפה
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_sheshbesh_music') === '1' } catch { return false } })
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const audioRef = useRef(null)
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return
+    a.volume = SB_MUSIC_VOLUME
+    if (musicOn) a.play().catch(() => {}); else a.pause()
+  }, [musicOn, trackIdx])
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const toggleMusic = () => { setMusicOn(o => { const n = !o; try { localStorage.setItem('beyahad_sheshbesh_music', n ? '1' : '0') } catch {} return n }) }
+
+  const oppColor = myColor === 'P1' ? 'P2' : 'P1'
+  const meName = me?.name || 'אתה'
+  const oppName = opponent?.name || 'יריב'
+
+  const ctlBtn = { height: 42, width: '100%', borderRadius: 12, background: 'rgba(26,17,9,.9)', border: `1px solid ${GOLD_DEEP}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18, color: GOLD, fontFamily: 'inherit', boxShadow: '0 3px 10px rgba(0,0,0,.4)' }
+  const exitBtn = { ...ctlBtn, background: 'rgba(150,52,46,.92)', border: '1px solid rgba(216,120,108,.6)', color: '#ffd9d2' }
+
+  const youPanel = withVideo
+    ? <SheshVideoCard uid={myUid} name={meName} photoURL={me?.photoURL} active={bottomActive} you />
+    : <PlayerCard uid={myUid} name={meName} photoURL={me?.photoURL} active={bottomActive} color={myColor} align="left" grow />
+  const oppPanel = withVideo
+    ? <SheshVideoCard uid={oppUid} name={oppName} active={topActive} addFriendNode={addFriendNode} />
+    : <PlayerCard uid={oppUid} name={oppName} photoURL={opponent?.photoURL} active={topActive} color={oppColor} align="right" grow />
+
+  const gameInner = (
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(rgba(20,12,6,.48),rgba(20,12,6,.6)), url(/backgammon.jpeg) center/cover no-repeat, #2c1d10', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden', display: 'flex', gap: 10, padding: 12, boxSizing: 'border-box' }}>
+      {/* מסילת "אתה" + בקרות */}
+      <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ flex: 'none', display: 'flex' }}>{youPanel}</div>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <GoldButton primary={canRoll || showPass} disabled={!canRoll && !showPass} icon={showPass ? <IcCheck /> : <IcDice />} label={showPass ? 'סיים תור' : 'גלגל'} onClick={showPass ? onPass : onRoll} />
+            <GoldButton disabled={!canUndo} icon={<IcUndo />} label="בטל" onClick={onUndo} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button onClick={onReset} title="משחק חדש" aria-label="משחק חדש" style={ctlBtn}><IcRefresh s={18} /></button>
+            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? '🔇' : '🔊'}</button>
+            <button onClick={toggleMusic} title="מוזיקה" aria-label="מוזיקה" style={{ ...ctlBtn, opacity: musicOn ? 1 : 0.5 }}>🎵</button>
+            <button onClick={() => setConfirmExit(true)} title="יציאה" aria-label="יציאה" style={exitBtn}>✕</button>
+          </div>
+          {isOnline && myUid && (
+            <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, fontSize: 14, fontWeight: 700, gap: 6 }}><IcChat s={17} /> צ'אט</button>
+          )}
+        </div>
+      </div>
+
+      {/* לוח במרכז — ללא שינוי גרפי */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1 / 1.3', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%' }}>
+            <SheshBoard
+              state={state} selected={selected} targets={targets} centerLabel={centerLabel}
+              onPointClick={onPointClick} onOffClick={onOffClick} onBarClick={onBarClick}
+              canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* מסילת יריב */}
+      <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 'none', display: 'flex' }}>{oppPanel}</div>
+      </div>
+
+      {isOnline && myUid && <ChatToast msgs={chat} meUid={myUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
+      {chatOpen && isOnline && myUid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} style={{ display: 'none' }} />
+      {confirmExit && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle={isOnline ? 'המשחק יסתיים והיריב יקבל הודעה' : 'המשחק הנוכחי יסתיים'}
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לצאת"
+          onStay={() => setConfirmExit(false)}
+          onLeave={() => { setConfirmExit(false); onLeave && onLeave() }}
+        />
+      )}
+      {children}
+    </div>
+  )
+
+  if (isPortrait) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%, -50%) rotate(90deg)', transformOrigin: 'center center' }}>
+          {gameInner}
+        </div>
+      </div>
+    )
+  }
+  return gameInner
 }
 
 function MenuItem({ label, onClick }) {
