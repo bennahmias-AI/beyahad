@@ -11,11 +11,11 @@
 // כל שינוי משודר בזמן אמת לכל המשתתפים דרך watchRummikubRoom.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconCheck, IconTrophy, IconEffects, IconHourglass, IconChatLine, IconGamepad, IconGroup } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { useUserStore } from '../stores/userStore.js'
-import { playSound } from '../utils/gameSounds.js'
+import { playSound, isMuted, setMuted, MUSIC_TRACKS } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, RemoteVideoToggles, VideoConsentGate, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
@@ -32,6 +32,7 @@ import {
 import {
   RummiHeaderShared, BoardArea, PlayerRack, RummiButton,
   NewTileBanner, PoolCounter, GOLD, GOLD_DEEP, CREAM,
+  RummiMusicButton, RummiSoundButton, RmTileIcon, RmRefreshIcon,
 } from './RummikubShared.jsx'
 
 // ════════════════════════════════════════════════════════
@@ -127,9 +128,9 @@ function Lobby({ mode, me, numPlayers = 4, onBack, onHome, onReady, autoInviteFr
           <div style={{ display: 'flex', justifyContent: 'center' }}><GameIcon id="rummikub" size={84} /></div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>מחפש לך יריבים...</div>
-            <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 16, opacity: 0.85, marginTop: 8 }}><IconHourglass size={16} color="white" /> {formatTime(elapsed)}</div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>💡 כשעוד שחקנים ילחצו על "רמיקוב"<br />תתחברו לאותו שולחן</div>
+          <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>כשעוד שחקנים ילחצו על "רמיקוב"<br />תתחברו לאותו שולחן</div>
         </div>
         <button onClick={onBack} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
       </div>
@@ -183,7 +184,7 @@ function FriendList({ friends, onInvite, onBack }) {
   if (!friends || friends.length === 0) {
     return (
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '36px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 56, marginBottom: 14 }}>👥</div>
+        <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}><IconGroup size={68} /></div>
         <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>אין לך עדיין חברים ברשימה</div>
         <div style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 20 }}>הוסיפו חברים בקפה או בפרלמנט — ואז תוכלו להזמין אותם למשחק.</div>
         <button onClick={onBack} className="big-btn big-btn--ghost" style={{ width: '100%' }}>חזרה</button>
@@ -242,7 +243,7 @@ function FriendRow({ friend, profile, online, onInvite }) {
         background: online ? 'var(--success)' : 'var(--burgundy)',
         color: 'white', border: 'none', borderRadius: 12, padding: '11px 16px',
         fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap',
-      }}>🎮 הזמן</button>
+      }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconGamepad size={16} color="white" /> הזמן</span></button>
     </div>
   )
 }
@@ -466,7 +467,7 @@ function InvitePicker({ me, players, onInvite, onClose }) {
                   color: 'white', border: 'none', borderRadius: 12, padding: '10px 16px',
                   fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
                   cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
-                }}>{invited[f.otherUid] ? '✓ נשלח' : '🎮 הזמן'}</button>
+                }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{invited[f.otherUid] ? <><IconCheck size={16} color="white" /> נשלח</> : <><IconGamepad size={16} color="white" /> הזמן</>}</span></button>
               </div>
               )
             })}
@@ -493,7 +494,7 @@ function RummiWaitPlayer({ p, meUid, hostUid }) {
       <div style={{ flex: 1, fontFamily: "'Suez One', serif", fontSize: 17, color: CREAM }}>
         {name}{p.uid === meUid ? ' (אתה)' : ''}
       </div>
-      {p.uid === hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>👑 מארח</span>}
+      {p.uid === hostUid && <span style={{ fontSize: 12, color: GOLD, fontWeight: 800 }}>מארח</span>}
     </div>
   )
 }
@@ -553,6 +554,26 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
     setSelectedTileId(null)
     setMessage('')
   }, [state?.turn, room.gameStateJson]) // eslint-disable-line
+
+  // ── מוזיקת רקע (אונליין) ──
+  const [musicOn, setMusicOn] = useState(() => localStorage.getItem('beyahad_rummikub_music') !== '0')
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(0.07)
+  const [muted, setMutedState] = useState(isMuted())
+  const musicRef = useRef(null)
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const toggleMusic = () => setMusicOn(v => { const n = !v; localStorage.setItem('beyahad_rummikub_music', n ? '1' : '0'); return n })
+  useEffect(() => {
+    const el = musicRef.current; if (!el) return
+    if (musicOn) { el.volume = musicVol; el.play().catch(() => {}) } else el.pause()
+  }, [musicOn, trackIdx]) // eslint-disable-line
+  useEffect(() => { if (musicRef.current) musicRef.current.volume = musicVol }, [musicVol])
+  useEffect(() => {
+    if (!musicOn) return
+    const kick = () => { const el = musicRef.current; if (el && el.paused) { el.volume = musicVol; el.play().catch(() => {}) }; window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+    window.addEventListener('pointerdown', kick); window.addEventListener('touchstart', kick)
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+  }, [musicOn]) // eslint-disable-line
 
   if (!state || myIndex < 0) {
     return (
@@ -661,7 +682,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
   const handleLeave = async () => { await leaveRummikubRoom(roomId); onBack() }
 
   const statusText = winner
-    ? (winner.id === me.uid ? 'ניצחת! 🎉' : `${winner.name} ניצח`)
+    ? (winner.id === me.uid ? 'ניצחת!' : `${winner.name} ניצח`)
     : isMyTurn ? 'תורך' : `תור ${state.players[turnIdx].name}`
 
   // צ'אט האונליין — היריב לצורך ההתראות
@@ -672,9 +693,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
   // תפריט (☰) — אפס מהלך + יציאה
   const menuItems = (
     <>
-      <RummiMenuItem label="💬 צ'אט" onClick={() => { setMenuOpen(false); setChatOpen(true) }} />
-      {isMyTurn && !winner && <RummiMenuItem label="↩ אפס מהלך" onClick={() => { handleResetDraft(); setMenuOpen(false) }} />}
-      <RummiMenuItem label="↩ יציאה מהמשחק" onClick={() => { setMenuOpen(false); handleLeave() }} />
+      <RummiMenuItem label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconChatLine size={16} color={CREAM} /> צ'אט</span>} onClick={() => { setMenuOpen(false); setChatOpen(true) }} />
+      {isMyTurn && !winner && <RummiMenuItem label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><RmRefreshIcon size={16} color={CREAM} /> אפס מהלך</span>} onClick={() => { handleResetDraft(); setMenuOpen(false) }} />}
+      <RummiMenuItem label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconBackRTL size={16} color={CREAM} /> יציאה מהמשחק</span>} onClick={() => { setMenuOpen(false); handleLeave() }} />
     </>
   )
 
@@ -682,6 +703,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
     <ProfilesProvider uids={state.players.map(p => p.id)} myUid={me.uid}>
     <GameVideoProvider roomId={roomId} me={me} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
     <div style={{ direction: 'rtl', background: 'linear-gradient(180deg,#2c1d10,#1c1108)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <audio ref={musicRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} onPlay={(e) => { e.currentTarget.volume = musicVol }} />
       <RummiHeaderShared title="רמיקוב אונליין" onBack={handleLeave} onHome={onHome} onMenu={() => setMenuOpen(o => !o)} menuOpen={menuOpen} menuItems={menuItems} />
       {menuOpen && <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
@@ -716,22 +738,27 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
 
       {/* אזור תחתון קבוע */}
       <div style={{ flexShrink: 0, padding: '6px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
-        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} newTileId={newTileId} />
+        <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} newTileId={newTileId} controls={
+          <>
+            <RummiMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} onVolDown={() => setMusicVol(v => Math.max(0.02, +(v - 0.03).toFixed(2)))} onVolUp={() => { setMusicVol(v => Math.min(0.6, +(v + 0.03).toFixed(2))); setMusicOn(true) }} />
+            <RummiSoundButton muted={muted} onToggle={() => { const n = !muted; setMutedState(n); setMuted(n) }} />
+          </>
+        } />
 
         {!isMyTurn && !winner && (
-          <div style={{ textAlign: 'center', color: CREAM, fontSize: 14, marginTop: 12, opacity: .8 }}>⏳ ממתין לתורך…</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: CREAM, fontSize: 14, marginTop: 12, opacity: .8 }}><IconHourglass size={17} color={GOLD} /> ממתין לתורך…</div>
         )}
 
         {isMyTurn && !winner && !state.players[myIndex].hasMelded && (
-          <div style={{ textAlign: 'center', fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
-            💡 לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, color: CREAM, marginTop: 8, opacity: .85 }}>
+            <IconEffects size={15} color={GOLD} /> לירידה ראשונה צריך להניח לפחות {MELD_MIN} נקודות
           </div>
         )}
 
         {isMyTurn && !winner && (
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <RummiButton ghost label="🎴 שלוף" onClick={handleDraw} />
-            <RummiButton gold label="✓ סיים תור" onClick={handleEndTurn} />
+            <RummiButton ghost label={<span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><RmTileIcon size={18} color="#e6cd90" /> שלוף</span>} onClick={handleDraw} />
+            <RummiButton gold label={<span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><IconCheck size={18} color="#3a2a08" /> סיים תור</span>} onClick={handleEndTurn} />
           </div>
         )}
       </div>
@@ -743,7 +770,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
       {winner && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,15,8,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '30px 26px 22px', maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ fontSize: 64, marginBottom: 12 }}>{winner.id === me.uid ? '🎉' : '🎴'}</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><IconTrophy size={64} color="#B89048" /></div>
             <div className="h-display" style={{ fontSize: 28, color: winner.id === me.uid ? '#4F6B4A' : '#B89048', marginBottom: 6 }}>
               {winner.id === me.uid ? 'ניצחת!' : `${winner.name} ניצח!`}
             </div>
@@ -777,7 +804,7 @@ function RummiChatButton({ roomId, me, chatMsgs, wide }) {
         position: 'relative', whiteSpace: 'nowrap',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 4px 8px rgba(0,0,0,.5)',
       }}>
-        💬 צ'אט
+        <IconChatLine size={16} color="#F0D9A0" /> צ'אט
         {unread > 0 && (
           <span style={{
             position: 'absolute', top: -7, insetInlineStart: -7,

@@ -8,7 +8,7 @@
 // כך שני המסכים נראים זהים לחלוטין ואין כפילות קוד.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
-import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine, IconSpeaker, IconSpeakerOff, IconMusicNote, IconColor } from '../icons/index.jsx'
 import { isValidSet, sortSetForDisplay, sortRack } from '../utils/rummikubEngine.js'
 
 // ── פלטת צבעים (תואמת לדמו שאושר) ──────────────────────
@@ -44,6 +44,58 @@ export function LandscapeRotate({ children, bg = '#1c1108' }) {
 // אריח תלת-ממדי — אבן הבניין הויזואלית
 // ════════════════════════════════════════════════════════
 // סמיילי קורץ — צורת הג'וקר (ציור מקורי, ללא זכויות יוצרים)
+// איקוני קו מקוריים (לא אימוג'י) — משותפים למקומי ולאונליין
+export function Li({ size = 18, color = 'currentColor', children, vb = '0 0 24 24' }) {
+  return <svg width={size} height={size} viewBox={vb} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', flexShrink: 0 }}>{children}</svg>
+}
+export const RmTileIcon = (p) => (<Li {...p}><rect x="3.5" y="4" width="10" height="16" rx="2" /><path d="M16.5 6.6l3.1.9a1 1 0 0 1 .7 1.2l-3 11a1 1 0 0 1-1.2.7l-1.3-.4" /></Li>)
+export const RmSortNumIcon = (p) => (<Li {...p}><path d="M4 6h11M4 12h8M4 18h5" /><path d="M18 8V5M16.5 6.5 18 5l1.5 1.5" /></Li>)
+export const RmNextIcon = (p) => (<Li {...p}><path d="M5 4l9 8-9 8z" fill="currentColor" stroke="none" /><rect x="17" y="4" width="2.6" height="16" rx="1" fill="currentColor" stroke="none" /></Li>)
+export const RmRefreshIcon = (p) => (<Li {...p}><path d="M20 11a8 8 0 1 0-2.3 5.7" /><polyline points="20 5 20 11 14 11" /></Li>)
+
+const rmIconCtrlBtn = {
+  background: 'linear-gradient(180deg,#5e3f22,#3a2410)', color: '#e6cd90',
+  border: 'none', borderTop: '1px solid #a07d3e', borderBottom: '3px solid #1c1008',
+  borderRadius: 10, padding: '8px 12px', fontSize: 16, fontWeight: 800,
+  fontFamily: 'inherit', cursor: 'pointer', lineHeight: 1, display: 'inline-flex', alignItems: 'center',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12), 0 2px 5px rgba(0,0,0,.4)',
+}
+const rmPopItem = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'right', background: 'none', border: 'none', color: CREAM, fontSize: 14, fontWeight: 700, fontFamily: 'inherit', padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }
+const rmPopVol = { width: 34, height: 34, borderRadius: 8, border: `1px solid ${GOLD_DEEP}`, background: 'linear-gradient(180deg,#5e3f22,#3a2410)', color: GOLD, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }
+
+// כפתור מוזיקה משותף (הפעלה/כיבוי · שיר הבא · עוצמה)
+export function RummiMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative', display: 'flex' }}>
+      <button onClick={() => setOpen(o => !o)} aria-label="מוזיקה" style={{ ...rmIconCtrlBtn, opacity: musicOn ? 1 : 0.55 }}><IconMusicNote size={18} color="#e6cd90" /></button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55 }} />
+          <div style={{ position: 'absolute', bottom: '120%', insetInlineEnd: 0, background: '#2a1a0c', border: `1px solid ${GOLD_DEEP}`, borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 60, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
+            <button onClick={onToggle} style={rmPopItem}><IconMusicNote size={16} color={CREAM} /> {musicOn ? 'כבה מוזיקה' : 'הפעל מוזיקה'}</button>
+            <button onClick={onNext} style={rmPopItem}><RmNextIcon size={16} color={CREAM} /> שיר הבא</button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 6px' }}>
+              <span style={{ color: CREAM, fontSize: 14, fontWeight: 700 }}>עוצמה</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={onVolDown} style={rmPopVol} aria-label="החלש">−</button>
+                <button onClick={onVolUp} style={rmPopVol} aria-label="הגבר">+</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// כפתור סאונד משותף
+export function RummiSoundButton({ muted, onToggle }) {
+  return (
+    <button onClick={onToggle} aria-label="סאונד" style={rmIconCtrlBtn}>{muted ? <IconSpeakerOff size={18} color="#e6cd90" /> : <IconSpeaker size={18} color="#e6cd90" />}</button>
+  )
+}
+
 export function JokerFace({ size = 24, color = JOKER_COLOR }) {
   const sw = size >= 24 ? 3 : 2.6
   return (
@@ -208,13 +260,14 @@ export function BoardArea({ board, onSetClick, onTileClick, placing, lastDrawnId
 // ════════════════════════════════════════════════════════
 // מדף האריחים של השחקן
 // ════════════════════════════════════════════════════════
-export function PlayerRack({ rack, selectedTileId, onTileClick, onSort, newTileId }) {
+export function PlayerRack({ rack, selectedTileId, onTileClick, onSort, newTileId, controls }) {
   return (
     <div>
       {onSort && (
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 8 }}>
-          <button onClick={() => onSort('number')} style={sortBtnStyle}>🔢 סדר לפי מספר</button>
-          <button onClick={() => onSort('color')} style={sortBtnStyle}>🎨 סדר לפי צבע</button>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => onSort('number')} style={{ ...sortBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}><RmSortNumIcon size={16} color="#e6cd90" /> סדר לפי מספר</button>
+          <button onClick={() => onSort('color')} style={{ ...sortBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconColor size={16} color="#e6cd90" /> סדר לפי צבע</button>
+          {controls}
         </div>
       )}
       <div style={{
@@ -265,7 +318,7 @@ export function RummiButton({ label, onClick, gold, ghost }) {
 // banner — האריח החדש שהשחקן שלף בתור הקודם
 // ════════════════════════════════════════════════════════
 export function NewTileBanner({ tile }) {
-  const label = tile.joker ? 'ג׳וקר 😉' : `${tile.num}`
+  const label = tile.joker ? 'ג׳וקר' : `${tile.num}`
   const colorName = tile.joker ? '' : ({ red: 'אדום', blue: 'כחול', orange: 'כתום', green: 'ירוק' }[tile.color] || '')
   return (
     <div style={{
@@ -292,7 +345,7 @@ export function PoolCounter({ count }) {
       background: 'rgba(0,0,0,.25)', border: `1px solid ${low ? '#e0746a' : 'rgba(201,162,74,.4)'}`,
       borderRadius: 999, padding: '3px 10px',
     }}>
-      <span style={{ fontSize: 12 }}>🎴</span>
+      <RmTileIcon size={14} color={GOLD} />
       <span style={{ fontSize: 11, fontWeight: 700, color: CREAM }}>בקופה:</span>
       <span style={{ fontSize: 14, fontWeight: 800, color: low ? '#ffb3a0' : GOLD, fontFamily: "'Suez One', serif" }}>{count}</span>
     </div>
