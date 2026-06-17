@@ -225,6 +225,33 @@ export const IconEye = (p) => (
   </LineIcon>
 )
 
+// עין מוסתרת (קו פשוט) — לכפתור הסתרת וידאו
+export const IconEyeOff = (p) => (
+  <LineIcon {...p}>
+    <path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c7 0 10.5 7 10.5 7a13.4 13.4 0 0 1-1.7 2.4" />
+    <path d="M6.6 6.6A13 13 0 0 0 1.5 12S5 19 12 19a9.6 9.6 0 0 0 3.5-.65" />
+    <line x1="2" y1="2" x2="22" y2="22" />
+  </LineIcon>
+)
+
+// מצלמת וידאו כבויה (קו פשוט) — לכפתור כיבוי מצלמה
+export const IconVideoOff = (p) => (
+  <LineIcon {...p}>
+    <path d="M16 10l6-3.5v11L16 14" />
+    <rect x="2" y="6" width="14" height="12" rx="3" />
+    <line x1="2.5" y1="2.5" x2="21.5" y2="21.5" />
+  </LineIcon>
+)
+
+// תו מוזיקה (קו פשוט) — לכפתור מוזיקת רקע
+export const IconMusicNote = (p) => (
+  <LineIcon {...p}>
+    <path d="M9 17V4l10-2v13" />
+    <circle cx="6" cy="17" r="3" />
+    <circle cx="16" cy="15" r="3" />
+  </LineIcon>
+)
+
 // סל קניות — מצרכים (קו פשוט)
 export const IconBasket = (p) => (
   <LineIcon {...p}>

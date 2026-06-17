@@ -29,6 +29,7 @@ import {
 } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import Avatar from './Avatar.jsx'
+import { IconMic, IconMicOff, IconSpeaker, IconSpeakerOff, IconVideoLine, IconVideoOff, IconEye, IconEyeOff } from '../icons/index.jsx'
 import { fetchLiveKitToken, watchUser, watchFriendships } from '../services/firebase.js'
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-project.livekit.cloud'
@@ -572,8 +573,8 @@ export function VideoControls({ style, size = 46, only }) {
     }}>{on ? onIcon : offIcon}</button>
   )
 
-  const camBtn = btn(camOn, toggleCam, '📹', '📵', camOn ? 'כבה מצלמה' : 'הפעל מצלמה')
-  const micBtn = btn(micOn, toggleMic, '🎙️', '🔇', micOn ? 'השתק מיקרופון' : 'הפעל מיקרופון')
+  const camBtn = btn(camOn, toggleCam, <IconVideoLine size={size * 0.5} color="#fff" />, <IconVideoOff size={size * 0.5} color="#7E2C2E" />, camOn ? 'כבה מצלמה' : 'הפעל מצלמה')
+  const micBtn = btn(micOn, toggleMic, <IconMic size={size * 0.5} color="#fff" />, <IconMicOff size={size * 0.5} color="#7E2C2E" />, micOn ? 'השתק מיקרופון' : 'הפעל מיקרופון')
 
   // כפתור בודד (למצב inline ליד השם)
   if (only === 'cam') return camBtn
@@ -607,8 +608,8 @@ export function RemoteVideoToggles({ uid, size = 26, only }) {
       flexShrink: 0, boxShadow: '0 1px 4px rgba(0,0,0,.4)',
     }}>{icon}</button>
   )
-  const audioBtn = btn(isMuted, () => toggleMuteAudio(uid), isMuted ? '🔇' : '🔊', isMuted ? 'בטל השתקה' : 'השתק')
-  const videoBtn = btn(isHidden, () => toggleHideVideo(uid), isHidden ? '🙈' : '👁️', isHidden ? 'הצג וידאו' : 'הסתר וידאו')
+  const audioBtn = btn(isMuted, () => toggleMuteAudio(uid), isMuted ? <IconSpeakerOff size={size * 0.56} color="#fff" /> : <IconSpeaker size={size * 0.56} color="#fff" />, isMuted ? 'בטל השתקה' : 'השתק')
+  const videoBtn = btn(isHidden, () => toggleHideVideo(uid), isHidden ? <IconEyeOff size={size * 0.56} color="#fff" /> : <IconEye size={size * 0.56} color="#fff" />, isHidden ? 'הצג וידאו' : 'הסתר וידאו')
   // מצב משולב: רק אודיו / רק וידאו / שניהם
   if (only === 'audio') return audioBtn
   if (only === 'video') return videoBtn

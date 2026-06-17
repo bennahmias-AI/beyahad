@@ -677,7 +677,7 @@ const MUSIC_TRACKS = [
   '/music/starostin-jazz-jazz-music-515630.mp3',
   '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
 ]
-const MUSIC_VOLUME = 0.15   // עוצמה חלשה
+const MUSIC_VOLUME = 0.10   // עוצמה חלשה (סטנדרט לכל המשחקים)
 
 // ── אייקוני שמע (SVG מצוירים, לא אימוג'י) ──
 function IcSound({ size = 18 }) {
@@ -1305,7 +1305,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
-        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineStart: 8, zIndex: 80, width: 38, height: 38, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(255,255,255,.18)', fontSize: 18, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 6, insetInlineEnd: 6, zIndex: 80, width: 30, height: 30, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(0,0,0,.38)', fontSize: 15, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}>✕</button>
 
         {/* נגן מוזיקת רקע מקומי (ללא שליטה גלויה) — מתנגן בכל מכשיר בנפרד */}
 

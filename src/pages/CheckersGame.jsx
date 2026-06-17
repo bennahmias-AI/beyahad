@@ -19,7 +19,7 @@
 // matchmaking רנדומלי, חלונית ההזמנה ו"שחק שוב" ההדדי עובדים מיד.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL, IconSpeaker, IconSpeakerOff, IconHomeLine } from '../icons/index.jsx'
+import { IconBackRTL, IconSpeaker, IconSpeakerOff, IconHomeLine, IconMusicNote } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
@@ -45,6 +45,19 @@ const NO_PROGRESS_LIMIT = 50  // מהלכים ללא אכילה/הכתרה → �
 const idx = (r, c) => r * SIZE + c
 const inBounds = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE
 const other = (p) => (p === P1 ? P2 : P1)
+
+// מוזיקת רקע (אותם קבצים כמו במסביב לעולם)
+const CK_MUSIC_VOLUME = 0.10
+const MUSIC_TRACKS = [
+  '/music/alex-morgan-acid-jazz-groove-517096.mp3',
+  '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
+  '/music/kontraa-water-afro-pop-music-445661.mp3',
+  '/music/moodmode-no-copyright-music-201745.mp3',
+  '/music/nastelbom-background-music-463062.mp3',
+  '/music/paulyudin-pop-uplifting-182523.mp3',
+  '/music/starostin-jazz-jazz-music-515630.mp3',
+  '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
+]
 
 // ════════════════════════════════════════════════════════
 // מנוע המשחק — פונקציות טהורות
@@ -645,7 +658,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
     if (!authUser?.uid) { setErrorMsg('צריך להיות מחובר כדי לשחק אונליין'); setPhase('error'); return }
     setErrorMsg('')
     try {
-      const player = { uid: authUser.uid, name: profile?.name || 'משתמש' }
+      const player = { uid: authUser.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
       const { roomId, isCreator } = await findOrCreateMatch({ gameType: 'checkers', player })
       setCreatedRoomId(roomId)
       if (isCreator) {
@@ -675,7 +688,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
     if (!authUser?.uid) return
     setErrorMsg('')
     try {
-      const player = { uid: authUser.uid, name: profile?.name || 'משתמש' }
+      const player = { uid: authUser.uid, name: profile?.name || 'משתמש', photoURL: profile?.photoURL || '' }
       const { roomId } = await createGameRoom({ gameType: 'checkers', creator: player, roomType: 'private' })
       setCreatedRoomId(roomId)
       const newInviteId = await sendGameInvite({
@@ -1012,7 +1025,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   })()
 
   return (
-    <GameLayout
+    <CheckersStage
       onBack={onBack}
       onHome={onHome}
       statusText={statusText}
@@ -1033,7 +1046,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       {winner && (
         <LocalEndModal mode={mode} winner={winner} onPlayAgain={reset} onExit={onExit} />
       )}
-    </GameLayout>
+    </CheckersStage>
   )
 }
 
@@ -1048,6 +1061,13 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const lastMoveKeyRef = useRef(null)
   const finishedSoundRef = useRef(false)
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' && window.matchMedia('(orientation: portrait)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const h = (e) => setIsPortrait(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
 
   useEffect(() => {
     const unsub = watchGameRoom(roomId, (data) => {
@@ -1209,8 +1229,8 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
 
   return (
     <ProfilesProvider uids={(room.players || []).map(p => p.uid)} myUid={myUid}>
-    <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true}>
-    <GameLayout
+    <GameVideoProvider roomId={roomId} me={{ uid: myUid, name: me?.name || 'שחקן' }} enabled={videoChoice !== null} startWithCam={videoChoice === true} isPortrait={isPortrait}>
+    <CheckersStage
       onBack={handleLeave}
       onHome={onHome}
       statusText={statusText}
@@ -1247,7 +1267,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
         <RematchPrompt opponentName={opponent?.name || 'היריב'} iRequested={iRequested}
           onConfirm={requestRematch} onCancel={cancelRematch} />
       )}
-    </GameLayout>
+    </CheckersStage>
     </GameVideoProvider>
     </ProfilesProvider>
   )
@@ -1360,6 +1380,16 @@ function GameLayout({
       </div>
 
       {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
+      {confirmExit && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle={isOnline ? 'המשחק יסתיים והיריב יקבל הודעה' : 'המשחק הנוכחי יסתיים'}
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לצאת"
+          onStay={() => setConfirmExit(false)}
+          onLeave={() => { setConfirmExit(false); onBack && onBack() }}
+        />
+      )}
       {children}
     </div>
   )
@@ -1682,4 +1712,172 @@ function ErrorScreen({ emoji, title, description, onBack }) {
       </div>
     </div>
   )
+}
+
+// ════════════════════════════════════════════
+// LANDSCAPE STAGE (like aroundworld): clean board center, players + controls on the sides
+// ════════════════════════════════════════════
+function CkMusicButton({ musicOn, onToggle, onNext, btnStyle }) {
+  const [open, setOpen] = useState(false)
+  const item = { background: 'none', border: 'none', color: '#FBF7EE', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8, whiteSpace: 'nowrap' }
+  return (
+    <div style={{ position: 'relative', display: 'flex' }}>
+      <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה" style={{ ...btnStyle, opacity: musicOn ? 1 : 0.5 }}><IconMusicNote size={20} color="#E8C879" /></button>
+      {open && (
+        <div style={{ position: 'absolute', bottom: '115%', insetInlineStart: 0, background: 'rgba(20,15,8,.97)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 60, boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
+          <button onClick={() => { onToggle(); setOpen(false) }} style={item}>{musicOn ? '🔇 כיבוי מוזיקה' : '🎵 הפעלת מוזיקה'}</button>
+          <button onClick={() => { onNext(); setOpen(false) }} style={item}>⏭️ השיר הבא</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CkSteam() {
+  // אדים עולים מהתה שבתמונת הרקע — איטי ומתמשך. המיקום באחוזים (קל לכוונן).
+  return (
+    <div aria-hidden="true" style={{ position: 'absolute', left: '73%', top: '49%', width: 60, height: 100, pointerEvents: 'none' }}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{
+          position: 'absolute', bottom: 0, left: 6 + i * 16,
+          width: 18, height: 18, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%)',
+          filter: 'blur(5px)',
+          animation: `ckSteamRise ${5.5 + i * 1.6}s ease-in ${i * 1.8}s infinite`,
+        }} />
+      ))}
+      <style>{`@keyframes ckSteamRise { 0% { opacity: 0; transform: translateY(0) scale(.7); } 22% { opacity: .6; } 65% { opacity: .3; } 100% { opacity: 0; transform: translateY(-54px) scale(1.9); } }`}</style>
+    </div>
+  )
+}
+
+function CkPlayerPanel({ name, active, captured, dark, withVideo, uid, you, photoURL, addFriendNode }) {
+  const showVideo = withVideo && uid
+  return (
+    <div style={{ background: active ? 'rgba(201,168,94,.22)' : 'rgba(255,255,255,.07)', border: active ? '2px solid #C9A85E' : '1px solid rgba(255,255,255,.14)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {showVideo && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <PlayerVideo uid={uid} name={name} width={108} height={108} photoURL={photoURL} />
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {showVideo ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 'none' }}>
+            {you ? <VideoControls only="mic" size={26} /> : <RemoteVideoToggles uid={uid} only="audio" size={26} />}
+            {you ? <VideoControls only="cam" size={26} /> : <RemoteVideoToggles uid={uid} only="video" size={26} />}
+          </div>
+        ) : (
+          <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: dark ? 'radial-gradient(circle at 35% 30%, #4A3525, #1C120A)' : 'radial-gradient(circle at 35% 30%, #F0DCA8, #C9A85E)', border: '2px solid rgba(255,255,255,.35)' }} />
+        )}
+        <div style={{ color: '#FBF7EE', fontWeight: 800, fontSize: 14, fontFamily: "'Suez One', serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{name}{you ? ' (אתה)' : ''}</div>
+        {active && <span style={{ fontSize: 11, color: '#E8C879', fontWeight: 700, flex: 'none', whiteSpace: 'nowrap' }}>● תור</span>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,.25)', borderRadius: 10, padding: '5px 10px', border: '1px solid rgba(255,255,255,.10)', alignSelf: 'flex-start' }}>
+        <div style={{ width: 16, height: 16, borderRadius: '50%', background: dark ? 'radial-gradient(circle at 35% 30%, #F0DCA8, #C9A85E)' : 'radial-gradient(circle at 35% 30%, #4A3525, #1C120A)', border: '1.5px solid rgba(255,255,255,.3)' }} />
+        <span style={{ color: '#F0E2C6', fontWeight: 800, fontSize: 15 }}>{captured}</span>
+      </div>
+      {!you && addFriendNode}
+    </div>
+  )
+}
+
+function CheckersStage({
+  onBack, onHome, statusText, topName, topActive, bottomName, bottomActive,
+  board, selected, destinations, lastMove, onCellTap, disabled,
+  onReset, onChangeMode, isOnline, children, chat = [], meUid, meName, roomId, flip,
+  withVideo, topUid, bottomUid, myPhoto, addFriendNode,
+}) {
+  const [muted, setMutedState] = useState(() => isMuted())
+  const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
+  const [chatOpen, setChatOpen] = useState(false)
+  const [confirmExit, setConfirmExit] = useState(false)
+
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_checkers_music') !== 'off' } catch { return true } })
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const audioRef = useRef(null)
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const toggleMusic = () => setMusicOn(o => { const n = !o; try { localStorage.setItem('beyahad_checkers_music', n ? 'on' : 'off') } catch { /* ignore */ } return n })
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return
+    if (musicOn) { a.volume = CK_MUSIC_VOLUME; a.play().catch(() => {}) } else { a.pause() }
+  }, [musicOn, trackIdx])
+  useEffect(() => {
+    const kick = () => { const a = audioRef.current; if (a && musicOn && a.paused) a.play().catch(() => {}) }
+    window.addEventListener('pointerdown', kick); window.addEventListener('touchstart', kick)
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+  }, [musicOn])
+
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' && window.matchMedia('(orientation: portrait)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const h = (e) => setIsPortrait(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+
+  const p1Left = countPieces(board, P1)
+  const p2Left = countPieces(board, P2)
+  const p1Captured = 12 - p2Left
+  const p2Captured = 12 - p1Left
+  const youCap = flip ? p2Captured : p1Captured
+  const oppCap = flip ? p1Captured : p2Captured
+
+  const ctlBtn = { height: 44, width: '100%', borderRadius: 12, background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 20, color: '#E8C879', fontFamily: 'inherit' }
+  const exitBtn = { ...ctlBtn, background: 'rgba(216,120,108,.22)', border: '1px solid rgba(216,120,108,.4)', color: '#f0c4bc' }
+
+  const gameInner = (
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/checkers-bg.jpg) center/cover no-repeat #2A1C10', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden', display: 'flex', gap: 10, padding: 12, boxSizing: 'border-box' }}>
+      <CkSteam />
+      <div style={{ width: 172, flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <CkPlayerPanel name={bottomName} active={bottomActive} captured={youCap} dark={false} withVideo={withVideo} uid={bottomUid} you photoURL={myPhoto} />
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ textAlign: 'center', color: '#F0E2C6', fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, lineHeight: 1.2, minHeight: 20 }}>{statusText}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button onClick={onReset} title="משחק חדש" aria-label="משחק חדש" style={ctlBtn}>🔄</button>
+            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? <IconSpeakerOff size={20} color="#E8C879" /> : <IconSpeaker size={20} color="#E8C879" />}</button>
+            <button onClick={() => setConfirmExit(true)} title="יציאה" aria-label="יציאה" style={exitBtn}>✕</button>
+            <CkMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} btnStyle={ctlBtn} />
+          </div>
+          {isOnline && meUid && (
+            <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, fontSize: 15, fontWeight: 700 }}>💬 צ'אט</button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ width: 'min(100%, 70vh)', maxWidth: 460 }}>
+          <CheckersBoard board={board} selected={selected} destinations={destinations} lastMove={lastMove} onCellTap={onCellTap} disabled={disabled} flip={flip} />
+        </div>
+      </div>
+
+      <div style={{ width: 172, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+        <CkPlayerPanel name={topName} active={topActive} captured={oppCap} dark={true} withVideo={withVideo} uid={topUid} addFriendNode={addFriendNode} />
+      </div>
+
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} style={{ display: 'none' }} />
+      {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
+      {confirmExit && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle={isOnline ? 'המשחק יסתיים והיריב יקבל הודעה' : 'המשחק הנוכחי יסתיים'}
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לצאת"
+          onStay={() => setConfirmExit(false)}
+          onLeave={() => { setConfirmExit(false); onBack && onBack() }}
+        />
+      )}
+      {children}
+    </div>
+  )
+
+  if (isPortrait) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%, -50%) rotate(90deg)', transformOrigin: 'center center' }}>
+          {gameInner}
+        </div>
+      </div>
+    )
+  }
+  return gameInner
 }

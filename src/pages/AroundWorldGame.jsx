@@ -106,7 +106,7 @@ const MUSIC_TRACKS = [
   '/music/starostin-jazz-jazz-music-515630.mp3',
   '/music/vibedepot-smooth-jazz-romantic-550867.mp3',
 ];
-const MUSIC_VOLUME = 0.15;
+const MUSIC_VOLUME = 0.10;
 
 const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];
 
@@ -588,9 +588,10 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
+        <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 6, insetInlineEnd: 6, zIndex: 80, width: 30, height: 30, borderRadius: '50%', border: `2px solid ${INK}`, background: '#fff', fontSize: 15, fontWeight: 900, cursor: 'pointer', color: INK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}>✕</button>
+
         {/* right panel (RTL start): me + dice */}
         <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {players.filter((p) => !p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
           <div style={{ marginTop: 'auto' }}>
             <div style={{ background: 'rgba(15,28,42,.72)', border: '1px solid rgba(255,255,255,.30)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 22, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 13 }}>
