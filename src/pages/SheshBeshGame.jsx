@@ -445,7 +445,7 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
       const { roomId } = await createGameRoom({ gameType: 'sheshbesh', creator: player, roomType: 'private' })
       setCreatedRoomId(roomId)
       const newInviteId = await sendGameInvite({ from: player, to: { uid: friend.otherUid, name: friend.otherName }, gameType: 'sheshbesh', roomId })
-      setInviteId(newInviteId); setInvitedFriend(friend); setPhase('waiting-for-friend')
+      setInviteId(newInviteId); setInvitedFriend(friend); setPhase('waiting')
       inviteUnsubRef.current = watchInvite(newInviteId, (data) => {
         if (!data) return
         if (data.status === 'declined') {
@@ -472,23 +472,25 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
     setInviteId(null); setCreatedRoomId(null); setInvitedFriend(null); setPhase('friend-list')
   }
 
+  const handleCancelWait = () => { if (inviteId) cancelInvite(); else onBack() }
+
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 
   if (phase === 'searching' || phase === 'waiting') {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, #2A1C10 0%, #3A2818 100%)', color: 'white', display: 'flex', flexDirection: 'column', padding: '32px 24px 28px', direction: 'rtl', zIndex: 100 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-          <button onClick={onBack} style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: 'none', cursor: 'pointer' }}>←</button>
+          <button onClick={handleCancelWait} style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,.12)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, border: 'none', cursor: 'pointer' }}>←</button>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}><GameIcon id="sheshbesh" size={84} /></div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>{phase === 'searching' ? 'מחפש לך יריב...' : 'מחכים ליריב...'}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>{invitedFriend ? `מחכים ל${invitedFriend.otherName}...` : (phase === 'searching' ? 'מחפש לך יריב...' : 'מחכים ליריב...')}</div>
             <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, fontWeight: 500, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>💡 כשעוד מישהו ילחץ על "שש-בש"<br />תתחבר אליו אוטומטית</div>
+          <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, fontWeight: 500, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>{invitedFriend ? 'שלחנו הזמנה — המשחק יתחיל ברגע שהחבר יצטרף 🎲' : <>💡 כשעוד מישהו ילחץ על "שש-בש"<br />תתחבר אליו אוטומטית</>}</div>
         </div>
-        <button onClick={onBack} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
+        <button onClick={handleCancelWait} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
       </div>
     )
   }
@@ -979,16 +981,25 @@ function SbStage({
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
 
   // מוזיקת רקע — רצוצה אקראית, עוצמה נמוכה, נשמרת בהעדפה
-  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_sheshbesh_music') === '1' } catch { return false } })
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_sheshbesh_music') !== '0' } catch { return true } })
   const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(isOnline ? 0.07 : 0.10)
   const audioRef = useRef(null)
   useEffect(() => {
     const a = audioRef.current; if (!a) return
-    a.volume = SB_MUSIC_VOLUME
+    a.volume = musicVol
     if (musicOn) a.play().catch(() => {}); else a.pause()
-  }, [musicOn, trackIdx])
+  }, [musicOn, trackIdx, musicVol])
   const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
   const toggleMusic = () => { setMusicOn(o => { const n = !o; try { localStorage.setItem('beyahad_sheshbesh_music', n ? '1' : '0') } catch {} return n }) }
+  const volDown = () => setMusicVol(v => Math.max(0.01, Math.round((v - 0.03) * 100) / 100))
+  const volUp = () => { setMusicVol(v => Math.min(0.60, Math.round((v + 0.03) * 100) / 100)); setMusicOn(o => { if (o) return o; try { localStorage.setItem('beyahad_sheshbesh_music', '1') } catch {} return true }) }
+  // התנעת המוזיקה בנגיעה ראשונה (דפדפנים חוסמים autoplay) — נכפה ניגון אם דלוק ולא מתנגן
+  useEffect(() => {
+    const kick = () => { const a = audioRef.current; if (a && musicOn && a.paused) a.play().catch(() => {}) }
+    window.addEventListener('pointerdown', kick); window.addEventListener('touchstart', kick)
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+  }, [musicOn])
 
   const oppColor = myColor === 'P1' ? 'P2' : 'P1'
   const meName = me?.name || 'אתה'
@@ -1010,43 +1021,36 @@ function SbStage({
       <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ flex: 'none', display: 'flex' }}>{youPanel}</div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={(!canRoll && !showPass) ? undefined : (showPass ? onPass : onRoll)} disabled={!canRoll && !showPass} style={{ width: '100%', borderRadius: 14, padding: '13px 10px', background: (canRoll || showPass) ? 'linear-gradient(180deg,#8a5e2e,#5e3a18)' : 'linear-gradient(180deg,#5e3f22,#412813)', border: `1.5px solid ${(canRoll || showPass) ? '#F2CE6A' : GOLD_DEEP}`, color: (canRoll || showPass) ? '#FCE9B6' : '#E6CD90', cursor: (!canRoll && !showPass) ? 'default' : 'pointer', opacity: (!canRoll && !showPass) ? 0.45 : 1, fontFamily: 'inherit', fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: (canRoll || showPass) ? '0 0 16px rgba(242,206,106,.5), inset 0 1px 0 rgba(255,255,255,.25)' : 'inset 0 1px 0 rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.4)' }}>{showPass ? <IcCheck s={20} /> : <IcDice s={20} />}{showPass ? 'סיים תור' : 'הטלת קוביות'}</button>
+          <button onClick={canUndo ? onUndo : undefined} disabled={!canUndo} style={{ width: '100%', borderRadius: 12, padding: '9px 10px', background: 'rgba(26,17,9,.9)', border: `1px solid ${GOLD_DEEP}`, color: GOLD, cursor: canUndo ? 'pointer' : 'default', opacity: canUndo ? 1 : 0.4, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 3px 10px rgba(0,0,0,.4)' }}><IcUndo s={17} /> בטל</button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <GoldButton primary={canRoll || showPass} disabled={!canRoll && !showPass} icon={showPass ? <IcCheck /> : <IcDice />} label={showPass ? 'סיים תור' : 'גלגל'} onClick={showPass ? onPass : onRoll} />
-            <GoldButton disabled={!canUndo} icon={<IcUndo />} label="בטל" onClick={onUndo} />
+            {isOnline && myUid && <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, flex: 1 }}><IcChat s={18} /></button>}
+            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, flex: 1, opacity: muted ? 0.5 : 1 }}>{muted ? '🔇' : '🔊'}</button>
+            <SbMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} vol={musicVol} onVolDown={volDown} onVolUp={volUp} btnStyle={ctlBtn} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button onClick={onReset} title="משחק חדש" aria-label="משחק חדש" style={ctlBtn}><IcRefresh s={18} /></button>
-            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? '🔇' : '🔊'}</button>
-            <button onClick={toggleMusic} title="מוזיקה" aria-label="מוזיקה" style={{ ...ctlBtn, opacity: musicOn ? 1 : 0.5 }}>🎵</button>
-            <button onClick={() => setConfirmExit(true)} title="יציאה" aria-label="יציאה" style={exitBtn}>✕</button>
-          </div>
-          {isOnline && myUid && (
-            <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, fontSize: 14, fontWeight: 700, gap: 6 }}><IcChat s={17} /> צ'אט</button>
-          )}
         </div>
       </div>
 
       {/* לוח במרכז — ללא שינוי גרפי */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1 / 1.3', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%' }}>
-            <SheshBoard
-              state={state} selected={selected} targets={targets} centerLabel={centerLabel}
-              onPointClick={onPointClick} onOffClick={onOffClick} onBarClick={onBarClick}
-              canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
-            />
-          </div>
+        <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1.2 / 1', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SheshBoard
+            state={state} selected={selected} targets={targets} centerLabel={centerLabel}
+            onPointClick={onPointClick} onOffClick={onOffClick} onBarClick={onBarClick}
+            canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
+          />
         </div>
       </div>
 
       {/* מסילת יריב */}
       <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 'none', display: 'flex' }}>{oppPanel}</div>
+        <button onClick={() => setConfirmExit(true)} aria-label="יציאה" title="יציאה" style={{ ...exitBtn, marginTop: 'auto', gap: 8, fontSize: 15, fontWeight: 800 }}>✕ יציאה</button>
       </div>
 
       {isOnline && myUid && <ChatToast msgs={chat} meUid={myUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
       {chatOpen && isOnline && myUid && <ChatPanel roomId={roomId} me={me} msgs={chat} onClose={() => setChatOpen(false)} />}
-      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} style={{ display: 'none' }} />
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} onPlay={(e) => { e.currentTarget.volume = musicVol }} style={{ display: 'none' }} />
       {confirmExit && (
         <LeaveConfirmModal
           title="לעזוב את המשחק?"
@@ -1071,6 +1075,31 @@ function SbStage({
     )
   }
   return gameInner
+}
+
+function SbMusicButton({ musicOn, onToggle, onNext, vol, onVolDown, onVolUp, btnStyle }) {
+  const [open, setOpen] = useState(false)
+  const item = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', background: 'rgba(255,255,255,.06)', border: `1px solid ${GOLD_DEEP}`, borderRadius: 9, padding: '9px 10px', color: GOLD, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }
+  const vbtn = { width: 40, height: 38, borderRadius: 9, background: 'rgba(255,255,255,.06)', border: `1px solid ${GOLD_DEEP}`, color: GOLD, fontSize: 22, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
+  return (
+    <div style={{ position: 'relative', flex: 1 }}>
+      <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה" style={{ ...btnStyle, opacity: musicOn ? 1 : 0.5 }}>🎵</button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1400 }} />
+          <div style={{ position: 'absolute', bottom: '112%', insetInlineStart: 0, zIndex: 1401, background: '#2a1a0c', border: `1px solid ${GOLD_DEEP}`, borderRadius: 12, padding: 8, width: 162, boxShadow: '0 8px 24px rgba(0,0,0,.55)', display: 'flex', flexDirection: 'column', gap: 7, direction: 'rtl' }}>
+            <button onClick={onToggle} style={item}>{musicOn ? '🔇 השתק' : '🔊 הפעל'}</button>
+            <button onClick={onNext} style={item}>🔀 החלף מוזיקה</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={onVolDown} aria-label="הנמך עוצמה" style={vbtn}>−</button>
+              <span style={{ flex: 1, textAlign: 'center', color: GOLD, fontWeight: 800, fontSize: 14 }}>{Math.round(vol * 100)}%</span>
+              <button onClick={onVolUp} aria-label="הגבר עוצמה" style={vbtn}>+</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function MenuItem({ label, onClick }) {
@@ -1108,15 +1137,17 @@ function SheshVideoCard({ uid, name, photoURL, active, you, addFriendNode }) {
       borderRadius: 14, padding: '10px 8px',
       boxShadow: active ? '0 0 12px rgba(232,200,121,.35)' : 'inset 0 1px 0 rgba(255,255,255,.08)',
     }}>
-      <PlayerVideo uid={uid} name={dispName} size={92} photoURL={dispPhoto} />
+      <PlayerVideo uid={uid} name={dispName} width={104} height={104} photoURL={dispPhoto} />
       {/* שורת שם — כפתורי שליטה משני הצדדים */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%' }}>
-        {you ? <VideoControls only="mic" size={30} /> : <RemoteVideoToggles uid={uid} only="audio" size={30} />}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 'none' }}>
+          {you ? <VideoControls only="mic" size={28} /> : <RemoteVideoToggles uid={uid} only="audio" size={28} />}
+          {you ? <VideoControls only="cam" size={28} /> : <RemoteVideoToggles uid={uid} only="video" size={28} />}
+        </div>
         <div style={{
           fontFamily: "'Suez One', serif", fontSize: 14, fontWeight: 700, color: CREAM,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
         }}>{dispName}{you ? ' (אתה)' : ''}</div>
-        {you ? <VideoControls only="cam" size={30} /> : <RemoteVideoToggles uid={uid} only="video" size={30} />}
       </div>
       {active && <span style={{ fontSize: 11, fontWeight: 800, color: GOLD }}>● תור</span>}
       {!you && addFriendNode}
@@ -1170,33 +1201,24 @@ function SheshBoard({ state, selected, targets, onPointClick, onOffClick, onBarC
   const cr = flip ? 'rotate(180deg)' : 'none'  // סיבוב הפוך לטקסט כדי שיישאר קריא
 
   return (
-    <div style={{ background: WOOD_FRAME, borderRadius: 18, padding: 8, border: `2px solid ${GOLD_DEEP}`, boxShadow: '0 14px 32px -10px rgba(0,0,0,.7), inset 0 2px 6px rgba(255,255,255,.08)', maxWidth: 420, margin: '0 auto' }}>
-      <div style={{ transform: flip ? 'rotate(180deg)' : 'none' }}>
+    <div style={{ background: WOOD_FRAME, borderRadius: 18, padding: 8, border: `2px solid ${GOLD_DEEP}`, boxShadow: '0 14px 32px -10px rgba(0,0,0,.7), inset 0 2px 6px rgba(255,255,255,.08)', width: '100%', height: '100%', boxSizing: 'border-box', margin: 0 }}>
+      <div style={{ transform: flip ? 'rotate(180deg)' : 'none', height: '100%', display: 'flex', gap: 6 }}>
+      <OffTray player="P2" count={state.off.P2} highlight={canBearOff && offP2} onClick={onOffClick} flip={flip} />
       {/* פאנלים + ציר */}
-      <div style={{ position: 'relative', display: 'flex', gap: 0, aspectRatio: '1 / 1.1' }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', gap: 0 }}>
         <Panel side="left" topIdx={LP_TOP} botIdx={LP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
         <CenterBar state={state} selected={selected} onBarClick={onBarClick} flip={flip} />
         <Panel side="right" topIdx={RP_TOP} botIdx={RP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
 
         {/* שכבת על — טקסט תור + קוביות */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6%' }}>
-          {centerLabel
-            ? <div style={{ fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)', transform: cr }}>{centerLabel}</div>
-            : <div />}
-          {showDice ? (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 120, justifyContent: 'center', transform: cr }}>{state.dice.map((d, i) => <Die key={i} value={d} glow />)}</div>
-          ) : canRoll ? (
-            <div onClick={onRoll} style={{ pointerEvents: 'auto', cursor: 'pointer', fontFamily: "'Suez One', serif", fontSize: 26, fontWeight: 700, color: GOLD, textShadow: '0 2px 4px rgba(0,0,0,.7)', transform: cr }}>הקש לזריקה</div>
-          ) : <div />}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6%' }}>
+          {showDice && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 140, justifyContent: 'center', transform: cr }}>{state.dice.map((d, i) => <Die key={i} value={d} glow />)}</div>
+          )}
         </div>
       </div>
 
-      {/* מגשי הוצאה (בית) */}
-      <div style={{ display: 'flex', gap: 0, marginTop: 8 }}>
-        <OffTray player="P1" count={state.off.P1} highlight={canBearOff && !offP2} onClick={onOffClick} flip={flip} />
-        <div style={{ width: 22, flexShrink: 0 }} />
-        <OffTray player="P2" count={state.off.P2} highlight={canBearOff && offP2} onClick={onOffClick} flip={flip} />
-      </div>
+      <OffTray player="P1" count={state.off.P1} highlight={canBearOff && !offP2} onClick={onOffClick} flip={flip} />
       </div>
     </div>
   )
@@ -1235,7 +1257,7 @@ function PointCol({ idx, pos, top, count, isTarget, isSelected, onClick }) {
   const stones = []
   for (let i = 0; i < n; i++) {
     stones.push(
-      <div key={i} style={{ width: '78%', aspectRatio: '1', flexShrink: 0, marginTop: i === 0 ? 0 : `-${step}%`, position: 'relative', zIndex: i }}>
+      <div key={i} style={{ width: '86%', aspectRatio: '1', flexShrink: 0, marginTop: i === 0 ? 0 : `-${step}%`, position: 'relative', zIndex: i }}>
         <Stone player={player} />
       </div>
     )
@@ -1281,20 +1303,20 @@ function CenterBar({ state, selected, onBarClick, flip }) {
 function OffTray({ player, count, highlight, onClick, flip }) {
   const dark = player === 'P2'
   const discs = []
-  for (let i = 0; i < Math.min(count, 7); i++) discs.push(
-    <div key={i} style={{ width: 22, height: 11, borderRadius: 3, marginInlineStart: i === 0 ? 0 : -12, background: dark ? 'linear-gradient(180deg,#3d3d42,#16161a)' : 'linear-gradient(180deg,#ecd3a2,#bf9a4f)', border: '1px solid rgba(0,0,0,.35)', boxShadow: '0 1px 2px rgba(0,0,0,.4)', flexShrink: 0 }} />
+  for (let i = 0; i < Math.min(count, 12); i++) discs.push(
+    <div key={i} style={{ width: '74%', height: 8, borderRadius: 2, marginTop: i === 0 ? 0 : -3, background: dark ? 'linear-gradient(180deg,#3d3d42,#16161a)' : 'linear-gradient(180deg,#ecd3a2,#bf9a4f)', border: '1px solid rgba(0,0,0,.35)', boxShadow: '0 1px 2px rgba(0,0,0,.4)', flexShrink: 0 }} />
   )
   return (
     <div onClick={onClick} style={{
-      flex: 1, height: 40, background: highlight ? 'linear-gradient(180deg,rgba(120,200,120,.35),rgba(60,140,60,.25))' : WOOD_DARK,
+      width: 30, flexShrink: 0, alignSelf: 'stretch',
+      background: highlight ? 'linear-gradient(180deg,rgba(120,200,120,.35),rgba(60,140,60,.25))' : WOOD_DARK,
       border: highlight ? '2px solid #6ECC6E' : '1px solid rgba(0,0,0,.5)', borderRadius: 8,
-      display: 'flex', alignItems: 'center', justifyContent: dark ? 'flex-start' : 'flex-end',
-      gap: 6, padding: '0 12px', cursor: highlight ? 'pointer' : 'default',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: dark ? 'flex-start' : 'flex-end',
+      gap: 2, padding: '8px 0', cursor: highlight ? 'pointer' : 'default',
       boxShadow: highlight ? '0 0 12px rgba(120,220,120,.6)' : 'inset 0 2px 5px rgba(0,0,0,.5)',
-      flexDirection: dark ? 'row' : 'row-reverse',
     }}>
-      <span style={{ fontSize: 16, fontWeight: 900, color: CREAM, minWidth: 18, textAlign: 'center', display: 'inline-block', transform: flip ? 'rotate(180deg)' : 'none' }}>{count}</span>
-      <div style={{ display: 'flex', flexDirection: dark ? 'row' : 'row-reverse' }}>{discs}</div>
+      <span style={{ fontSize: 15, fontWeight: 900, color: CREAM, transform: flip ? 'rotate(180deg)' : 'none' }}>{count}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>{discs}</div>
     </div>
   )
 }

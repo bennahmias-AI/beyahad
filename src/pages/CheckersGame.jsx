@@ -1720,16 +1720,24 @@ function ErrorScreen({ emoji, title, description, onBack }) {
 // ════════════════════════════════════════════
 // LANDSCAPE STAGE (like aroundworld): clean board center, players + controls on the sides
 // ════════════════════════════════════════════
-function CkMusicButton({ musicOn, onToggle, onNext, btnStyle }) {
+function CkMusicButton({ musicOn, onToggle, onNext, vol, onVolDown, onVolUp, btnStyle }) {
   const [open, setOpen] = useState(false)
   const item = { background: 'none', border: 'none', color: '#FBF7EE', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8, whiteSpace: 'nowrap' }
+  const vbtn = { width: 38, height: 34, borderRadius: 8, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.2)', color: '#E8C879', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
   return (
-    <div style={{ position: 'relative', display: 'flex' }}>
+    <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
       <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה" style={{ ...btnStyle, opacity: musicOn ? 1 : 0.5 }}><IconMusicNote size={20} color="#E8C879" /></button>
       {open && (
-        <div style={{ position: 'absolute', bottom: '115%', insetInlineStart: 0, background: 'rgba(20,15,8,.97)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 60, boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
-          <button onClick={() => { onToggle(); setOpen(false) }} style={item}>{musicOn ? '🔇 כיבוי מוזיקה' : '🎵 הפעלת מוזיקה'}</button>
-          <button onClick={() => { onNext(); setOpen(false) }} style={item}>⏭️ השיר הבא</button>
+        <div style={{ position: 'absolute', bottom: '115%', insetInlineStart: 0, background: 'rgba(20,15,8,.97)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 60, boxShadow: '0 8px 24px rgba(0,0,0,.5)', minWidth: 156 }}>
+          <button onClick={() => { onToggle() }} style={item}>{musicOn ? '🔇 כיבוי מוזיקה' : '🎵 הפעלת מוזיקה'}</button>
+          <button onClick={() => { onNext() }} style={item}>⏭️ השיר הבא</button>
+          {onVolUp && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 6px' }}>
+              <button onClick={onVolDown} aria-label="הנמך עוצמה" style={vbtn}>−</button>
+              <span style={{ flex: 1, textAlign: 'center', color: '#E8C879', fontWeight: 800, fontSize: 13 }}>{Math.round((vol || 0) * 100)}%</span>
+              <button onClick={onVolUp} aria-label="הגבר עוצמה" style={vbtn}>+</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1797,13 +1805,16 @@ function CheckersStage({
 
   const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_checkers_music') !== 'off' } catch { return true } })
   const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(isOnline ? 0.07 : 0.10)
   const audioRef = useRef(null)
   const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
   const toggleMusic = () => setMusicOn(o => { const n = !o; try { localStorage.setItem('beyahad_checkers_music', n ? 'on' : 'off') } catch { /* ignore */ } return n })
+  const volDown = () => setMusicVol(v => Math.max(0.01, Math.round((v - 0.03) * 100) / 100))
+  const volUp = () => { setMusicVol(v => Math.min(0.60, Math.round((v + 0.03) * 100) / 100)); setMusicOn(o => { if (o) return o; try { localStorage.setItem('beyahad_checkers_music', 'on') } catch {} return true }) }
   useEffect(() => {
     const a = audioRef.current; if (!a) return
-    if (musicOn) { a.volume = CK_MUSIC_VOLUME; a.play().catch(() => {}) } else { a.pause() }
-  }, [musicOn, trackIdx])
+    if (musicOn) { a.volume = musicVol; a.play().catch(() => {}) } else { a.pause() }
+  }, [musicOn, trackIdx, musicVol])
   useEffect(() => {
     const kick = () => { const a = audioRef.current; if (a && musicOn && a.paused) a.play().catch(() => {}) }
     window.addEventListener('pointerdown', kick); window.addEventListener('touchstart', kick)
@@ -1835,29 +1846,28 @@ function CheckersStage({
         <CkPlayerPanel name={bottomName} active={bottomActive} captured={youCap} dark={false} withVideo={withVideo} uid={bottomUid} you photoURL={myPhoto} />
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={{ textAlign: 'center', color: '#F6E8C8', fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, lineHeight: 1.2, minHeight: 20, background: 'rgba(26,17,9,.85)', borderRadius: 10, padding: '6px 8px', boxShadow: '0 3px 10px rgba(0,0,0,.45)' }}>{statusText}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button onClick={onReset} title="משחק חדש" aria-label="משחק חדש" style={ctlBtn}>🔄</button>
-            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? <IconSpeakerOff size={20} color="#E8C879" /> : <IconSpeaker size={20} color="#E8C879" />}</button>
-            <button onClick={() => setConfirmExit(true)} title="יציאה" aria-label="יציאה" style={exitBtn}>✕</button>
-            <CkMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} btnStyle={ctlBtn} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isOnline && meUid && <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, flex: 1 }}>💬</button>}
+            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, flex: 1, opacity: muted ? 0.5 : 1 }}>{muted ? <IconSpeakerOff size={20} color="#E8C879" /> : <IconSpeaker size={20} color="#E8C879" />}</button>
+            <CkMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} vol={musicVol} onVolDown={volDown} onVolUp={volUp} btnStyle={ctlBtn} />
           </div>
-          {isOnline && meUid && (
-            <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={{ ...ctlBtn, fontSize: 15, fontWeight: 700 }}>💬 צ'אט</button>
-          )}
         </div>
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <div style={{ width: 'min(100%, 70vh)', maxWidth: 460 }}>
-          <CheckersBoard board={board} selected={selected} destinations={destinations} lastMove={lastMove} onCellTap={onCellTap} disabled={disabled} flip={flip} />
+        <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1 / 1', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%' }}>
+            <CheckersBoard board={board} selected={selected} destinations={destinations} lastMove={lastMove} onCellTap={onCellTap} disabled={disabled} flip={flip} />
+          </div>
         </div>
       </div>
 
       <div style={{ width: 172, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
         <CkPlayerPanel name={topName} active={topActive} captured={oppCap} dark={true} withVideo={withVideo} uid={topUid} addFriendNode={addFriendNode} />
+        <button onClick={() => setConfirmExit(true)} aria-label="יציאה" title="יציאה" style={{ ...exitBtn, marginTop: 'auto', gap: 8, fontSize: 15, fontWeight: 800 }}>✕ יציאה</button>
       </div>
 
-      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} style={{ display: 'none' }} />
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} onPlay={(e) => { e.currentTarget.volume = musicVol }} style={{ display: 'none' }} />
       {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
       {confirmExit && (
         <LeaveConfirmModal
