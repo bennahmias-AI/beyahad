@@ -661,6 +661,12 @@ function InvitePicker({ me, players, maxPlayers = 4, onInvite, onAddBot, onRemov
 // מסך המשחק המסונכרן
 // ════════════════════════════════════════════════════════
 // רשימת קובצי מוזיקת רקע (public/music). מתנגנים מקומית בכל מכשיר, רנדומלית, בעוצמה חלשה.
+function awBgStyle() {
+  const h = new Date().getHours();
+  const img = (h >= 6 && h < 18) ? 'aroundworld-morning%20bg.jpg' : 'aroundworld-evening%20bg.jpg';
+  return `url(/${img}) center/cover no-repeat #14405f`;
+}
+
 const MUSIC_TRACKS = [
   '/music/alex-morgan-acid-jazz-groove-517096.mp3',
   '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
@@ -1296,7 +1302,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   }
 
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg.jpeg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
         <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 8, insetInlineStart: 8, zIndex: 80, width: 38, height: 38, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(255,255,255,.18)', fontSize: 18, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>

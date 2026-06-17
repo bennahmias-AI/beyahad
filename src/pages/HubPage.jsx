@@ -397,7 +397,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               </div>
             </button>
 
-            <button className="jewel games" onClick={onGoGames}>
+            <button className="jewel games" onClick={onGoGames} style={{ order: -1 }}>
               <div className="top">
                 <div className="badge ghost" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 8h10a4 4 0 0 1 3.9 4.9l-.9 3.7A2.4 2.4 0 0 1 16.3 18l-1.6-2.2a2 2 0 0 0-1.6-.8h-2.2a2 2 0 0 0-1.6.8L7.7 18a2.4 2.4 0 0 1-3.7-1.4l-.9-3.7A4 4 0 0 1 7 8Z" /><path d="M8 11v2.4M6.8 12.2h2.4" /><circle cx="15.5" cy="11.5" r=".5" fill="currentColor" /><circle cx="17" cy="13" r=".5" fill="currentColor" /></svg>
@@ -526,7 +526,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
           </div>
 
           <div className="m-sec"><h2>מדיה ובידור</h2><span className="ln" /><span className="tg">חדש בביחד</span></div>
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <button className="m-jewel radio" onClick={onGoRadio}>
               <div className="badge ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m16 3-9 4" /><rect x="3" y="7" width="18" height="13" rx="2.5" /><circle cx="16" cy="13.5" r="3.2" /><path d="M7 11h2" /><path d="M7 16h2" /></svg></div>
               <div className="jb"><StarChip /><h3>רדיו</h3><p>תחנות ישראליות ומכל העולם</p></div>
@@ -537,7 +537,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
               <div className="jb"><StarChip /><h3>טלוויזיה</h3><p>ערוצים מכל העולם, לצפייה ישירה</p></div>
               <span className="arrow"><Arrow /></span>
             </button>
-            <button className="m-jewel games" onClick={onGoGames}>
+            <button className="m-jewel games" onClick={onGoGames} style={{ order: -1, marginBottom: 14 }}>
               <div className="badge ghost" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 8h10a4 4 0 0 1 3.9 4.9l-.9 3.7A2.4 2.4 0 0 1 16.3 18l-1.6-2.2a2 2 0 0 0-1.6-.8h-2.2a2 2 0 0 0-1.6.8L7.7 18a2.4 2.4 0 0 1-3.7-1.4l-.9-3.7A4 4 0 0 1 7 8Z" /><path d="M8 11v2.4M6.8 12.2h2.4" /><circle cx="15.5" cy="11.5" r=".5" fill="currentColor" /><circle cx="17" cy="13" r=".5" fill="currentColor" /></svg></div>
               <div className="jb"><StarChip /><h3>זירת המשחקים</h3><p>בינגו, שש-בש, שחמט — עם חברים</p></div>
               <span className="arrow"><Arrow /></span>

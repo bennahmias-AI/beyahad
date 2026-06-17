@@ -64,7 +64,38 @@ function focusWindow(pos) {
   return ids;
 }
 
+// כפתור מוזיקה עם תפריט קטן: כיבוי/הפעלה + השיר הבא (רכיב עצמאי, state פנימי)
+function AwMusicButton({ musicOn, onToggle, onNext }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative', display: 'flex' }}>
+      <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 2, opacity: musicOn ? 1 : 0.5 }}>
+        🎵
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', bottom: '130%', insetInlineEnd: 0, background: 'rgba(20,33,48,.96)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'nowrap', zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+          <button onClick={() => { onToggle(); setOpen(false); }}
+            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 }}>
+            {musicOn ? '🔇 כיבוי מוזיקה' : '🎵 הפעלת מוזיקה'}
+          </button>
+          <button onClick={() => { onNext(); setOpen(false); }}
+            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 }}>
+            ⏭️ השיר הבא
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // מוזיקת רקע — נגן מקומי לכל מכשיר (זהה למצב האונליין). 8 רצועות; מתחלפות אקראית.
+function awBgStyle() {
+  const h = new Date().getHours();
+  const img = (h >= 6 && h < 18) ? 'aroundworld-morning%20bg.jpg' : 'aroundworld-evening%20bg.jpg';
+  return `url(/${img}) center/cover no-repeat #14405f`;
+}
+
 const MUSIC_TRACKS = [
   '/music/alex-morgan-acid-jazz-groove-517096.mp3',
   '/music/alex-morgan-smooth-jazz-lounge-relaxing-evening-537465.mp3',
@@ -553,7 +584,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     : null;
 
   const gameInner = (
-    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'url(/aroundworld-bg.jpg.jpeg) center/cover no-repeat #14405f', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -561,44 +592,45 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
         <div style={{ width: 168, flex: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ alignSelf: 'flex-start', width: 40, height: 40, borderRadius: 12, border: `2px solid ${INK}`, background: '#fff', fontSize: 19, fontWeight: 900, cursor: 'pointer', color: INK }}>✕</button>
           {players.filter((p) => !p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
-          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button
-              onClick={() => {
-                const m = cameraMode === 'zoom' ? 'full' : 'zoom';
-                setCameraMode(m);
-                try { localStorage.setItem('beyahad_aroundworld_camera', m); } catch { /* ignore */ }
-                if (m === 'full') setFocusTiles(null);
-              }}
-              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {cameraMode === 'zoom' ? '🎥 מצלמה עוקבת' : '🗺️ לוח מלא'}
-            </button>
-            <button
-              onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step'); }}
-              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {muted ? '🔇 צלילים כבויים' : '🔊 צלילים פועלים'}
-            </button>
-            <button
-              onClick={toggleMusic}
-              style={{ background: '#fff', border: `2px solid ${INK}`, borderRadius: 12, padding: '8px 6px', fontSize: 14, fontWeight: 700, color: INK, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {musicOn ? '🎵 מוזיקה פועלת' : '🎵 מוזיקה כבויה'}
-            </button>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              {[0, 1].map((i) => (
-                <div key={i} style={{ width: 46, height: 46, borderRadius: 10, background: '#fff', border: `2.5px solid ${INK}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 24, color: INK }}>
-                  {dice[i] ?? '·'}
-                </div>
-              ))}
+          <div style={{ marginTop: 'auto' }}>
+            <div style={{ background: 'rgba(15,28,42,.72)', border: '1px solid rgba(255,255,255,.30)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderRadius: 22, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+              <div style={{ display: 'flex', gap: 11, justifyContent: 'center' }}>
+                {[0, 1].map((i) => (
+                  <div key={i} style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,.18)', border: '1px solid rgba(255,255,255,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 30, color: '#fff' }}>
+                    {dice[i] ?? '·'}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={rollAndWalk}
+                disabled={!isMyTurn}
+                style={{ background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.14)', border: isMyTurn ? '1px solid #d8b974' : '1px solid rgba(255,255,255,.18)', borderRadius: 16, padding: '15px 6px', fontSize: 17, fontWeight: 800, color: isMyTurn ? '#1c2433' : 'rgba(255,255,255,.6)', cursor: isMyTurn ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+                🎲 הטלת קוביות
+              </button>
+              <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.9)' }}>
+                {isMyTurn ? 'תורך!' : (active ? 'תור ' + active.name : '')}
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 999, padding: '8px 10px' }}>
+                <button
+                  onClick={() => {
+                    const m = cameraMode === 'zoom' ? 'full' : 'zoom';
+                    setCameraMode(m);
+                    try { localStorage.setItem('beyahad_aroundworld_camera', m); } catch { /* ignore */ }
+                    if (m === 'full') setFocusTiles(null);
+                  }}
+                  title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'} aria-label="מצלמה"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 21, lineHeight: 1, padding: 2 }}>
+                  {cameraMode === 'zoom' ? '🎥' : '🗺️'}
+                </button>
+                <button
+                  onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step'); }}
+                  title={muted ? 'צלילים כבויים' : 'צלילים פועלים'} aria-label="צלילים"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 21, lineHeight: 1, padding: 2, opacity: muted ? 0.5 : 1 }}>
+                  {muted ? '🔇' : '🔊'}
+                </button>
+                <AwMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextRandomTrack} />
+              </div>
             </div>
-            <button
-              onClick={rollAndWalk}
-              disabled={!isMyTurn}
-              style={{
-                background: isMyTurn ? '#f4c20d' : '#d9d4c2', border: `3px solid ${INK}`, borderRadius: 14,
-                padding: '13px 6px', fontSize: 18, fontWeight: 800, color: INK, cursor: isMyTurn ? 'pointer' : 'default',
-                fontFamily: 'inherit', opacity: isMyTurn ? 1 : 0.6,
-              }}>
-              🎲 הטלת קוביות
-            </button>
           </div>
         </div>
 

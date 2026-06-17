@@ -30,19 +30,21 @@ const LADDER = [
   { level: 4,  amount: 500 },
   { level: 5,  amount: 1000,    safe: true },
   { level: 6,  amount: 2000 },
-  { level: 7,  amount: 4000 },
-  { level: 8,  amount: 8000 },
-  { level: 9,  amount: 16000 },
-  { level: 10, amount: 32000,   safe: true },
-  { level: 11, amount: 64000 },
-  { level: 12, amount: 125000 },
-  { level: 13, amount: 250000 },
-  { level: 14, amount: 500000 },
-  { level: 15, amount: 1000000 },
+  { level: 7,  amount: 3000 },
+  { level: 8,  amount: 5000 },
+  { level: 9,  amount: 8000 },
+  { level: 10, amount: 16000,   safe: true },
+  { level: 11, amount: 32000 },
+  { level: 12, amount: 64000 },
+  { level: 13, amount: 125000 },
+  { level: 14, amount: 250000 },
+  { level: 15, amount: 500000 },
+  { level: 16, amount: 750000 },
+  { level: 17, amount: 1000000 },
 ]
 
 // איזו רמת קושי לכל שלב בסולם (אינדקס 0..14)
-const RUNG_DIFFICULTY = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5]
+const RUNG_DIFFICULTY = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5]
 
 // זמן מענה לכל שאלה (שניות)
 const TIME_LIMIT = 30
@@ -99,8 +101,8 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
   const [locked, setLocked] = useState(false)
   const [removed, setRemoved] = useState([])
   const [usedFifty, setUsedFifty] = useState(false)
-  const [usedAudience, setUsedAudience] = useState(false)
-  const [audienceData, setAudienceData] = useState(null)
+  const [usedHint, setUsedHint] = useState(false)
+  const [hint, setHint] = useState(null)
   const [showLadder, setShowLadder] = useState(false)
   const [ending, setEnding] = useState(null)
   const [muted, setMutedState] = useState(isMuted())
@@ -168,7 +170,7 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
           setSelected(null)
           setLocked(false)
           setRemoved([])
-          setAudienceData(null)
+          setHint(null)
         }
       } else {
         finishGame('lose', guaranteedAt(level))
@@ -181,29 +183,20 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
     if (usedFifty || locked) return
     setUsedFifty(true)
     playTriviaSound('lifeline')
-    const wrongs = [0, 1, 2, 3].filter(i => i !== current.correct)
-    const toRemove = shuffle(wrongs).slice(0, 2)
-    setRemoved(toRemove)
+    const wrongs = [0, 1, 2, 3].filter(i => i !== current.correct && !removed.includes(i))
+    const toRemove = shuffle(wrongs).slice(0, 1)
+    setRemoved(prev => [...prev, ...toRemove])
     if (toRemove.includes(selected)) setSelected(null)
   }
 
   // ── עזרה: שאל את הקהל ─────────────────────────────────
-  const useAudience = () => {
-    if (usedAudience || locked) return
-    setUsedAudience(true)
+  const useHint = () => {
+    if (usedHint || locked) return
+    setUsedHint(true)
     playTriviaSound('lifeline')
-    const visible = [0, 1, 2, 3].filter(i => !removed.includes(i))
-    const correctPct = 55 + Math.floor(Math.random() * 25)
-    let remaining = 100 - correctPct
-    const others = visible.filter(i => i !== current.correct)
-    const data = [{ idx: current.correct, pct: correctPct }]
-    others.forEach((idx, k) => {
-      const isLast = k === others.length - 1
-      const pct = isLast ? remaining : Math.floor(Math.random() * (remaining + 1))
-      remaining -= pct
-      data.push({ idx, pct })
-    })
-    setAudienceData(data.sort((a, b) => a.idx - b.idx))
+    const correctText = String(current.options[current.correct] ?? '')
+    const firstChar = correctText.trim().charAt(0) || '?'
+    setHint('התשובה הנכונה מתחילה באות: ' + firstChar)
   }
 
   // ── קח את הנקודות ופרוש ───────────────────────────────
@@ -221,8 +214,8 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
     setLocked(false)
     setRemoved([])
     setUsedFifty(false)
-    setUsedAudience(false)
-    setAudienceData(null)
+    setUsedHint(false)
+    setHint(null)
     setShowLadder(false)
     setEnding(null)
     setTimeLeft(TIME_LIMIT)
@@ -238,7 +231,7 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
           <IconBackRTL size={24} color="#1B2540" />
         </button>
         <HomeButton onClick={onHome} />
-        <div className="screen-header__title">מי רוצה להיות מיליונר</div>
+        <div className="screen-header__title">כל הקופה</div>
       </div>
 
       <div style={{ padding: '8px 16px 32px' }}>
@@ -334,6 +327,12 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
           </div>
         </div>
 
+        {hint && (
+          <div style={{ background: 'rgba(232,200,121,.18)', border: '1px solid #E8C879', borderRadius: 14, padding: '12px 16px', marginBottom: 16, fontSize: 16, fontWeight: 700, color: 'var(--ink)', textAlign: 'center' }}>
+            💡 {hint}
+          </div>
+        )}
+
         {/* ── 4 התשובות ─────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {current.options.map((opt, idx) => (
@@ -342,7 +341,6 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
               letter={LETTERS[idx]}
               text={opt}
               state={getAnswerState({ idx, selected, locked, correct: current.correct, removed })}
-              audiencePct={audienceData?.find(d => d.idx === idx)?.pct}
               onClick={() => handleSelect(idx)}
             />
           ))}
@@ -350,8 +348,8 @@ export default function MillionaireGame({ onBack, onHome, uid, userName }) {
 
         {/* ── עזרות ─────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-          <LifelineButton label="50:50" hint="הסר 2 שגויות" used={usedFifty} disabled={locked} onClick={useFifty} />
-          <LifelineButton label="👥 הקהל" hint="שאל את הקהל" used={usedAudience} disabled={locked} onClick={useAudience} />
+          <LifelineButton label="➖ הורד תשובה" hint="הסר תשובה שגויה" used={usedFifty} disabled={locked} onClick={useFifty} />
+          <LifelineButton label="💡 רמז" hint="קבל רמז לתשובה" used={usedHint} disabled={locked} onClick={useHint} />
         </div>
 
         {/* ── כפתורי פעולה ──────────────────────────── */}
@@ -569,7 +567,7 @@ function EndModal({ ending, uid, userName, onPlayAgain, onBack }) {
   }, [])
 
   const config = {
-    win:     { emoji: '🎉👑🎉', title: 'מיליונר!',       msg: 'ענית נכון על כל השאלות!' },
+    win:     { emoji: '🎉👑🎉', title: 'כל הקופה!',       msg: 'ענית נכון על כל השאלות!' },
     lose:    { emoji: '💡',      title: 'נגמר המשחק',      msg: amount > 0 ? 'טעית — אבל הנקודות המובטחות נשארות שלך!' : 'טעית הפעם. נסה שוב!' },
     walk:    { emoji: '💰',      title: 'לקחת את הנקודות',  msg: 'החלטה חכמה! הנקודות מובטחות.' },
     timeout: { emoji: '⏱️',     title: 'נגמר הזמן!',       msg: amount > 0 ? 'הזמן אזל — אבל הנקודות המובטחות נשארות שלך!' : 'הזמן אזל. נסה שוב!' },

@@ -70,8 +70,8 @@ const GAMES = [
   },
   {
     id: 'trivia',
-    name: 'מיליונר',
-    description: 'מי רוצה להיות מיליונר?',
+    name: 'כל הקופה',
+    description: 'משחק טריוויה מאתגר',
     emoji: '💰',
     players: 'לבד',
     color: '#2A1438', // אוברגין עמוק — אווירת שעשועון
