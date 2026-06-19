@@ -13,7 +13,10 @@
 // בינתיים — כולם מציגים "בקרוב" עד שנבנה אותם.
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { createPortal } from 'react-dom'
+import { useUserStore } from '../stores/userStore.js'
+import { submitGameSuggestion } from '../services/firebase.js'
+import { IconBackRTL, IconLightbulb } from '../icons/index.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 
@@ -123,6 +126,8 @@ const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'aroundworld']
 
 export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const { authUser, profile } = useUserStore()
 
   // מחלקים לשתי קבוצות — פעילים למעלה, "בקרוב" למטה
   // במצב "הזמנת חבר" — מציגים רק משחקים שאפשר לשחק עם חבר
@@ -293,29 +298,43 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
         )}
 
         {/* ── הצעה — שלחו לנו משחק רעיון ──────────── */}
-        <div style={{
+        <button onClick={() => setSuggestOpen(true)} style={{
           marginTop: 24,
+          width: '100%',
           background: 'var(--surface)',
           border: '1px dashed var(--line-strong)',
           borderRadius: 16,
-          padding: '16px 18px',
+          padding: '18px',
           textAlign: 'center',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
         }}>
-          <div style={{ fontSize: 28, marginBottom: 6 }}>💡</div>
-          <div className="h-display" style={{
-            fontSize: 16, color: 'var(--ink)', marginBottom: 4,
-          }}>
+          <span style={{ width: 50, height: 50, borderRadius: 14, background: 'rgba(184,146,74,.14)', display: 'grid', placeItems: 'center' }}>
+            <IconLightbulb size={30} />
+          </span>
+          <span className="h-display" style={{ fontSize: 16, color: 'var(--ink)' }}>
             יש לכם רעיון למשחק?
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            ספרו לנו במייל ונשמח להוסיף!
-          </div>
-        </div>
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
+            שלחו לנו הודעה ונשמח להוסיף
+          </span>
+        </button>
       </div>
 
       {/* ── מודל "בקרוב" ───────────────────────────── */}
       {comingSoon && (
         <ComingSoonModal name={comingSoon} onClose={() => setComingSoon(null)} />
+      )}
+
+      {suggestOpen && (
+        <SuggestGameModal
+          onClose={() => setSuggestOpen(false)}
+          onSubmit={(text) => submitGameSuggestion({ uid: authUser?.uid, name: profile?.name, text })}
+        />
       )}
     </div>
   )
@@ -450,4 +469,56 @@ function ComingSoonModal({ name, onClose }) {
       </div>
     </div>
   )
+}
+
+// ═════════════════════════════════════════════════════════════
+// מודל הצעת משחק — המשתמש כותב רעיון, נשמר ל-Firestore (פאנל ניהול)
+// ═════════════════════════════════════════════════════════════
+function SuggestGameModal({ onClose, onSubmit }) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [state, setState] = useState('form') // form | done | error
+
+  const submit = async () => {
+    const t = text.trim()
+    if (!t || sending) return
+    setSending(true)
+    const res = await onSubmit(t)
+    setSending(false)
+    setState(res && res.ok ? 'done' : 'error')
+  }
+
+  return createPortal((
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, direction: 'rtl' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 24, padding: '24px 22px', maxWidth: 380, width: '100%', boxShadow: 'var(--shadow-lg)', textAlign: 'center' }}>
+        {state === 'done' ? (
+          <>
+            <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}><IconLightbulb size={48} /></div>
+            <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>תודה רבה!</div>
+            <div style={{ fontSize: 15, color: 'var(--ink-2)', marginBottom: 18, lineHeight: 1.4 }}>קיבלנו את ההצעה שלכם ונשמח לבדוק אותה 🙏</div>
+            <button onClick={onClose} className="big-btn big-btn--primary" style={{ width: '100%' }}>סגירה</button>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconLightbulb size={44} /></div>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}>יש לכם רעיון למשחק?</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 14, lineHeight: 1.4 }}>ספרו לנו איזה משחק תרצו שנוסיף ונשמח לשקול!</div>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              rows={4}
+              maxLength={1000}
+              placeholder="לדוגמה: דומינו, יאצי, טריוויה על שירים..."
+              style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', fontSize: 15, fontFamily: 'inherit', resize: 'none', direction: 'rtl', marginBottom: 8 }}
+            />
+            {state === 'error' && <div style={{ color: 'var(--danger)', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>השליחה נכשלה, נסו שוב.</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={submit} disabled={!text.trim() || sending} className="big-btn big-btn--primary" style={{ flex: 1, opacity: (!text.trim() || sending) ? 0.6 : 1 }}>{sending ? 'שולח...' : 'שליחה'}</button>
+              <button onClick={onClose} className="big-btn big-btn--ghost" style={{ flex: 1 }}>ביטול</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  ), document.body)
 }

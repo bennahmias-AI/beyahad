@@ -425,6 +425,75 @@ export function watchOpenReportsCount(cb) {
   })
 }
 
+// ===== הצעות למשחקים (gameSuggestions) =====
+// משתמש מציע משחק חדש דרך כרטיס בזירת המשחקים. נשמר באוסף
+// gameSuggestions שרק אדמין קורא (נאכף ב-firestore.rules). האדמין רואה בפאנל ויכול לסמן כטופל / למחוק.
+//   gameSuggestions/{id}: { uid, name, text, status, createdAt }
+//   status: 'open' | 'resolved'
+export async function submitGameSuggestion({ uid, name, text }) {
+  if (!uid || !text || !String(text).trim()) return { ok: false, reason: 'bad-args' }
+  try {
+    await addDoc(collection(db, 'gameSuggestions'), {
+      uid,
+      name: name || '',
+      text: String(text).trim().slice(0, 1000),
+      status: 'open',
+      createdAt: serverTimestamp(),
+    })
+    return { ok: true }
+  } catch (e) {
+    console.error('submitGameSuggestion error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מאזין לכל ההצעות (לפאנל הניהול) — החדשות קודם. רק אדמין.
+export function watchGameSuggestions(cb) {
+  return onSnapshot(collection(db, 'gameSuggestions'), snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    list.sort((a, b) => {
+      const am = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0
+      const bm = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0
+      return bm - am
+    })
+    cb(list)
+  }, err => {
+    console.error('watchGameSuggestions error:', err)
+    cb([])
+  })
+}
+
+// מאזין למספר ההצעות הפתוחות (status=='open') — למונה בפאנל. רק אדמין.
+export function watchOpenGameSuggestionsCount(cb) {
+  const qy = query(collection(db, 'gameSuggestions'), where('status', '==', 'open'))
+  return onSnapshot(qy, snap => cb(snap.size), err => {
+    console.error('watchOpenGameSuggestionsCount error:', err)
+    cb(0)
+  })
+}
+
+// מסמן הצעה כטופלה (status: 'resolved'). רק אדמין.
+export async function resolveGameSuggestion(id) {
+  try {
+    await updateDoc(doc(db, 'gameSuggestions', id), { status: 'resolved', resolvedAt: serverTimestamp() })
+    return { ok: true }
+  } catch (e) {
+    console.error('resolveGameSuggestion error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
+// מוחק הצעה לגמרי. רק אדמין.
+export async function deleteGameSuggestion(id) {
+  try {
+    await deleteDoc(doc(db, 'gameSuggestions', id))
+    return { ok: true }
+  } catch (e) {
+    console.error('deleteGameSuggestion error:', e)
+    return { ok: false, reason: 'error' }
+  }
+}
+
 // מגדיר/מעדכן מספר טלפון למשתמש קיים — דרך צד-שרת (Admin SDK).
 // מצמיד את הטלפון לחשבון ה-Auth הקיים, כך שכניסה ב-SMS תכניס אותו
 // לחשבון הזה (שומר על ה-uid, המידע וההרשאות). דורש שהקורא יהיה אדמין.

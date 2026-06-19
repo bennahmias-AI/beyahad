@@ -22,8 +22,8 @@
 // דוגמה: 'wp' = חייל לבן, 'bk' = מלך שחור.
 // קונבנציה: לבן (w) = P1, למטה, מתחיל. שחור (b) = P2, למעלה.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { IconBackRTL, IconHomeLine, IconSpeaker, IconSpeakerOff, IconMusicNote } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
@@ -32,7 +32,7 @@ import {
   leaveGameRoom, findOrCreateMatch, watchFriendships, sendGameInvite,
   watchInvite, deleteGameInvite, watchUser,
 } from '../services/firebase.js'
-import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
+import { playSound, isMuted, setMuted, MUSIC_TRACKS } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatToast, ChatHeaderButton, ChatPanel, AddFriendButton } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
@@ -47,6 +47,9 @@ const inB = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8
 const colorOf = (p) => (p ? p[0] : null)
 const typeOf = (p) => (p ? p[1] : null)
 const enemy = (col) => (col === 'w' ? 'b' : 'w')
+
+// יריב המחשב מוצג כדמות עם שם (אחת מ-3) במקום "מחשב"
+const CH_BOTS = ['רינת', 'דניאל', 'רומי']
 
 // ── עמדת פתיחה ──
 function initialBoard() {
@@ -690,7 +693,7 @@ function ChessPiece({ piece }) {
 // ════════════════════════════════════════════════════════
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
-function ChessBoard({ board, selected, legalDests, lastMove, checkSq, onCellTap, disabled, flip }) {
+function ChessBoard({ board, selected, legalDests, lastMove, checkSq, capture, onCellTap, disabled, flip }) {
   // ביחידת התצוגה — אם flip, השחור למטה (שחקן שחור)
   const order = flip
     ? [...Array(64).keys()].reverse()
@@ -699,6 +702,37 @@ function ChessBoard({ board, selected, legalDests, lastMove, checkSq, onCellTap,
   const isDest = (s) => legalDests.includes(s)
   const isSel = (s) => selected === s
   const isLast = (s) => lastMove && (lastMove.from === s || lastMove.to === s)
+
+  // מיקום חזותי של משבצת (מתחשב ב-flip שמסדר מחדש את התאים)
+  const visOf = (s) => { const p = flip ? 63 - s : s; return [Math.floor(p / 8), p % 8] }
+
+  // אנימציית החלקה מ-from ל-to (WAAPI), נגזרת תוך render כדי שלא יהיה הבזק
+  const overlayRef = useRef(null)
+  const animRef = useRef(null)   // { from, to, piece, key }
+  const prevKeyRef = useRef(null)
+  const [, bumpAnim] = useState(0)
+  const moveKey = lastMove ? (lastMove.from + '>' + lastMove.to) : null
+  if (moveKey && prevKeyRef.current !== moveKey) {
+    prevKeyRef.current = moveKey
+    const mp = board[lastMove.to]
+    animRef.current = mp ? { from: lastMove.from, to: lastMove.to, piece: mp, key: moveKey } : null
+  }
+  const anim = animRef.current
+  useLayoutEffect(() => {
+    if (!anim) return
+    const el = overlayRef.current
+    if (!el) return
+    const [vrF, vcF] = visOf(anim.from)
+    const [vrT, vcT] = visOf(anim.to)
+    const frames = [
+      { transform: `translate(${(vcF - vcT) * 100}%, ${(vrF - vrT) * 100}%)`, easing: 'cubic-bezier(.4,.05,.35,1)' },
+      { transform: 'translate(0,0)' },
+    ]
+    const a = el.animate(frames, { duration: 320, fill: 'both' })
+    let cancelled = false
+    a.onfinish = () => { if (!cancelled) { animRef.current = null; bumpAnim(n => n + 1) } }
+    return () => { cancelled = true; try { if (a.playState !== 'finished') a.cancel() } catch { /* ignore */ } }
+  }, [anim && anim.key]) // eslint-disable-line
 
   return (
     <div style={{
@@ -713,7 +747,7 @@ function ChessBoard({ board, selected, legalDests, lastMove, checkSq, onCellTap,
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)',
           borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(0,0,0,.3)',
-          direction: 'ltr',
+          direction: 'ltr', position: 'relative',
         }}>
           {order.map(s => {
             const [r, c] = rc(s)
@@ -760,10 +794,22 @@ function ChessBoard({ board, selected, legalDests, lastMove, checkSq, onCellTap,
                     border: '3px solid rgba(79,107,74,.7)',
                   }} />
                 )}
-                {piece && <ChessPiece piece={piece} />}
+                {piece && !(anim && anim.to === s) && <ChessPiece piece={piece} />}
               </div>
             )
           })}
+          {anim && (
+            <div ref={overlayRef} style={{ position: 'absolute', left: `${visOf(anim.to)[1] * 12.5}%`, top: `${visOf(anim.to)[0] * 12.5}%`, width: '12.5%', height: '12.5%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 6, willChange: 'transform' }}>
+              <ChessPiece piece={anim.piece} />
+            </div>
+          )}
+          {capture && (
+            <div key={'cap' + (lastMove ? lastMove.from + '>' + lastMove.to : '')} style={{ position: 'absolute', left: `${visOf(capture.sq)[1] * 12.5}%`, top: `${visOf(capture.sq)[0] * 12.5}%`, width: '12.5%', height: '12.5%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 5, animation: 'chCapFade 760ms ease-out forwards' }}>
+              <ChessPiece piece={capture.piece} />
+              <div style={{ position: 'absolute', inset: '8%', borderRadius: '50%', background: capture.color === 'green' ? 'radial-gradient(circle at 50% 38%, #74e88a, #1f9c3a 70%)' : 'radial-gradient(circle at 50% 38%, #ff6a3d, #c01d0c 70%)', boxShadow: capture.color === 'green' ? '0 0 14px 3px rgba(40,200,90,.85)' : '0 0 14px 3px rgba(230,40,20,.85)', animation: 'chCapTint 760ms ease-out forwards', pointerEvents: 'none' }} />
+            </div>
+          )}
+          <style>{`@keyframes chCapFade{0%{opacity:1}55%{opacity:1}100%{opacity:0}}@keyframes chCapTint{0%{opacity:0}20%{opacity:.9}100%{opacity:.9}}`}</style>
         </div>
       </div>
     </div>
@@ -829,8 +875,10 @@ function PlayerTag({ name, active, dark }) {
 // ════════════════════════════════════════════════════════
 function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [game, setGame] = useState(initialGame)
+  const [aiName] = useState(() => CH_BOTS[Math.floor(Math.random() * CH_BOTS.length)])
   const [selected, setSelected] = useState(null)
   const [lastMove, setLastMove] = useState(null)
+  const [capture, setCapture] = useState(null)
   const [status, setStatus] = useState('playing')
   const [busy, setBusy] = useState(false)
 
@@ -845,6 +893,11 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     playSound(move.capture ? 'capture' : 'drop')
     setGame(ng)
     setLastMove({ from: move.from, to: move.to })
+    if (move.capture) {
+      const capColor = colorOf(move.capture)
+      const capSq = move.enPassant ? sq(rc(move.from)[0], rc(move.to)[1]) : move.to
+      setCapture({ sq: capSq, piece: move.capture, color: capColor === 'w' ? 'red' : 'green' })
+    } else setCapture(null)
     setSelected(null)
     setStatus(st)
     if (st === 'checkmate') setTimeout(() => playSound(ng.turn === 'b' ? 'win' : 'lose'), 300)
@@ -877,7 +930,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   }
 
   const reset = () => {
-    setGame(initialGame()); setSelected(null); setLastMove(null); setStatus('playing'); setBusy(false)
+    setGame(initialGame()); setSelected(null); setLastMove(null); setCapture(null); setStatus('playing'); setBusy(false)
   }
 
   const dests = selected != null ? myMoves.filter(m => m.from === selected).map(m => m.to) : []
@@ -891,7 +944,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     }
     if (status === 'stalemate') return 'פט — תיקו 🤝'
     if (status === 'draw') return 'תיקו 🤝'
-    if (isAITurn) return 'המחשב חושב...'
+    if (isAITurn) return `${aiName} חושב...`
     const who = mode === 'ai' ? 'תורך' : (game.turn === 'w' ? 'תור הלבן' : 'תור השחור')
     return status === 'check' ? `שח! ${who}` : who
   })()
@@ -901,7 +954,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       onBack={onBack}
       onHome={onHome}
       statusText={statusText}
-      topName={mode === 'ai' ? 'מחשב' : 'שחור'}
+      topName={mode === 'ai' ? aiName : 'שחור'}
       topActive={game.turn === 'b' && !finished}
       topDark
       bottomName={mode === 'ai' ? 'אתה' : 'לבן'}
@@ -911,6 +964,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       legalDests={dests}
       lastMove={lastMove}
       checkSq={checkSq}
+      capture={capture}
       capturedTop={capturedBy(game.board, 'b')}
       capturedBottom={capturedBy(game.board, 'w')}
       onCellTap={handleCellTap}
@@ -920,7 +974,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       isOnline={false}
     >
       {finished && (
-        <LocalEndModal mode={mode} status={status} loserColor={game.turn} onPlayAgain={reset} onExit={onExit} />
+        <LocalEndModal mode={mode} status={status} loserColor={game.turn} aiName={aiName} onPlayAgain={reset} onExit={onExit} />
       )}
     </ChessLayout>
   )
@@ -970,6 +1024,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
 
   const lm = gs.lastMove
   const lastMove = lm ? { from: lm.from, to: lm.to } : null
+  const capture = (lm && lm.cap) ? { sq: lm.capSq, piece: lm.cap, color: game.turn === myColor ? 'red' : 'green' } : null
 
   const oppColorKey = myColor === 'w' ? 'P2' : 'P1'
   const myColorKey = myColor === 'w' ? 'P1' : 'P2'
@@ -1046,7 +1101,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
         const st = gameStatus(ng)
         await updateGameState(roomId, {
           chess: gameToFS(ng), status: st,
-          lastMove: { from: move.from, to: move.to, capture: move.capture ? 1 : 0 },
+          lastMove: { from: move.from, to: move.to, capture: move.capture ? 1 : 0, cap: move.capture || null, capSq: move.capture ? (move.enPassant ? sq(rc(move.from)[0], rc(move.to)[1]) : move.to) : -1 },
         })
         return
       }
@@ -1096,6 +1151,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
       legalDests={dests}
       lastMove={lastMove}
       checkSq={checkSq}
+      capture={capture}
       capturedTop={capturedBy(game.board, myColor === 'w' ? 'b' : 'w')}
       capturedBottom={capturedBy(game.board, myColor)}
       onCellTap={handleCellTap}
@@ -1132,7 +1188,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
 // ════════════════════════════════════════════════════════
 // Layout משותף
 // ════════════════════════════════════════════════════════
-function ChessLayout({
+function ChessLayoutPortraitOld({
   onBack, onHome, statusText, topName, topActive, topDark, bottomName, bottomActive,
   board, selected, legalDests, lastMove, checkSq, capturedTop, capturedBottom,
   onCellTap, disabled, onReset, onChangeMode, isOnline, children, flip,
@@ -1217,6 +1273,171 @@ function ChessLayout({
       {children}
     </div>
   )
+}
+
+// אייקון יציאה (דלת עם חץ, בסגנון הקווי של המאגר)
+function IcExitDoor({ size = 18, color = '#ffd9d2' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+  )
+}
+
+// אייקון צ'אט (קו, לא אמוג'י)
+function IcChatLine({ size = 20, color = '#E8C879' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.6-.7L3 21l1.8-5.4A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 17 0Z" /></svg>
+  )
+}
+
+// כפתור מוזיקה עם תפריט (כיבוי/הפעלה, שיר הבא, עוצמה) — אייקון מהמאגר
+function ChMusicButton({ musicOn, onToggle, onNext, vol, onVolDown, onVolUp, btnStyle }) {
+  const [open, setOpen] = useState(false)
+  const item = { background: 'none', border: 'none', color: '#FBF7EE', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8, whiteSpace: 'nowrap' }
+  const vbtn = { width: 38, height: 34, borderRadius: 8, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.2)', color: '#E8C879', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
+  return (
+    <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+      <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה" style={{ ...btnStyle, opacity: musicOn ? 1 : 0.5 }}><IconMusicNote size={20} color="#E8C879" /></button>
+      {open && (
+        <div style={{ position: 'absolute', bottom: '115%', insetInlineStart: 0, background: 'rgba(20,15,8,.97)', border: '1px solid rgba(255,255,255,.2)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, zIndex: 60, boxShadow: '0 8px 24px rgba(0,0,0,.5)', minWidth: 156 }}>
+          <button onClick={() => { onToggle() }} style={item}>{musicOn ? 'כיבוי מוזיקה' : 'הפעלת מוזיקה'}</button>
+          <button onClick={() => { onNext() }} style={item}>השיר הבא</button>
+          {onVolUp && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 6px' }}>
+              <button onClick={onVolDown} aria-label="הנמך עוצמה" style={vbtn}>−</button>
+              <span style={{ flex: 1, textAlign: 'center', color: '#E8C879', fontWeight: 800, fontSize: 13 }}>{Math.round((vol || 0) * 100)}%</span>
+              <button onClick={onVolUp} aria-label="הגבר עוצמה" style={vbtn}>+</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// תצוגת רוחב (כמו שש-בש/דמקה): לוח במרכז, שחקנים + שליטה במסילות הצד.
+function ChPlayerPanel({ name, active, captured, discDark, capDark, withVideo, uid, you, photoURL, addFriendNode }) {
+  const showVideo = withVideo && uid
+  return (
+    <div style={{ background: active ? 'rgba(74,54,26,.92)' : 'rgba(26,17,9,.85)', border: active ? '2px solid #E8C879' : '1px solid rgba(255,255,255,.22)', borderRadius: 16, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: active ? '0 6px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(232,200,121,.35)' : '0 6px 18px rgba(0,0,0,.5)' }}>
+      {showVideo && (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <PlayerVideo uid={uid} name={name} width={108} height={108} photoURL={photoURL} />
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {showVideo ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 'none' }}>
+            {you ? <VideoControls only="mic" size={26} /> : <RemoteVideoToggles uid={uid} only="audio" size={26} />}
+            {you ? <VideoControls only="cam" size={26} /> : <RemoteVideoToggles uid={uid} only="video" size={26} />}
+          </div>
+        ) : (
+          <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: discDark ? 'radial-gradient(circle at 35% 30%, #4A3525, #1C120A)' : 'radial-gradient(circle at 35% 30%, #F0DCA8, #C9A85E)', border: '2px solid rgba(255,255,255,.35)' }} />
+        )}
+        <div style={{ color: '#FBF7EE', fontWeight: 800, fontSize: 14, fontFamily: "'Suez One', serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{name}{you ? ' (אתה)' : ''}</div>
+        {active && <span style={{ fontSize: 11, color: '#E8C879', fontWeight: 700, flex: 'none', whiteSpace: 'nowrap' }}>● תור</span>}
+      </div>
+      <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+        <CapturedTray pieces={captured} dark={capDark} label="" />
+      </div>
+      {!you && addFriendNode}
+    </div>
+  )
+}
+
+function ChessLayout({
+  onBack, onHome, statusText, topName, topActive, topDark, bottomName, bottomActive,
+  board, selected, legalDests, lastMove, checkSq, capture, capturedTop, capturedBottom,
+  onCellTap, disabled, onReset, onChangeMode, isOnline, children, flip,
+  chat = [], meUid, meName, roomId, withVideo, topUid, bottomUid, myPhoto, addFriendNode,
+}) {
+  const [muted, setMutedState] = useState(() => isMuted())
+  const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
+  const [chatOpen, setChatOpen] = useState(false)
+  const [confirmExit, setConfirmExit] = useState(false)
+
+  const [musicOn, setMusicOn] = useState(() => { try { return localStorage.getItem('beyahad_chess_music') !== 'off' } catch { return true } })
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(isOnline ? 0.07 : 0.10)
+  const audioRef = useRef(null)
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const toggleMusic = () => setMusicOn(o => { const n = !o; try { localStorage.setItem('beyahad_chess_music', n ? 'on' : 'off') } catch {} return n })
+  const volDown = () => setMusicVol(v => Math.max(0.01, Math.round((v - 0.03) * 100) / 100))
+  const volUp = () => { setMusicVol(v => Math.min(0.60, Math.round((v + 0.03) * 100) / 100)); setMusicOn(o => { if (o) return o; try { localStorage.setItem('beyahad_chess_music', 'on') } catch {} return true }) }
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return
+    if (musicOn) { a.volume = musicVol; a.play().catch(() => {}) } else { a.pause() }
+  }, [musicOn, trackIdx, musicVol])
+  useEffect(() => {
+    const kick = () => { const a = audioRef.current; if (a && musicOn && a.paused) a.play().catch(() => {}) }
+    window.addEventListener('pointerdown', kick); window.addEventListener('touchstart', kick)
+    return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick) }
+  }, [musicOn])
+
+  const [isPortrait, setIsPortrait] = useState(() => typeof window !== 'undefined' && window.matchMedia('(orientation: portrait)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)')
+    const h = (e) => setIsPortrait(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+
+  const ctlBtn = { height: 44, flex: 1, borderRadius: 12, background: 'rgba(26,17,9,.88)', border: '1px solid rgba(255,255,255,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 20, color: '#E8C879', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(0,0,0,.45)' }
+  const exitBtn = { height: 44, width: '100%', borderRadius: 12, background: 'rgba(150,52,46,.92)', border: '1px solid rgba(216,120,108,.65)', color: '#ffd9d2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(0,0,0,.45)', gap: 8 }
+
+  const gameInner = (
+    <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: 'linear-gradient(rgba(20,14,7,.20), rgba(20,14,7,.42)), url(/chech.png) center/cover no-repeat #2A1C10', direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden', display: 'flex', gap: 10, padding: 12, boxSizing: 'border-box' }}>
+      <div style={{ width: 176, flex: 'none', display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+        <ChPlayerPanel name={bottomName} active={bottomActive} captured={capturedBottom} discDark={!topDark} capDark={topDark} withVideo={withVideo} uid={bottomUid} you photoURL={myPhoto} />
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ textAlign: 'center', color: '#F6E8C8', fontFamily: "'Suez One', serif", fontSize: 15, fontWeight: 800, lineHeight: 1.2, minHeight: 20, background: 'rgba(26,17,9,.85)', borderRadius: 10, padding: '6px 8px', boxShadow: '0 3px 10px rgba(0,0,0,.45)' }}>{statusText}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isOnline && meUid && <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט" style={ctlBtn}><IcChatLine size={20} /></button>}
+            <button onClick={toggleMute} title="צלילים" aria-label="צלילים" style={{ ...ctlBtn, opacity: muted ? 0.5 : 1 }}>{muted ? <IconSpeakerOff size={20} color="#E8C879" /> : <IconSpeaker size={20} color="#E8C879" />}</button>
+            <ChMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} vol={musicVol} onVolDown={volDown} onVolUp={volUp} btnStyle={ctlBtn} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1 / 1', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%' }}>
+            <ChessBoard board={board} selected={selected} legalDests={legalDests} lastMove={lastMove} checkSq={checkSq} capture={capture} onCellTap={onCellTap} disabled={disabled} flip={flip} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ width: 176, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', minHeight: 0 }}>
+        <ChPlayerPanel name={topName} active={topActive} captured={capturedTop} discDark={topDark} capDark={!topDark} withVideo={withVideo} uid={topUid} addFriendNode={addFriendNode} />
+        <button onClick={() => setConfirmExit(true)} aria-label="יציאה" title="יציאה" style={{ ...exitBtn, marginTop: 'auto' }}><IcExitDoor size={18} /><span>יציאה</span></button>
+      </div>
+
+      {isOnline && meUid && <ChatToast msgs={chat} meUid={meUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
+      {chatOpen && isOnline && meUid && <ChatPanel roomId={roomId} me={{ uid: meUid, name: meName }} msgs={chat} onClose={() => setChatOpen(false)} />}
+      {confirmExit && (
+        <LeaveConfirmModal
+          title="לעזוב את המשחק?"
+          subtitle={isOnline ? 'המשחק יסתיים והיריב יקבל הודעה' : 'המשחק הנוכחי יסתיים'}
+          stayLabel="לא, להישאר במשחק"
+          leaveLabel="כן, לצאת"
+          onStay={() => setConfirmExit(false)}
+          onLeave={() => { setConfirmExit(false); onBack && onBack() }}
+        />
+      )}
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} onEnded={nextTrack} onPlay={(e) => { e.currentTarget.volume = musicVol }} style={{ display: 'none' }} />
+      {children}
+    </div>
+  )
+
+  if (isPortrait) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%, -50%) rotate(90deg)', transformOrigin: 'center center' }}>
+          {gameInner}
+        </div>
+      </div>
+    )
+  }
+  return gameInner
 }
 
 function ChessVideoCard({ uid, name, active, you, photoURL, addFriendNode }) {
@@ -1578,7 +1799,7 @@ function OpponentLeftScreen({ onFindOther, onExit }) {
 // ════════════════════════════════════════════════════════
 // מודלים
 // ════════════════════════════════════════════════════════
-function LocalEndModal({ mode, status, loserColor, onPlayAgain, onExit }) {
+function LocalEndModal({ mode, status, loserColor, aiName, onPlayAgain, onExit }) {
   let emoji, title, subtitle, color, aiRobot = false
   if (status === 'stalemate' || status === 'draw') {
     emoji = '🤝'; title = status === 'stalemate' ? 'פט — תיקו!' : 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4'
@@ -1587,7 +1808,7 @@ function LocalEndModal({ mode, status, loserColor, onPlayAgain, onExit }) {
     const whiteWon = loserColor === 'b'
     if (mode === 'ai') {
       if (whiteWon) { emoji = '🎉'; title = 'ניצחת!'; subtitle = 'כל הכבוד — מט!'; color = '#4F6B4A' }
-      else { aiRobot = true; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
+      else { aiRobot = true; title = `${aiName} ניצח`; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
     } else {
       emoji = '🎉'; title = `${whiteWon ? 'הלבן' : 'השחור'} ניצח!`; subtitle = 'כל הכבוד — מט!'; color = '#4F6B4A'
     }

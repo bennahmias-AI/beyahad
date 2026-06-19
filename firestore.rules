@@ -84,6 +84,14 @@ service cloud.firestore {
         && request.resource.data.reporterUid == request.auth.uid;
       allow update, delete: if isAdmin();
     }
+    // הצעות למשחקים (gameSuggestions) — משתמש מחובר יוצר הצעה (עם ה-uid שלו);
+    // רק אדמין קורא/מעדכן/מוחק.
+    match /gameSuggestions/{id} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
 
     match /friendships/{id} {
       allow read: if request.auth != null;

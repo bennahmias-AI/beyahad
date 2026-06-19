@@ -408,14 +408,14 @@ function SoloGameScreen({ onBack, onHome, onExit }) {
   const calledSet = new Set(called)
   const currentNum = drawIdx >= 0 ? drawOrder[drawIdx] : null
 
-  // המקריא האוטומטי — מספר חדש כל 3.5 שניות
+  // המקריא האוטומטי — מספר חדש כל 8 שניות
   useEffect(() => {
     if (won || paused) return
     if (drawIdx >= drawOrder.length - 1) return
     const t = setTimeout(() => {
       setDrawIdx(i => i + 1)
       playSound('bingoBall')
-    }, drawIdx < 0 ? 800 : 3500)
+    }, drawIdx < 0 ? 800 : 8000)
     return () => clearTimeout(t)
   }, [drawIdx, won, paused, drawOrder.length])
 
@@ -983,7 +983,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
     }
   }, [winner, me.uid])
 
-  // מקריא אוטומטי — רק המארח מריץ את זה. מוציא מספר חדש כל 5 שניות.
+  // מקריא אוטומטי — רק המארח מריץ את זה. מוציא מספר חדש כל 8 שניות.
   // משתמש ב-timeout שמתאפס עם כל עדכון drawIdx (מה-watch), כך הקצב יציב
   // גם אם הכתיבה ל-Firestore לוקחת רגע. נעצר כשיש מנצח או שנגמרו המספרים.
   useEffect(() => {

@@ -6,9 +6,9 @@
 // גיבוי העיצוב הקודם: _design-backups/2026-06-06_2258_pre-luxe/
 // כל הסגנונות מתוחמים תחת .lux-hub כדי לא לדלוף לשאר המסכים.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUserStore } from '../stores/userStore.js'
-import { setPresence, watchOnlineCount, signOut, markNotificationsSeen, cancelAccountDeletion, getUser } from '../services/firebase.js'
+import { setPresence, watchOnlineCount, signOut, markNotificationsSeen, cancelAccountDeletion, getUser, createOrUpdateUser } from '../services/firebase.js'
 import { useNotifications } from '../hooks/useNotifications.js'
 import NotificationsPanel from '../components/NotificationsPanel.jsx'
 import Avatar from '../components/Avatar.jsx'
@@ -280,6 +280,7 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
   const pickHomeBg = (name) => {
     setHomeBg(name)
     try { localStorage.setItem('beyahad-home-bg', name) } catch {}
+    if (authUser?.uid) createOrUpdateUser(authUser.uid, { homeBg: name }).catch(() => {})
   }
   // 10 צבעים מלאים (ללא טקסטורה); 'c-classic' = הרקע הקודם
   const HOME_COLORS = {
@@ -295,6 +296,27 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
     : HOME_COLORS[homeBg]
       ? { background: HOME_COLORS[homeBg] }
       : { background: `#f4ead6 url('/home-bg-${homeBg}.jpg') center / cover no-repeat` }
+
+  // הקצאת רקע ראשונית — פעם אחת לכל משתמש (נשמר בפרופיל, לא מוגרל שוב).
+  // משתמש קיים בכניסה הבאה / חדש בפעם הראשונה → תמונה אקראית מ-1..11.
+  const homeBgInit = useRef(false)
+  useEffect(() => {
+    if (homeBgInit.current) return
+    if (!profile || !authUser?.uid) return
+    homeBgInit.current = true
+    if (profile.homeBg) {
+      setHomeBg(profile.homeBg)
+      try { localStorage.setItem('beyahad-home-bg', profile.homeBg) } catch {}
+      return
+    }
+    // אין רקע שמור בפרופיל — אם המשתמש כבר בחר ידנית במכשיר נשמור את בחירתו; אחרת מגרילים תמונה
+    let local = null
+    try { local = localStorage.getItem('beyahad-home-bg') } catch {}
+    const chosen = (local && local !== 'cream') ? local : ('img-' + (1 + Math.floor(Math.random() * 11)))
+    setHomeBg(chosen)
+    try { localStorage.setItem('beyahad-home-bg', chosen) } catch {}
+    createOrUpdateUser(authUser.uid, { homeBg: chosen }).catch(() => {})
+  }, [profile, authUser?.uid])
 
   return (
     <>
