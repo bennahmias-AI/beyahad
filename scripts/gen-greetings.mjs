@@ -45,7 +45,19 @@ const CATALOG = {
   // ════════ ימים ════════
   SHABAT: {
     label: 'שבת שלום',
-    theme: 'Shabbat candles, challah bread and wine, warm cozy Friday-evening atmosphere',
+    theme: 'a warm Shabbat Shalom greeting for Israeli seniors',
+    styles: [
+      'a nostalgic vintage Israeli postcard, sepia and faded warm tones, aged paper texture, an old Tel Aviv or Jerusalem street, retro charm',
+      'a serene oil-painted Israeli landscape at golden hour: rolling Galilee hills, honey-colored Jerusalem stone or the Sea of Galilee, warm soft light',
+      'a bold warm typographic poster where the Hebrew words themselves are the hero, in large elegant calligraphy on a deep warm color gradient, very minimal with one small flourish',
+      'traditional Jewish papercut (mizrach) art in gold and cream, symmetrical, with candle and floral motifs, intricate and elegant',
+      'soft delicate watercolor florals on warm cream paper, gentle pastel flowers and greenery, airy and light',
+      'a cheerful friendly flat illustration with warm optimistic colors and simple modern shapes, a touch of whimsy',
+      'rich elegant gold lettering on a deep burgundy background with an ornate filigree frame, lit Shabbat candles, challah and wine, luxurious and classic',
+      'a painterly field of red anemones (kalaniot) and wildflowers under a soft Israeli spring sky, calm and beautiful',
+      'a dreamy soft-focus photographic scene with warm golden bokeh lights and a cozy Friday-evening glow',
+      'refined botanical line-art with olive branches, grapevines and wheat, delicate gold accents on a light background, minimal and elegant',
+    ],
     phrases: [
       'שבת שלום ומבורכת', 'שבת של שלום ומנוחה', 'שבת שלום ומנוחה נעימה',
       'שבת מבורכת ומלאת אור', 'שבת שלום לכל המשפחה', 'שבת של שלווה ונחת',
@@ -54,6 +66,21 @@ const CATALOG = {
       'שבת שלום ומנוחה שלמה', 'שבת טובה ומבורכת', 'שבת של נחת ואהבה',
       'שבת שלום וברכה לכל הבית', 'שבת מבורכת ושלווה', 'שבת שלום ומבורכת מכל הלב',
       'שבת של שמחה ובריאות', 'שבת שלום ושבוע טוב',
+      // --- 30 new blessings from Ben (cards 21-50) ---
+      'שבת שלום ומבורכת!', 'שבת של אור ושמחה.', 'שבת המלכה.',
+      'זמן למנוחה. שבת שלום.', 'שבת של אהבה ומשפחה.', 'שבת מתוקה מדבש.',
+      'שתהיה שבת שלום, שקטה ורגועה.', 'שבת של מנוחה, שלווה והטענת מצברים.',
+      'שבת שלום! רגע לעצור, לנשום ולהודות.', 'שבת של שקט פנימי ושלוות הנפש.',
+      'זמן של ניתוק מהשגרה וחיבור ללב. שבת שלום.', 'שבת שלום – פסק זמן של קסם באמצע החיים.',
+      'מאחלים שבת של רוגע, שלווה ונחת.', 'שבת מוארת ומבורכת לכל בית ישראל.',
+      'שיאירו נרות השבת את הבית בחום ובשמחה.', 'שבת קודש, שבת של אור ואמונה.',
+      'שתהיה שבת של בשורות טובות וישועות.', 'שבת המלכה פורסת כנפיה – שבת שלום!',
+      'שבת שלום! שתשרה הברכה בביתכם.', 'שבת של ברכה, שפע וטוב.',
+      'שבת של זמן איכות, חיוכים ומשפחה.', 'קבלת שבת באהבה ובשמחה.',
+      'שבת של התכנסות, אהבה וביחד.', 'מאחלים שבת מלאה באנרגיות טובות.',
+      'שבת של ניגונים, שמחה בלב וארוחות טעימות.', 'שבת שלום למשפחה, לחברים ולכל האהובים.',
+      'שתהיה השבת הזו מזור לנפש ולגוף.', 'שבת שלום ומבורכת, מלאה ברגעים קטנים של אושר.',
+      'שבת עטופה במחשבות חיוביות ורגעים יפים.', 'שבוע טוב מתחיל בשבת שלום ומבורכת.',
     ],
   },
   SHAVUA_TOV: {
@@ -311,7 +338,7 @@ const CATALOG = {
 
 function buildPrompt(phrase, theme, variant) {
   return (
-    `Create a beautiful, high-quality square Hebrew greeting card. ` +
+    `Create a beautiful, high-quality square Hebrew greeting graphic. ` +
     `The MAIN focus is the Hebrew text "${phrase}" — render it EXACTLY as written here, ` +
     `with perfectly correct Hebrew letters, right-to-left, large, elegant and clearly legible. ` +
     `Do NOT add any other words, letters, or gibberish — ONLY the exact phrase "${phrase}". ` +
@@ -404,7 +431,9 @@ for (const id of ids) {
   for (let i = 0; i < occ.phrases.length; i++) {
     const file = path.join(dir, `${i + 1}.jpg`)
     if (fs.existsSync(file)) { console.log(`   ⏭️  כבר קיים: ${i + 1}.jpg`); continue }
-    await genOne(occ.phrases[i], occ.theme, STYLE_VARIANTS[i % STYLE_VARIANTS.length], file, i)
+    const theme = occ.themes ? occ.themes[i % occ.themes.length] : occ.theme
+    const variant = occ.styles ? occ.styles[i % occ.styles.length] : STYLE_VARIANTS[i % STYLE_VARIANTS.length]
+    await genOne(occ.phrases[i], theme, variant, file, i)
     await new Promise(res => setTimeout(res, 2000))
   }
   writeManifest() // מעדכן אחרי כל קטגוריה (כדי שהגלריה תתעדכן גם אם נעצור באמצע)

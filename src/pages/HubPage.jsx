@@ -13,7 +13,7 @@ import { useNotifications } from '../hooks/useNotifications.js'
 import NotificationsPanel from '../components/NotificationsPanel.jsx'
 import Avatar from '../components/Avatar.jsx'
 import AppLogo from '../components/AppLogo.jsx'
-import { IconBackRTL, IconCoffee, IconPodium, IconLightbulb, IconKitchen, IconGreeting, IconRadio, IconFriends } from '../icons/index.jsx'
+import { IconBackRTL, IconCoffee, IconPodium, IconLightbulb, IconKitchen, IconGreeting, IconRadio, IconFriends, IconShare, IconBackground, IconEdit, IconVideoLine } from '../icons/index.jsx'
 import { useRadioStore } from '../stores/radioStore.js'
 import { searchStations } from '../services/radio.js'
 import { GameIcon } from '../icons/gameIcons.jsx'
@@ -26,6 +26,34 @@ const Arrow = () => (
 )
 const StarChip = () => (
   <span className="chip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.2 4.9L19 7l-3 3.8L17 16l-5-2.4L7 16l1-5.2L5 7l4.8-.1L12 2Z" /></svg>חדש</span>
+)
+
+// אייקוני קו לתפריטים (פרטיות / הגדרות / יציאה) בסגנון אייקוני האפליקציה
+const MenuLineIcon = ({ size = 22, color = 'currentColor', children }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+)
+const IconPrivacy = (p) => (
+  <MenuLineIcon {...p}>
+    <path d="M12 3l7 3v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3Z" />
+    <path d="m9 12 2 2 4-4" />
+  </MenuLineIcon>
+)
+const IconGear = (p) => (
+  <MenuLineIcon {...p}>
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+    <line x1="4" y1="17" x2="20" y2="17" />
+    <circle cx="9" cy="7" r="2.2" />
+    <circle cx="15" cy="12" r="2.2" />
+    <circle cx="8" cy="17" r="2.2" />
+  </MenuLineIcon>
+)
+const IconLogout = (p) => (
+  <MenuLineIcon {...p}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </MenuLineIcon>
 )
 
 // מאגר משפטי פתיחה למסך הבית — מתחלף בכל כניסה, מותאם לזכר/נקבה.
@@ -245,9 +273,32 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
     return () => unsub && unsub()
   }, [])
 
+  // רקע מסך הבית — בחירת המשתמש (נשמר במכשיר), ברירת מחדל קרם
+  const [homeBg, setHomeBg] = useState(() => {
+    try { return localStorage.getItem('beyahad-home-bg') || 'cream' } catch { return 'cream' }
+  })
+  const pickHomeBg = (name) => {
+    setHomeBg(name)
+    try { localStorage.setItem('beyahad-home-bg', name) } catch {}
+  }
+  // 10 צבעים מלאים (ללא טקסטורה); 'c-classic' = הרקע הקודם
+  const HOME_COLORS = {
+    'c-classic': '#efe6d2', 'c-cream': '#f5efe2', 'c-sand': '#ece1cb', 'c-peach': '#fae8db', 'c-rose': '#f7e6e6',
+    'c-laven': '#ece6f5', 'c-sky': '#e3edf6', 'c-mint': '#e3f1ea', 'c-sage': '#e7efe0', 'c-stone': '#ebe7e0',
+  }
+  const homeBgStyle = homeBg && homeBg.startsWith('img-')
+    ? {
+        backgroundColor: '#f4ead6',
+        backgroundImage: `linear-gradient(rgba(244,234,214,.42), rgba(244,234,214,.42)), url('/home-bgs/${homeBg.slice(4)}.png')`,
+        backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+      }
+    : HOME_COLORS[homeBg]
+      ? { background: HOME_COLORS[homeBg] }
+      : { background: `#f4ead6 url('/home-bg-${homeBg}.jpg') center / cover no-repeat` }
+
   return (
     <>
-      <div className="scroll-area lux-hub">
+      <div className="scroll-area lux-hub" style={homeBgStyle}>
         <style>{LUX_CSS}</style>
 
         <div className="lux-desk">
@@ -582,13 +633,14 @@ export default function HubPage({ onGoMatch, onGoParliament, onGoTips, onGoRecip
         <ProfileMenu
           userName={userName}
           photoURL={profile?.photoURL || null}
+          gender={profile?.gender}
           onClose={() => setMenuOpen(false)}
           onEditProfile={() => { setMenuOpen(false); onGoProfile() }}
           onSettings={() => { setMenuOpen(false); onGoSettings() }}
           onSignOut={async () => { setMenuOpen(false); try { await signOut() } catch (e) { console.error(e) } }}
         />
       )}
-      {brandMenuOpen && <BrandMenu onClose={() => setBrandMenuOpen(false)} />}
+      {brandMenuOpen && <BrandMenu onClose={() => setBrandMenuOpen(false)} currentBg={homeBg} onPickBg={pickHomeBg} gender={profile?.gender} />}
     </>
   )
 }
@@ -852,7 +904,8 @@ function GameBadge({ id, color }) {
 }
 
 // ── תפריט פרופיל (bottom sheet) — משתמש בעיצוב הכללי של האפליקציה ──
-function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSettings, onSignOut }) {
+function ProfileMenu({ userName, photoURL, gender, onClose, onEditProfile, onSettings, onSignOut }) {
+  const f = gender === 'female'
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(20,23,42,0.55)',
@@ -870,30 +923,54 @@ function ProfileMenu({ userName, photoURL, onClose, onEditProfile, onSettings, o
             <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>החשבון שלי</div>
           </div>
         </div>
-        <button onClick={onEditProfile} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
-          <span style={{ fontSize: 24 }}>✏️</span>
+        <button onClick={onEditProfile} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(184,146,74,.14)', display: 'grid', placeItems: 'center', flex: 'none' }}><IconEdit size={22} color="#b8924a" /></span>
           <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>עריכת פרופיל</span>
           <IconBackRTL size={20} color="#8389A4" />
         </button>
-        <button onClick={onSettings} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
-          <span style={{ fontSize: 24 }}>⚙️</span>
+        <button onClick={onSettings} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(184,146,74,.14)', display: 'grid', placeItems: 'center', flex: 'none' }}><IconGear size={22} color="#b8924a" /></span>
           <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>הגדרות</span>
           <IconBackRTL size={20} color="#8389A4" />
         </button>
-        <button onClick={onSignOut} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
-          <span style={{ fontSize: 24 }}>🚪</span>
-          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--danger)' }}>התנתק</span>
+        <button onClick={onSignOut} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(192,57,43,.12)', display: 'grid', placeItems: 'center', flex: 'none' }}><IconLogout size={22} color="#c0392b" /></span>
+          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: 'var(--danger)' }}>{f ? 'התנתקי' : 'התנתק'}</span>
         </button>
-        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
+        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>{f ? 'סגרי' : 'סגור'}</button>
       </div>
     </div>
   )
 }
 
 // ── תפריט "ביחד" (לחיצה על הלוגו) — פרטיות / הדרכה / שיתוף ──
-function BrandMenu({ onClose }) {
+function BrandMenu({ onClose, currentBg, onPickBg, gender }) {
+  const f = gender === 'female'
   const [note, setNote] = useState('')
+  const [bgOpen, setBgOpen] = useState(false)
   const APP_URL = 'https://beyahad-gamma.vercel.app'
+  const BG_OPTIONS = [
+    { id: 'cream', label: 'קרם' },
+    { id: 'sand', label: 'חול' },
+    { id: 'peach', label: 'אפרסק' },
+    { id: 'blush', label: 'ורוד' },
+    { id: 'lavender', label: 'לבנדר' },
+    { id: 'blue', label: 'תכלת' },
+    { id: 'sage', label: 'מרווה' },
+  ]
+  const BG_COLORS = [
+    { id: 'c-classic', label: 'קלאסי', hex: '#efe6d2' },
+    { id: 'c-cream', label: 'שמנת', hex: '#f5efe2' },
+    { id: 'c-sand', label: 'חול', hex: '#ece1cb' },
+    { id: 'c-peach', label: 'אפרסק', hex: '#fae8db' },
+    { id: 'c-rose', label: 'ורוד', hex: '#f7e6e6' },
+    { id: 'c-laven', label: 'לבנדר', hex: '#ece6f5' },
+    { id: 'c-sky', label: 'תכלת', hex: '#e3edf6' },
+    { id: 'c-mint', label: 'מנטה', hex: '#e3f1ea' },
+    { id: 'c-sage', label: 'מרווה', hex: '#e7efe0' },
+    { id: 'c-stone', label: 'אבן', hex: '#ebe7e0' },
+  ]
+  const HOME_IMAGES = Array.from({ length: 11 }, (_, i) => ({ id: `img-${i + 1}`, n: i + 1 }))
 
   const openPrivacy = () => {
     try { window.open(APP_URL + '/privacy.html', '_blank') } catch {}
@@ -911,9 +988,9 @@ function BrandMenu({ onClose }) {
     }
   }
 
-  const Row = ({ emoji, title, sub, onClick }) => (
-    <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
-      <span style={{ fontSize: 24 }}>{emoji}</span>
+  const Row = ({ icon, tint = 'rgba(184,146,74,.14)', title, sub, onClick }) => (
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit' }}>
+      <span style={{ width: 40, height: 40, borderRadius: 12, background: tint, display: 'grid', placeItems: 'center', flex: 'none' }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
         {sub && <span style={{ display: 'block', fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>{sub}</span>}
@@ -924,16 +1001,78 @@ function BrandMenu({ onClose }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(20,23,42,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-app)', borderRadius: '24px 24px 0 0', padding: '22px 20px calc(22px + env(safe-area-inset-bottom))', width: '100%', maxWidth: 430, direction: 'rtl' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-app)', borderRadius: '24px 24px 0 0', padding: '22px 20px calc(22px + env(safe-area-inset-bottom))', width: '100%', maxWidth: 430, direction: 'rtl', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--line-strong)', margin: '0 auto 18px' }} />
-        <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 16 }}>ביחד</div>
-        <Row emoji="📄" title="מדיניות פרטיות" onClick={openPrivacy} />
-        <Row emoji="🎬" title="סרטון הדרכה" sub="בקרוב" onClick={() => setNote('סרטון ההדרכה יתווסף כאן בקרוב 🎬')} />
-        <Row emoji="📤" title="שיתוף האפליקציה" onClick={shareApp} />
-        {note && (
-          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'break-all' }}>{note}</div>
+        {!bgOpen ? (
+          <>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 16 }}>ביחד</div>
+            <Row icon={<IconPrivacy size={22} color="#b8924a" />} title="מדיניות פרטיות" onClick={openPrivacy} />
+            <Row icon={<IconVideoLine size={22} color="#b8924a" />} title="סרטון הדרכה" sub="בקרוב" onClick={() => setNote('סרטון ההדרכה יתווסף כאן בקרוב')} />
+            <Row icon={<IconShare size={22} color="#b8924a" />} title="שיתוף האפליקציה" onClick={shareApp} />
+            <Row icon={<IconBackground size={22} color="#b8924a" />} title="שינוי רקע מסך הבית" sub="טקסטורה, צבע או תמונה" onClick={() => { setNote(''); setBgOpen(true) }} />
+            {note && (
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, fontSize: 14, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5, wordBreak: 'break-all' }}>{note}</div>
+            )}
+            <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>{f ? 'סגרי' : 'סגור'}</button>
+          </>
+        ) : (
+          <>
+            <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)', marginBottom: 4 }}>רקע מסך הבית</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-3)', fontWeight: 600, marginBottom: 16 }}>בחרו עיצוב — הוא יוחל מיד</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', margin: '2px 2px 8px' }}>תמונות</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+              {HOME_IMAGES.map(opt => {
+                const selected = currentBg === opt.id
+                return (
+                  <button key={opt.id} onClick={() => onPickBg && onPickBg(opt.id)} style={{
+                    padding: 0, borderRadius: 14, overflow: 'hidden', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    border: selected ? '3px solid #b8924a' : '1px solid var(--line)',
+                  }}>
+                    <div style={{ height: 58, backgroundColor: '#f4ead6', backgroundImage: `linear-gradient(rgba(244,234,214,.42), rgba(244,234,214,.42)), url('/home-bgs/${opt.n}.png')`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
+                      {selected && (<span style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%', background: '#b8924a', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>✓</span>)}
+                    </div>
+                    <div style={{ padding: '6px 4px', fontSize: 12.5, fontWeight: 700, color: selected ? '#b8924a' : 'var(--ink)', textAlign: 'center' }}>{opt.n}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', margin: '2px 2px 8px' }}>טקסטורות</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+              {BG_OPTIONS.map(opt => {
+                const selected = currentBg === opt.id
+                return (
+                  <button key={opt.id} onClick={() => onPickBg && onPickBg(opt.id)} style={{
+                    padding: 0, borderRadius: 14, overflow: 'hidden', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    border: selected ? '3px solid #b8924a' : '1px solid var(--line)',
+                  }}>
+                    <div style={{ height: 58, backgroundImage: `url('/home-bg-${opt.id}.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
+                      {selected && (<span style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%', background: '#b8924a', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>✓</span>)}
+                    </div>
+                    <div style={{ padding: '6px 4px', fontSize: 12.5, fontWeight: 700, color: selected ? '#b8924a' : 'var(--ink)', textAlign: 'center' }}>{opt.label}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-3)', margin: '2px 2px 8px' }}>צבעים</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 18 }}>
+              {BG_COLORS.map(opt => {
+                const selected = currentBg === opt.id
+                return (
+                  <button key={opt.id} onClick={() => onPickBg && onPickBg(opt.id)} style={{
+                    padding: 0, borderRadius: 14, overflow: 'hidden', background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    border: selected ? '3px solid #b8924a' : '1px solid var(--line)',
+                  }}>
+                    <div style={{ height: 58, background: opt.hex, position: 'relative' }}>
+                      {selected && (<span style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%', background: '#b8924a', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>✓</span>)}
+                    </div>
+                    <div style={{ padding: '6px 4px', fontSize: 12.5, fontWeight: 700, color: selected ? '#b8924a' : 'var(--ink)', textAlign: 'center' }}>{opt.label}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <button onClick={() => setBgOpen(false)} className="big-btn big-btn--ghost" style={{ width: '100%' }}>חזרה</button>
+          </>
         )}
-        <button onClick={onClose} className="big-btn big-btn--ghost" style={{ width: '100%' }}>סגור</button>
       </div>
     </div>
   )
