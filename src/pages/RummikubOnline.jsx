@@ -739,10 +739,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
       {/* אזור תחתון קבוע */}
       <div style={{ flexShrink: 0, padding: '6px 12px 14px', borderTop: '1px solid rgba(201,162,74,.15)' }}>
         <PlayerRack rack={draftRack} selectedTileId={selectedTileId} onTileClick={selectTile} onSort={handleSortRack} newTileId={newTileId} controls={
-          <>
-            <RummiMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} onVolDown={() => setMusicVol(v => Math.max(0.02, +(v - 0.03).toFixed(2)))} onVolUp={() => { setMusicVol(v => Math.min(0.6, +(v + 0.03).toFixed(2))); setMusicOn(true) }} />
-            <RummiSoundButton muted={muted} onToggle={() => { const n = !muted; setMutedState(n); setMuted(n) }} />
-          </>
+          <RummiMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextTrack} muted={muted} onToggleMute={() => { const n = !muted; setMutedState(n); setMuted(n) }} onVolDown={() => setMusicVol(v => Math.max(0.02, +(v - 0.03).toFixed(2)))} onVolUp={() => { setMusicVol(v => Math.min(0.6, +(v + 0.03).toFixed(2))); setMusicOn(true) }} />
         } />
 
         {!isMyTurn && !winner && (

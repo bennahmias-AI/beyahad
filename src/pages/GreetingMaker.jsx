@@ -2786,30 +2786,27 @@ function ChooseCard({ img, fallbackGrad, icon, title, subtitle, onClick }) {
   const showImg = img && imgOk
   return (
     <button onClick={onClick} style={{
-      border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
-      borderRadius: 20, overflow: 'hidden', position: 'relative',
-      width: '100%', aspectRatio: '1 / 1.08', boxShadow: 'var(--shadow-md)',
-      background: fallbackGrad, display: 'block',
+      border: '1px solid rgba(120,90,50,.16)', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+      borderRadius: 22, overflow: 'hidden', position: 'relative',
+      width: '100%', boxShadow: '0 12px 26px -12px rgba(80,55,25,.5)',
+      background: '#FBF6EC', display: 'flex', flexDirection: 'column',
     }}>
-      {showImg && (
+      <div style={{ width: '100%', aspectRatio: '1 / 1', background: '#F3EBDD', overflow: 'hidden' }}>
+      {showImg ? (
         <img
           src={img}
           alt={title}
           loading="lazy"
           onError={() => setImgOk(false)}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
         />
+      ) : (
+        <div style={{ width: '100%', height: '100%', background: fallbackGrad }} />
       )}
-      {/* שכבת כהה תחתונה לקריאות + תוכן (מסודר בטור) */}
-      <div style={{
-        position: 'absolute', inset: 0, padding: '16px 16px',
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 6, textAlign: 'right',
-        background: showImg
-          ? 'linear-gradient(to top, rgba(20,23,42,.85) 0%, rgba(20,23,42,.3) 50%, rgba(20,23,42,0) 100%)'
-          : 'linear-gradient(to top, rgba(20,23,42,.34) 0%, rgba(20,23,42,0) 60%)',
-      }}>
-        <span style={{ display: 'block', color: '#fff', fontSize: 19, fontWeight: 900, lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,.5)' }}>{title}</span>
-        <span style={{ display: 'block', color: 'rgba(255,255,255,.92)', fontSize: 13, fontWeight: 600, lineHeight: 1.35, textShadow: '0 1px 3px rgba(0,0,0,.5)' }}>{subtitle}</span>
+      </div>
+      <div style={{ padding: '12px 12px 16px', textAlign: 'center' }}>
+        <span style={{ display: 'block', color: '#1B2540', fontFamily: "'Suez One', serif", fontSize: 16, fontWeight: 700, lineHeight: 1.25, marginBottom: 5 }}>{title}</span>
+        <span style={{ display: 'block', color: '#6B5E4A', fontSize: 12.5, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</span>
       </div>
     </button>
   )
@@ -2858,21 +2855,21 @@ function ChooseStep({ onDesign, onReady }) {
     </svg>
   )
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '12px 20px 32px' }}>
-      <p style={{ fontSize: 16, color: 'var(--ink-2)', lineHeight: 1.5, margin: '0 0 14px', fontWeight: 500 }}>
+    <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 20px 40px', minHeight: '100%', boxSizing: 'border-box', background: "linear-gradient(rgba(243,235,221,.4),rgba(243,235,221,.62)), url('/choose/bg-leaves.jpg') top center / cover no-repeat" }}>
+      <p style={{ textAlign: 'center', fontSize: 17, color: '#5A4A35', lineHeight: 1.5, margin: '2px 0 18px', fontWeight: 700 }}>
         איך תרצו ליצור את הברכה?
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
       <ChooseCard
         onClick={onReady}
-        img="/choose/bank.jpg"
+        img="/choose/woman.jpg"
         fallbackGrad="linear-gradient(135deg,#7E2C2E,#5A1D1E)"
         title="ברכה מהירה מהמאגר"
         subtitle="בוחרים אירוע ובוחרים ברכה יפה ומוכנה לשיתוף"
       />
       <ChooseCard
         onClick={onDesign}
-        img="/choose/design.jpg"
+        img="/choose/personal.jpg"
         fallbackGrad="linear-gradient(135deg,#2C5566,#173846)"
         title="ברכה בעיצוב אישי"
         subtitle="כותבים ומעצבים בעצמכם — טקסט, רקע, צבעים"

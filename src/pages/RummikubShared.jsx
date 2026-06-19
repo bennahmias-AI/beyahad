@@ -64,7 +64,7 @@ const rmPopItem = { display: 'flex', alignItems: 'center', gap: 8, width: '100%'
 const rmPopVol = { width: 34, height: 34, borderRadius: 8, border: `1px solid ${GOLD_DEEP}`, background: 'linear-gradient(180deg,#5e3f22,#3a2410)', color: GOLD, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }
 
 // כפתור מוזיקה משותף (הפעלה/כיבוי · שיר הבא · עוצמה)
-export function RummiMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
+export function RummiMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp, muted, onToggleMute }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
@@ -74,6 +74,7 @@ export function RummiMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55 }} />
           <div style={{ position: 'absolute', bottom: '120%', insetInlineEnd: 0, background: '#2a1a0c', border: `1px solid ${GOLD_DEEP}`, borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 60, minWidth: 160, boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
             <button onClick={onToggle} style={rmPopItem}><IconMusicNote size={16} color={CREAM} /> {musicOn ? 'כבה מוזיקה' : 'הפעל מוזיקה'}</button>
+            {onToggleMute && <button onClick={onToggleMute} style={rmPopItem}>{muted ? <IconSpeakerOff size={16} color={CREAM} /> : <IconSpeaker size={16} color={CREAM} />} {muted ? 'הפעל צלילים' : 'השתק צלילים'}</button>}
             <button onClick={onNext} style={rmPopItem}><RmNextIcon size={16} color={CREAM} /> שיר הבא</button>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 6px' }}>
               <span style={{ color: CREAM, fontSize: 14, fontWeight: 700 }}>עוצמה</span>
