@@ -75,8 +75,26 @@ export function CardFooter({ children, color = '#3a3a3a' }) {
   CardsModal - shows a player's owned cards or the full catalog.
   props: player (the panel that was tapped), players (all), owners, hotels, onClose
 */
-export function CardsModal({ player, players, owners, hotels, onClose, rotate = false, myUid = null, isFriend = true, onAddFriend = null }) {
+// כרטיס קלף פיס/הפתעה (לתצוגת הגלריה)
+function DeckCard({ kind, text, amount, back }) {
+  const accent = kind === 'pais' ? '#2f9e3f' : '#e8761f';
+  const title = kind === 'pais' ? 'מפעל הפיס' : 'הפתעה';
+  return (
+    <div style={{ background: '#fff', border: `2.5px solid ${accent}`, borderRadius: 12, padding: '12px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,.15)', minHeight: 130, boxSizing: 'border-box' }}>
+      <div style={{ fontWeight: 900, fontSize: 15, color: accent }}>{title}</div>
+      <div style={{ fontWeight: 700, fontSize: 13.5, color: INK, lineHeight: 1.4, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{text}</div>
+      {typeof amount === 'number' ? (
+        <div style={{ fontWeight: 900, fontSize: 18, color: amount < 0 ? '#d8402a' : '#1c4e26' }}>{amount > 0 ? '+' : ''}{amount} ₪</div>
+      ) : back ? (
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#a35a12' }}>חוזרים {back} צעדים</div>
+      ) : null}
+    </div>
+  );
+}
+
+export function CardsModal({ player, players, owners, hotels, onClose, rotate = false, myUid = null, isFriend = true, onAddFriend = null, lottoCards = [], chanceCards = [] }) {
   const [tab, setTab] = useState('mine'); // mine | all
+  const [allCat, setAllCat] = useState('countries'); // countries | pais | surprise
   const [friendRequested, setFriendRequested] = useState(false);
   const allProps = TILES.filter((t) => t.type === 'prop');
   const mine = allProps.filter((t) => owners[t.id] === player.uid);
@@ -96,6 +114,13 @@ export function CardsModal({ player, players, owners, hotels, onClose, rotate = 
       flex: 1, padding: '9px 6px', fontSize: 16, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
       background: tab === id ? '#2f9e3f' : '#fff', color: tab === id ? '#fff' : INK,
       border: `2px solid ${INK}`, borderRadius: 12,
+    }}>{label}</button>
+  );
+  const catBtn = (id, label) => (
+    <button key={id} onClick={() => setAllCat(id)} style={{
+      padding: '6px 12px', fontSize: 14, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+      background: allCat === id ? '#2f73c9' : '#fff', color: allCat === id ? '#fff' : INK,
+      border: `2px solid ${INK}`, borderRadius: 999,
     }}>{label}</button>
   );
 
@@ -131,37 +156,57 @@ export function CardsModal({ player, players, owners, hotels, onClose, rotate = 
 
         <div style={{ display: 'flex', gap: 8, padding: '8px 12px 0' }}>
           {tabBtn('mine', 'הכרטיסיות של ' + player.name + ' (' + mine.length + ')')}
-          {tabBtn('all', 'כל הכרטיסיות (' + allProps.length + ')')}
+          {tabBtn('all', 'כל הכרטיסים')}
         </div>
 
+        {tab === 'all' && (
+          <div style={{ display: 'flex', gap: 6, padding: '8px 12px 0', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {catBtn('countries', 'כרטיסי מדינות (' + allProps.length + ')')}
+            {catBtn('pais', 'כרטיסי פיס (' + lottoCards.length + ')')}
+            {catBtn('surprise', 'כרטיסי הפתעה (' + chanceCards.length + ')')}
+          </div>
+        )}
+
         <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'auto', minHeight: 0, flex: 1, padding: 12 }}>
-          {shown.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 17, color: '#555' }}>
-              עוד אין מדינות. הכל לפניו! 🌍
+          {tab === 'all' && allCat === 'pais' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, width: '100%' }}>
+              {lottoCards.map((c, i) => <DeckCard key={i} kind="pais" text={c.text} amount={c.amount} />)}
             </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, justifyContent: 'center', width: '100%' }}>
-              {shown.map((t) => {
-                const ownerUid = owners[t.id];
-                const ownerP = ownerUid ? players.find((p) => p.uid === ownerUid) : null;
-                const level = ownerUid ? (hotels[t.id] || 0) : -1;
-                let footer;
-                if (!ownerP) {
-                  footer = <CardFooter color="#1c4e26">פנויה · מחיר {t.price} ₪</CardFooter>;
-                } else if (tab === 'mine') {
-                  footer = <CardFooter>שכירות כעת: {rentFor(t, owners, hotels)} ₪</CardFooter>;
-                } else {
-                  footer = (
-                    <CardFooter>
-                      <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: ownerP.color, border: `1.5px solid ${INK}`, marginInlineEnd: 5, verticalAlign: 'middle' }} />
-                      של {ownerP.name}
-                    </CardFooter>
-                  );
-                }
-                return <PropertyCard key={t.id} tile={t} level={level} width="100%" footer={footer} />;
-              })}
+          ) : tab === 'all' && allCat === 'surprise' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, width: '100%' }}>
+              {chanceCards.map((c, i) => <DeckCard key={i} kind="surprise" text={c.text} amount={c.amount} back={c.back} />)}
             </div>
-          )}
+          ) : (() => {
+            const list = tab === 'mine' ? mine : allProps;
+            if (list.length === 0) return (
+              <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 17, color: '#555' }}>
+                עוד אין מדינות. הכל לפניו! 🌍
+              </div>
+            );
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, justifyContent: 'center', width: '100%' }}>
+                {list.map((t) => {
+                  const ownerUid = owners[t.id];
+                  const ownerP = ownerUid ? players.find((p) => p.uid === ownerUid) : null;
+                  const level = ownerUid ? (hotels[t.id] || 0) : -1;
+                  let footer;
+                  if (!ownerP) {
+                    footer = <CardFooter color="#1c4e26">פנויה · מחיר {t.price} ₪</CardFooter>;
+                  } else if (tab === 'mine') {
+                    footer = <CardFooter>שכירות כעת: {rentFor(t, owners, hotels)} ₪</CardFooter>;
+                  } else {
+                    footer = (
+                      <CardFooter>
+                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: ownerP.color, border: `1.5px solid ${INK}`, marginInlineEnd: 5, verticalAlign: 'middle' }} />
+                        של {ownerP.name}
+                      </CardFooter>
+                    );
+                  }
+                  return <PropertyCard key={t.id} tile={t} level={level} width="100%" footer={footer} />;
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
   );

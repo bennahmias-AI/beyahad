@@ -9,7 +9,8 @@
 // קונבנציה: P1=בהיר/זהב, בית 1-6, נע 24→1. P2=כהה, בית 19-24, נע 1→24.
 // ייצוג: points[0..23] חתום (+P1/-P2). bar/off={P1,P2}.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
@@ -43,13 +44,16 @@ const CREAM      = '#F3E2BE'
 // ════════════════════════════════════════════════════════
 const SB_MUSIC_VOLUME = 0.10
 
+// יריב המחשב מוצג כדמות עם שם (אחת מ-3) במקום "מחשב"
+const SB_BOTS = ['רינת', 'דניאל', 'רומי']
+
 function initialState() {
   const points = Array(24).fill(0)
   points[23] = 2; points[12] = 5; points[7] = 3; points[5] = 5     // P1
   points[0] = -2; points[11] = -5; points[16] = -3; points[18] = -5 // P2
   return {
     points, bar: { P1: 0, P2: 0 }, off: { P1: 0, P2: 0 },
-    turn: 'P1', dice: [], rolled: [], phase: 'roll', winner: null, lastAction: 0,
+    turn: 'P1', dice: [], rolled: [], phase: 'roll', winner: null, lastAction: 0, lastMove: null,
   }
 }
 
@@ -57,7 +61,7 @@ function cloneState(s) {
   return {
     points: [...s.points], bar: { ...s.bar }, off: { ...s.off },
     turn: s.turn, dice: [...s.dice], rolled: [...(s.rolled || [])],
-    phase: s.phase, winner: s.winner || null, lastAction: s.lastAction || 0,
+    phase: s.phase, winner: s.winner || null, lastAction: s.lastAction || 0, lastMove: s.lastMove || null,
   }
 }
 
@@ -111,6 +115,30 @@ function movesFrom(s, player, from) {
   return res
 }
 
+// יעדי "מהלך משולב" (כחול) — נקודה שמושגת בשני מהלכים חוקיים ברצף (סכום שתי הקוביות)
+function comboFrom(s, player, from) {
+  const out = []
+  if (from === 'bar') return out
+  const dice = s.dice
+  if (!dice || dice.length < 2) return out
+  const vals = [...new Set(dice)]
+  const pairs = vals.length === 1 ? [[vals[0], vals[0]]] : [[vals[0], vals[1]], [vals[1], vals[0]]]
+  const seen = new Set()
+  for (const [d1, d2] of pairs) {
+    for (const m1 of movesFrom(s, player, from)) {
+      if (m1.die !== d1 || typeof m1.to !== 'number') continue
+      const s2 = performSingleMove(s, player, from, d1, m1.to)
+      for (const m2 of movesFrom(s2, player, m1.to)) {
+        if (m2.die !== d2 || typeof m2.to !== 'number') continue
+        if (seen.has(m2.to)) continue
+        seen.add(m2.to)
+        out.push({ to: m2.to, dice: [d1, d2], mid: m1.to })
+      }
+    }
+  }
+  return out
+}
+
 function allMoves(s, player) {
   const sgn = sgnOf(player)
   const list = []
@@ -138,6 +166,7 @@ function performSingleMove(s, player, from, die, to) {
   const di = ns.dice.indexOf(die)
   if (di >= 0) ns.dice.splice(di, 1)
   if (ns.off[player] === 15) ns.winner = player
+  ns.lastMove = { from, to, player }
   ns.lastAction = Date.now()
   return ns
 }
@@ -149,6 +178,7 @@ function performRoll(s, player) {
   ns.rolled = [a, b]
   ns.dice = a === b ? [a, a, a, a] : [a, b]
   ns.phase = 'move'
+  ns.lastMove = null
   ns.lastAction = Date.now()
   return ns
 }
@@ -157,6 +187,7 @@ function passTurn(s) {
   const ns = cloneState(s)
   ns.turn = oppOf(s.turn)
   ns.phase = 'roll'; ns.dice = []; ns.rolled = []
+  ns.lastMove = null
   ns.lastAction = Date.now()
   return ns
 }
@@ -318,9 +349,9 @@ function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLo
               <IconBackRTL size={18} color="#8389A4" /> חזרה
             </button>
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו רמת קושי:</h2>
-            <DifficultyButton label="קל" emoji="🌱" color="#4F6B4A" description="המחשב משחק בפשטות" onClick={() => onSelectAI('easy')} />
-            <DifficultyButton label="בינוני" emoji="⚡" color="#B89048" description="המחשב מחפש מהלכים טובים" onClick={() => onSelectAI('medium')} />
-            <DifficultyButton label="קשה" emoji="🔥" color="#7E2C2E" description="המחשב משחק חכם ובטוח" onClick={() => onSelectAI('hard')} />
+            <DifficultyButton label="קל" iconId="level-easy" color="#4F6B4A" description="המחשב משחק בפשטות" onClick={() => onSelectAI('easy')} />
+            <DifficultyButton label="בינוני" iconId="level-medium" color="#B89048" description="המחשב מחפש מהלכים טובים" onClick={() => onSelectAI('medium')} />
+            <DifficultyButton label="קשה" iconId="level-hard" color="#7E2C2E" description="המחשב משחק חכם ובטוח" onClick={() => onSelectAI('hard')} />
           </>
         )}
       </div>
@@ -342,10 +373,10 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
   )
 }
 
-function DifficultyButton({ label, emoji, color, description, onClick }) {
+function DifficultyButton({ label, iconId, color, description, onClick }) {
   return (
     <button onClick={onClick} style={{ width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }}>
-      <div style={{ width: 48, height: 48, borderRadius: 14, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{emoji}</div>
+      <div style={{ width: 48, height: 48, borderRadius: 14, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}><GameIcon id={iconId} size={30} /></div>
       <div style={{ flex: 1 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.15 }}>{label}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 2 }}>{description}</div>
@@ -614,6 +645,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [state, setState] = useState(initialState)
   const [selected, setSelected] = useState(null)
   const [history, setHistory] = useState([])
+  const [aiName] = useState(() => SB_BOTS[Math.floor(Math.random() * SB_BOTS.length)])
   const winner = state.winner
   const isAITurn = mode === 'ai' && state.turn === 'P2' && !winner
   const humanControllable = !winner && state.phase === 'move' && !isAITurn && (mode !== 'ai' || state.turn === 'P1')
@@ -649,6 +681,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const side = state.turn
   const effectiveSelected = (humanControllable && state.bar[side] > 0) ? 'bar' : selected
   const targets = (humanControllable && effectiveSelected != null) ? movesFrom(state, side, effectiveSelected) : []
+  const comboTargets = (humanControllable && typeof effectiveSelected === 'number') ? comboFrom(state, side, effectiveSelected) : []
 
   const applyHuman = (from, die, to) => {
     playSound('drop')
@@ -656,17 +689,29 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     setState(s => performSingleMove(s, s.turn, from, die, to))
     setSelected(null)
   }
+  // מהלך משולב (כחול) — שני מהלכים ברצף, מונפש כהחלקה אחת מהמקור ליעד
+  const applyComboHuman = (from, dice, mid, to) => {
+    playSound('drop')
+    setHistory(h => [...h, state])
+    setState(s => { const s1 = performSingleMove(s, s.turn, from, dice[0], mid); const s2 = performSingleMove(s1, s.turn, mid, dice[1], to); return { ...s2, lastMove: { from, to, player: s.turn } } })
+    setSelected(null)
+  }
   const undo = () => {
     if (!history.length) return
     const prev = history[history.length - 1]
-    setState(prev); setHistory(h => h.slice(0, -1)); setSelected(null)
+    setState({ ...prev, lastMove: null }); setHistory(h => h.slice(0, -1)); setSelected(null)
   }
   const handlePointClick = (idx) => {
     if (!humanControllable) return
     const sgn = sgnOf(side)
     if (state.bar[side] > 0) { const m = movesFrom(state, side, 'bar').find(x => x.to === idx); if (m) applyHuman('bar', m.die, idx); return }
     if (selected === idx) { setSelected(null); return }
-    if (selected != null) { const ms = movesFrom(state, side, selected).filter(x => x.to === idx); if (ms.length) { ms.sort((a, b) => a.die - b.die); applyHuman(selected, ms[0].die, idx); return } }
+    if (selected != null) {
+      const ms = movesFrom(state, side, selected).filter(x => x.to === idx)
+      if (ms.length) { ms.sort((a, b) => a.die - b.die); applyHuman(selected, ms[0].die, idx); return }
+      const cb = comboTargets.find(c => c.to === idx)
+      if (cb) { applyComboHuman(selected, cb.dice, cb.mid, idx); return }
+    }
     if (state.points[idx] * sgn > 0) setSelected(idx); else setSelected(null)
   }
   const handleOffClick = () => {
@@ -682,22 +727,22 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const stuck = humanControllable && !hasAnyMove(state, side)
 
   const meName = mode === 'ai' ? 'אתה' : 'שחקן 1'
-  const oppName = mode === 'ai' ? 'מחשב' : 'שחקן 2'
-  const centerLabel = winner ? (winner === 'P1' ? 'ניצחת!' : (mode === 'ai' ? 'המחשב ניצח' : 'שחקן 2 ניצח'))
-    : isAITurn ? 'המחשב חושב…'
+  const oppName = mode === 'ai' ? aiName : 'שחקן 2'
+  const centerLabel = winner ? (winner === 'P1' ? 'ניצחת!' : (mode === 'ai' ? `${aiName} ניצח` : 'שחקן 2 ניצח'))
+    : isAITurn ? `${aiName} חושב…`
     : (mode === 'ai' ? 'תורך!' : `תור שחקן ${side === 'P1' ? '1' : '2'}`)
 
   return (
     <SbStage
       isOnline={false} me={{ name: meName, photoURL: mode === 'ai' ? profile?.photoURL : null }} opponent={{ name: oppName }}
       myColor="P1" topActive={side === 'P2' && !winner} topOff={state.off.P2} bottomActive={side === 'P1' && !winner} bottomOff={state.off.P1}
-      state={state} selected={effectiveSelected} targets={targets} centerLabel={centerLabel}
+      state={state} selected={effectiveSelected} targets={targets} comboTargets={comboTargets} centerLabel={centerLabel}
       onPointClick={handlePointClick} onOffClick={handleOffClick} onBarClick={() => {}}
       canRoll={myTurnForRoll && state.phase === 'roll'} onRoll={doRoll} showPass={stuck} onPass={doPass}
       canUndo={humanControllable && history.length > 0} onUndo={undo}
       onReset={reset} onLeave={onBack} onHome={onHome}
     >
-      {winner && <LocalEndModal mode={mode} winner={winner} onPlayAgain={reset} onExit={onExit} />}
+      {winner && <LocalEndModal mode={mode} winner={winner} aiName={aiName} onPlayAgain={reset} onExit={onExit} />}
     </SbStage>
   )
 }
@@ -737,7 +782,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const hasState = Array.isArray(gs.points) && gs.points.length === 24
   const state = hasState ? {
     points: gs.points, bar: gs.bar || { P1: 0, P2: 0 }, off: gs.off || { P1: 0, P2: 0 },
-    turn: gs.turn || 'P1', dice: gs.dice || [], rolled: gs.rolled || [], phase: gs.phase || 'roll', winner: gs.winner || null, lastAction: gs.lastAction || 0,
+    turn: gs.turn || 'P1', dice: gs.dice || [], rolled: gs.rolled || [], phase: gs.phase || 'roll', winner: gs.winner || null, lastAction: gs.lastAction || 0, lastMove: gs.lastMove || null,
   } : initialState()
   const winner = state.winner
   const isMyTurn = state.turn === myColor && !winner
@@ -794,22 +839,35 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const controllable = isMyTurn && state.phase === 'move'
   const effectiveSelected = (controllable && state.bar[myColor] > 0) ? 'bar' : selected
   const targets = (controllable && effectiveSelected != null) ? movesFrom(state, myColor, effectiveSelected) : []
+  const comboTargets = (controllable && typeof effectiveSelected === 'number') ? comboFrom(state, myColor, effectiveSelected) : []
 
   const applyMove = async (from, die, to) => {
     histRef.current.push(state); setUndoTick(t => t + 1); setSelected(null)
     await updateGameState(roomId, performSingleMove(state, myColor, from, die, to))
   }
+  // מהלך משולב (כחול) — שני מהלכים ברצף, מונפש כהחלקה אחת מהמקור ליעד
+  const applyComboMove = async (from, dice, mid, to) => {
+    histRef.current.push(state); setUndoTick(t => t + 1); setSelected(null)
+    const s1 = performSingleMove(state, myColor, from, dice[0], mid)
+    const s2 = performSingleMove(s1, myColor, mid, dice[1], to)
+    await updateGameState(roomId, { ...s2, lastMove: { from, to, player: myColor } })
+  }
   const undo = async () => {
     if (!histRef.current.length) return
     const prev = histRef.current.pop(); setUndoTick(t => t + 1); setSelected(null)
-    await updateGameState(roomId, { ...prev, lastAction: Date.now() })
+    await updateGameState(roomId, { ...prev, lastMove: null, lastAction: Date.now() })
   }
   const handlePointClick = (idx) => {
     if (!controllable) return
     const sgn = sgnOf(myColor)
     if (state.bar[myColor] > 0) { const m = movesFrom(state, myColor, 'bar').find(x => x.to === idx); if (m) applyMove('bar', m.die, idx); return }
     if (selected === idx) { setSelected(null); return }
-    if (selected != null) { const ms = movesFrom(state, myColor, selected).filter(x => x.to === idx); if (ms.length) { ms.sort((a, b) => a.die - b.die); applyMove(selected, ms[0].die, idx); return } }
+    if (selected != null) {
+      const ms = movesFrom(state, myColor, selected).filter(x => x.to === idx)
+      if (ms.length) { ms.sort((a, b) => a.die - b.die); applyMove(selected, ms[0].die, idx); return }
+      const cb = comboTargets.find(c => c.to === idx)
+      if (cb) { applyComboMove(selected, cb.dice, cb.mid, idx); return }
+    }
     if (state.points[idx] * sgn > 0) setSelected(idx); else setSelected(null)
   }
   const handleOffClick = () => {
@@ -834,7 +892,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
     <SbStage
       isOnline={true} roomId={roomId} me={me ? { ...me, photoURL: profile?.photoURL } : { name: 'אתה' }} opponent={opponent}
       myColor={myColor} topActive={state.turn === oppColor && !winner} topOff={state.off[oppColor]} bottomActive={isMyTurn} bottomOff={state.off[myColor]}
-      state={state} selected={effectiveSelected} targets={targets} centerLabel={centerLabel}
+      state={state} selected={effectiveSelected} targets={targets} comboTargets={comboTargets} centerLabel={centerLabel}
       onPointClick={handlePointClick} onOffClick={handleOffClick} onBarClick={() => {}}
       canRoll={isMyTurn && state.phase === 'roll'} onRoll={doRoll} showPass={stuck} onPass={doPass}
       canUndo={controllable && histRef.current.length > 0} onUndo={undo}
@@ -954,7 +1012,7 @@ function SheshLayout({
 function SbStage({
   isOnline, roomId, me, opponent, myColor = 'P1',
   topActive, topOff, bottomActive, bottomOff,
-  state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel,
+  state, selected, targets, comboTargets = [], onPointClick, onOffClick, onBarClick, centerLabel,
   canRoll, onRoll, showPass, onPass, canUndo, onUndo, onReset, onLeave, onHome,
   chat = [], addFriendNode = null, children,
   withVideo, myUid, oppUid,
@@ -1026,7 +1084,7 @@ function SbStage({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1.2 / 1', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <SheshBoard
-            state={state} selected={selected} targets={targets} centerLabel={centerLabel}
+            state={state} selected={selected} targets={targets} comboTargets={comboTargets} centerLabel={centerLabel}
             onPointClick={onPointClick} onOffClick={onOffClick} onBarClick={onBarClick}
             canRoll={canRoll} onRoll={onRoll} flip={myColor === 'P2'}
           />
@@ -1184,47 +1242,106 @@ function selectedIsP2(state, selected) {
 const LP_TOP = [12, 13, 14, 15, 16, 17], RP_TOP = [18, 19, 20, 21, 22, 23]
 const LP_BOT = [11, 10, 9, 8, 7, 6], RP_BOT = [5, 4, 3, 2, 1, 0]
 
-function SheshBoard({ state, selected, targets, onPointClick, onOffClick, onBarClick, centerLabel, canRoll, onRoll, flip }) {
+function SheshBoard({ state, selected, targets, comboTargets = [], onPointClick, onOffClick, onBarClick, centerLabel, canRoll, onRoll, flip }) {
   const targetSet = new Set(targets.filter(t => typeof t.to === 'number').map(t => t.to))
+  const comboSet = new Set((comboTargets || []).map(c => c.to))
   const canBearOff = targets.some(t => t.to === 'off')
   const offP2 = selectedIsP2(state, selected)
   const showDice = state.phase === 'move' && state.dice.length > 0
+  // בדאבל מציגים 2 קוביות בלבד (לא 4); קוביה אחת נעלמת אחרי כל 2 מהלכים
+  const isDouble = state.rolled && state.rolled.length === 2 && state.rolled[0] === state.rolled[1]
+  const displayDice = isDouble ? Array(Math.ceil(state.dice.length / 2)).fill(state.rolled[0]) : state.dice
   const cr = flip ? 'rotate(180deg)' : 'none'  // סיבוב הפוך לטקסט כדי שיישאר קריא
 
+  // אנימציית תנועת חייל: חייל מעופף שמחליק מהמקור ליעד (portal מחוץ לסיבובי הלוח; הכלי עגול אז לא משנה הסיבוב)
+  const boardRef = useRef(null)
+  const flyElRef = useRef(null)
+  const lastAnimRef = useRef(0)
+  const [fly, setFly] = useState(null)
+  useLayoutEffect(() => {
+    const lm = state.lastMove
+    if (!lm || state.lastAction === lastAnimRef.current) return
+    lastAnimRef.current = state.lastAction
+    const root = boardRef.current
+    if (!root) return
+    const q = (s) => root.querySelector(s)
+    const fromEl = lm.from === 'bar' ? q(`[data-bar="${lm.player}"]`) : q(`[data-pt="${lm.from}"]`)
+    const toEl = lm.to === 'off' ? q(`[data-off="${lm.player}"]`) : q(`[data-pt="${lm.to}"]`)
+    if (!fromEl || !toEl) { setFly(null); return }
+    const anchor = (el, isPoint) => {
+      const r = el.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, size: isPoint ? r.width * 0.86 : r.width * 0.7 }
+    }
+    // יעד: מודדים את הכלי שזה עתה נחת (הפנימי בערימה) לנחיתה מדויקת ללא קפיצה
+    const landedAnchor = () => {
+      if (lm.to === 'off') return anchor(toEl, false)
+      const wrap = toEl.querySelector(':scope > div:last-child')
+      const kids = wrap ? wrap.children : []
+      const movedEl = kids.length ? (lm.to >= 12 ? kids[kids.length - 1] : kids[0]) : null
+      if (!movedEl) return anchor(toEl, true)
+      const r = movedEl.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, size: r.width }
+    }
+    const fa = anchor(fromEl, lm.from !== 'bar')
+    const ta = landedAnchor()
+    const size = ta.size || fa.size
+    setFly({ player: lm.player, size, fromX: fa.x, fromY: fa.y, toX: ta.x, toY: ta.y, hideTo: lm.to, key: state.lastAction })
+  }, [state.lastAction]) // eslint-disable-line
+  useLayoutEffect(() => {
+    if (!fly) return
+    const el = flyElRef.current
+    if (!el) { setFly(null); return }
+    const a = el.animate(
+      [{ transform: `translate(-50%,-50%) translate(${fly.fromX - fly.toX}px, ${fly.fromY - fly.toY}px)` },
+       { transform: 'translate(-50%,-50%) translate(0px,0px)' }],
+      { duration: 360, easing: 'cubic-bezier(.34,.05,.32,1)', fill: 'both' }
+    )
+    let done = false
+    a.onfinish = () => { if (!done) setFly(null) }
+    return () => { done = true; try { if (a.playState !== 'finished') a.cancel() } catch { /* ignore */ } }
+  }, [fly]) // eslint-disable-line
+  const hideForPanel = (fly && typeof fly.hideTo === 'number') ? { to: fly.hideTo, player: fly.player } : null
+
   return (
-    <div style={{ background: WOOD_FRAME, borderRadius: 18, padding: 8, border: `2px solid ${GOLD_DEEP}`, boxShadow: '0 14px 32px -10px rgba(0,0,0,.7), inset 0 2px 6px rgba(255,255,255,.08)', width: '100%', height: '100%', boxSizing: 'border-box', margin: 0 }}>
+    <div ref={boardRef} style={{ background: WOOD_FRAME, borderRadius: 18, padding: 8, border: `2px solid ${GOLD_DEEP}`, boxShadow: '0 14px 32px -10px rgba(0,0,0,.7), inset 0 2px 6px rgba(255,255,255,.08)', width: '100%', height: '100%', boxSizing: 'border-box', margin: 0 }}>
       <div style={{ transform: flip ? 'rotate(180deg)' : 'none', height: '100%', display: 'flex', gap: 6 }}>
       <OffTray player="P2" count={state.off.P2} highlight={canBearOff && offP2} onClick={onOffClick} flip={flip} />
       {/* פאנלים + ציר */}
       <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', gap: 0 }}>
-        <Panel side="left" topIdx={LP_TOP} botIdx={LP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
+        <Panel side="left" topIdx={LP_TOP} botIdx={LP_BOT} state={state} selected={selected} targetSet={targetSet} comboSet={comboSet} onPointClick={onPointClick} flip={flip} hide={hideForPanel} />
         <CenterBar state={state} selected={selected} onBarClick={onBarClick} flip={flip} />
-        <Panel side="right" topIdx={RP_TOP} botIdx={RP_BOT} state={state} selected={selected} targetSet={targetSet} onPointClick={onPointClick} flip={flip} />
+        <Panel side="right" topIdx={RP_TOP} botIdx={RP_BOT} state={state} selected={selected} targetSet={targetSet} comboSet={comboSet} onPointClick={onPointClick} flip={flip} hide={hideForPanel} />
 
         {/* שכבת על — טקסט תור + קוביות */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6%' }}>
           {showDice && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 140, justifyContent: 'center', transform: cr }}>{state.dice.map((d, i) => <Die key={i} value={d} glow />)}</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 140, justifyContent: 'center', transform: cr }}>{displayDice.map((d, i) => <Die key={i} value={d} glow />)}</div>
           )}
         </div>
       </div>
 
       <OffTray player="P1" count={state.off.P1} highlight={canBearOff && !offP2} onClick={onOffClick} flip={flip} />
       </div>
+      {fly && createPortal(
+        <div ref={flyElRef} style={{ position: 'fixed', left: fly.toX, top: fly.toY, width: fly.size, height: fly.size, transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 5000 }}>
+          <Stone player={fly.player} />
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
 
-function Panel({ side, topIdx, botIdx, state, selected, targetSet, onPointClick, flip }) {
+function Panel({ side, topIdx, botIdx, state, selected, targetSet, comboSet, onPointClick, flip, hide }) {
   const numTop = topIdx.map(i => i + 1)
   const numBot = botIdx.map(i => i + 1)
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: WOOD_FRAME, borderRadius: 8, padding: 5, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.08)' }}>
       <NumStrip nums={numTop} flip={flip} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: WOOD_TABLE, borderRadius: 5, overflow: 'hidden', boxShadow: 'inset 0 0 16px rgba(0,0,0,.55)' }}>
-        <div style={{ flex: 5, display: 'flex' }}>{topIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top count={state.points[idx]} isTarget={targetSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} />)}</div>
+        <div style={{ flex: 5, display: 'flex' }}>{topIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top count={state.points[idx]} isTarget={targetSet.has(idx)} isCombo={comboSet && comboSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} hidePlayer={hide && hide.to === idx ? hide.player : null} />)}</div>
         <div style={{ flex: 2 }} />
-        <div style={{ flex: 5, display: 'flex' }}>{botIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top={false} count={state.points[idx]} isTarget={targetSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} />)}</div>
+        <div style={{ flex: 5, display: 'flex' }}>{botIdx.map((idx, pos) => <PointCol key={idx} idx={idx} pos={pos} top={false} count={state.points[idx]} isTarget={targetSet.has(idx)} isCombo={comboSet && comboSet.has(idx)} isSelected={selected === idx} onClick={() => onPointClick(idx)} hidePlayer={hide && hide.to === idx ? hide.player : null} />)}</div>
       </div>
       <NumStrip nums={numBot} flip={flip} />
     </div>
@@ -1239,24 +1356,27 @@ function NumStrip({ nums, flip }) {
   )
 }
 
-function PointCol({ idx, pos, top, count, isTarget, isSelected, onClick }) {
+function PointCol({ idx, pos, top, count, isTarget, isCombo, isSelected, onClick, hidePlayer }) {
   const triColor = pos % 2 === 0 ? TRI_DARK : TRI_LIGHT
   const player = count > 0 ? 'P1' : count < 0 ? 'P2' : null
-  const n = Math.abs(count)
+  let n = Math.abs(count)
+  if (hidePlayer && hidePlayer === player && n > 0) n -= 1   // מסתירים את הכלי שעף לכאן עד שהאנימציה נגמרת
   // חיילים אחד על השני — הפרדה ברורה עד 7, ונדחסים רק מעל 7
   const step = n <= 5 ? 8 : n <= 7 ? 20 : Math.min(54, 20 + (n - 7) * 8)
   const stones = []
   for (let i = 0; i < n; i++) {
+    const lifted = isSelected && i === n - 1   // רק החייל העליון (שיזוז) — מעט גדול וזוהר כמו בדמקה
     stones.push(
-      <div key={i} style={{ width: '86%', aspectRatio: '1', flexShrink: 0, marginTop: i === 0 ? 0 : `-${step}%`, position: 'relative', zIndex: i }}>
+      <div key={i} style={{ width: '86%', aspectRatio: '1', flexShrink: 0, marginTop: i === 0 ? 0 : `-${step}%`, position: 'relative', zIndex: lifted ? 50 : i, borderRadius: '50%', transform: lifted ? 'scale(1.16)' : 'none', transition: 'transform .14s ease', boxShadow: lifted ? `0 0 0 3px rgba(232,200,121,.6), 0 0 16px 4px rgba(232,200,121,.75)` : 'none' }}>
         <Stone player={player} />
       </div>
     )
   }
   return (
-    <div onClick={onClick} style={{ flex: 1, height: '100%', position: 'relative', cursor: 'pointer' }}>
+    <div data-pt={idx} onClick={onClick} style={{ flex: 1, height: '100%', position: 'relative', cursor: 'pointer', zIndex: isSelected ? 20 : undefined }}>
       <div style={{ position: 'absolute', insetInlineStart: '7%', insetInlineEnd: '7%', [top ? 'top' : 'bottom']: 0, height: '94%', background: triColor, clipPath: top ? 'polygon(0 0,100% 0,50% 100%)' : 'polygon(50% 0,0 100%,100% 100%)', opacity: 0.97, boxShadow: isSelected ? `0 0 0 2px ${GOLD} inset` : 'none' }} />
       {isTarget && <div style={{ position: 'absolute', [top ? 'top' : 'bottom']: '28%', insetInlineStart: '50%', transform: 'translateX(50%)', width: '38%', aspectRatio: '1', borderRadius: '50%', background: 'rgba(120,200,120,.55)', boxShadow: '0 0 10px rgba(120,220,120,.9)', zIndex: 30 }} />}
+      {isCombo && !isTarget && <div style={{ position: 'absolute', [top ? 'top' : 'bottom']: '28%', insetInlineStart: '50%', transform: 'translateX(50%)', width: '38%', aspectRatio: '1', borderRadius: '50%', background: 'rgba(86,140,245,.62)', boxShadow: '0 0 11px rgba(96,150,255,.95)', zIndex: 30 }} />}
       <div style={{ position: 'absolute', inset: 0, zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: top ? 'flex-start' : 'flex-end', padding: '3px 0' }}>
         {top ? stones : stones.slice().reverse()}
       </div>
@@ -1277,7 +1397,7 @@ function CenterBar({ state, selected, onBarClick, flip }) {
       </div>
     )
     return (
-      <div onClick={() => n > 0 && onBarClick(player)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: player === 'P2' ? 'flex-start' : 'flex-end', padding: '6px 0', boxShadow: sel ? `0 0 0 2px ${GOLD} inset` : 'none', borderRadius: 4, cursor: n > 0 ? 'pointer' : 'default' }}>{stones}</div>
+      <div data-bar={player} onClick={() => n > 0 && onBarClick(player)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: player === 'P2' ? 'flex-start' : 'flex-end', padding: '6px 0', boxShadow: sel ? `0 0 0 2px ${GOLD} inset` : 'none', borderRadius: 4, cursor: n > 0 ? 'pointer' : 'default' }}>{stones}</div>
     )
   }
   return (
@@ -1298,7 +1418,7 @@ function OffTray({ player, count, highlight, onClick, flip }) {
     <div key={i} style={{ width: '74%', height: 8, borderRadius: 2, marginTop: i === 0 ? 0 : -3, background: dark ? 'linear-gradient(180deg,#3d3d42,#16161a)' : 'linear-gradient(180deg,#ecd3a2,#bf9a4f)', border: '1px solid rgba(0,0,0,.35)', boxShadow: '0 1px 2px rgba(0,0,0,.4)', flexShrink: 0 }} />
   )
   return (
-    <div onClick={onClick} style={{
+    <div data-off={player} onClick={onClick} style={{
       width: 30, flexShrink: 0, alignSelf: 'stretch',
       background: highlight ? 'linear-gradient(180deg,rgba(120,200,120,.35),rgba(60,140,60,.25))' : WOOD_DARK,
       border: highlight ? '2px solid #6ECC6E' : '1px solid rgba(0,0,0,.5)', borderRadius: 8,
@@ -1347,21 +1467,13 @@ function Die({ value, glow }) {
 // ════════════════════════════════════════════════════════
 // מודלים
 // ════════════════════════════════════════════════════════
-function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
-  let emoji, title, subtitle, color, aiRobot = false
-  if (winner === 'P1') { emoji = '🎉'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
-  else { if (mode === 'ai') { aiRobot = true; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' } else { emoji = '🎉'; title = 'שחקן 2 ניצח!'; subtitle = 'כל הכבוד'; color = '#B89048' } }
+function LocalEndModal({ mode, winner, aiName, onPlayAgain, onExit }) {
+  let title, subtitle, color, icon
+  if (winner === 'P1') { icon = 'trophy'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
+  else { if (mode === 'ai') { icon = 'ai-win'; title = `${aiName} ניצח`; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' } else { icon = 'trophy'; title = 'שחקן 2 ניצח!'; subtitle = 'כל הכבוד'; color = '#B89048' } }
   return (
     <ModalShell>
-      {aiRobot ? (
-        <div style={{
-          width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
-          background: 'linear-gradient(135deg, #2C5566, #173846)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}><GameIcon id="vs-ai" size={60} /></div>
-      ) : (
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
-      )}
+      <div style={{ width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px', background: icon === 'ai-win' ? 'linear-gradient(135deg, #2C5566, #173846)' : 'linear-gradient(135deg, #7E2C2E, #5A1D1E)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><GameIcon id={icon} size={58} /></div>
       <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
       <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}>🔄 שחק שוב</button>
@@ -1371,12 +1483,16 @@ function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
 }
 
 function OnlineEndModal({ result, opponentName, iRequested, oppRequested, onRematch, onFindOther, onEnd }) {
-  let emoji, title, subtitle, color
-  if (result === 'win') { emoji = '🎉'; title = 'ניצחת!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
+  let emoji = null, title, subtitle, color, icon = null
+  if (result === 'win') { icon = 'trophy'; title = 'ניצחת!'; subtitle = 'כל הכבוד'; color = '#4F6B4A' }
   else { emoji = '😕'; title = 'הפסדת'; subtitle = 'משחק יפה — אפשר לנסות שוב'; color = '#7E2C2E' }
   return (
     <ModalShell>
-      <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      {icon ? (
+        <div style={{ width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px', background: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><GameIcon id={icon} size={58} /></div>
+      ) : (
+        <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
+      )}
       <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 22, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
       {iRequested ? (

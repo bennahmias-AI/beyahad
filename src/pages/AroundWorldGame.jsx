@@ -20,6 +20,7 @@ import HomeButton from '../components/HomeButton.jsx';
 import { GameIcon } from '../icons/gameIcons.jsx';
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx';
 import AroundWorldOnline from './AroundWorldOnline.jsx';
+import Avatar from '../components/Avatar.jsx';
 import { MUSIC_TRACKS } from '../utils/gameSounds.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -50,6 +51,11 @@ const CHANCE_CARDS = [
   { text: 'נסיעה ישר להתחלה! קבל 200.', goto: 0, amount: +200 },
   { text: 'שכחת את הדרכון - חוזרים 3 צעדים.', back: 3 },
   { text: 'קח כרטיס פיס חינם!', freeLotto: true },
+  { text: 'טסת לישראל!', goto: 11, land: true },
+  { text: 'טסת לארה"ב!', goto: 7, land: true },
+  { text: 'טסת לפולין!', goto: 32, land: true },
+  { text: 'טסת ליוון!', goto: 37, land: true },
+  { text: 'טסת לגאנה!', goto: 21, land: true },
 ];
 
 // ---- helpers ----------------------------------------------------------------
@@ -65,26 +71,53 @@ function focusWindow(pos) {
   return ids;
 }
 
-// כפתור מוזיקה עם תפריט קטן: כיבוי/הפעלה + השיר הבא (רכיב עצמאי, state פנימי)
-function AwMusicButton({ musicOn, onToggle, onNext }) {
+// ── איקוני קו מקוריים (לא אימוג'י) — לבן על הזכוכית הכהה ──
+const Ic = ({ size = 20, color = '#fff', children }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{children}</svg>
+);
+const IcDice = (p) => <Ic {...p}><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.4" fill={p.color || '#fff'} stroke="none" /><circle cx="16" cy="8" r="1.4" fill={p.color || '#fff'} stroke="none" /><circle cx="12" cy="12" r="1.4" fill={p.color || '#fff'} stroke="none" /><circle cx="8" cy="16" r="1.4" fill={p.color || '#fff'} stroke="none" /><circle cx="16" cy="16" r="1.4" fill={p.color || '#fff'} stroke="none" /></Ic>;
+const IcCamera = (p) => <Ic {...p}><rect x="2" y="6" width="14" height="12" rx="3" /><path d="M16 10l6-3.5v11L16 14z" /></Ic>;
+const IcMap = (p) => <Ic {...p}><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" /></Ic>;
+const IcSound = (p) => <Ic {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill={p.color || '#fff'} stroke="none" /><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /></Ic>;
+const IcSoundOff = (p) => <Ic {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill={p.color || '#fff'} stroke="none" /><path d="M22 9l-6 6M16 9l6 6" /></Ic>;
+const IcMusic = (p) => <Ic {...p}><path d="M9 17V5l10-2v12" /><circle cx="6" cy="17" r="3" /><circle cx="16" cy="15" r="3" /></Ic>;
+const IcMusicOff = (p) => <Ic {...p}><path d="M9 17V5l10-2v6" /><circle cx="6" cy="17" r="3" /><path d="M3 3l18 18" /></Ic>;
+const IcNext = (p) => <Ic {...p}><path d="M5 4l10 8-10 8z" fill={p.color || '#fff'} stroke="none" /><rect x="16" y="4" width="2.6" height="16" rx="1" fill={p.color || '#fff'} stroke="none" /></Ic>;
+const IcZoom = (p) => <Ic {...p}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M11 8v6M8 11h6" /></Ic>;
+const IcChat = (p) => <Ic {...p}><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.6-.7L3 21l1.8-5.4A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 17 0Z" /></Ic>;
+const IcTrophy = (p) => <Ic {...p}><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" /><path d="M8 5H5.5a2 2 0 0 0 0 4H8M16 5h2.5a2 2 0 0 1 0 4H16" /><path d="M10 13.5V17h4v-3.5M8.5 20h7M10 17h4" /></Ic>;
+const awMenuItem = { display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 };
+const awVolBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 };
+
+// כפתור מוזיקה עם תפריט: כיבוי/הפעלה + שיר הבא + עוצמה (−/+)
+function AwMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
       <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 2, opacity: musicOn ? 1 : 0.5 }}>
-        🎵
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: musicOn ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+        <IcMusic size={21} />
       </button>
       {open && (
-        <div style={{ position: 'absolute', bottom: '130%', insetInlineEnd: 0, background: 'rgba(20,33,48,.96)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'nowrap', zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
-          <button onClick={() => { onToggle(); setOpen(false); }}
-            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 }}>
-            {musicOn ? '🔇 כיבוי מוזיקה' : '🎵 הפעלת מוזיקה'}
-          </button>
-          <button onClick={() => { onNext(); setOpen(false); }}
-            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 }}>
-            ⏭️ השיר הבא
-          </button>
-        </div>
+        <>
+          {/* שכבה שקופה — לחיצה בכל מקום אחר סוגרת את תפריט המוזיקה */}
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+          <div style={{ position: 'absolute', bottom: '130%', insetInlineEnd: 0, transform: 'translateX(-18px)', background: 'rgba(20,33,48,.96)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'nowrap', zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+            <button onClick={onToggle} style={awMenuItem}>
+              {musicOn ? <IcMusicOff size={16} /> : <IcMusic size={16} />} {musicOn ? 'כיבוי מוזיקה' : 'הפעלת מוזיקה'}
+            </button>
+            <button onClick={onNext} style={awMenuItem}>
+              <IcNext size={16} /> שיר הבא
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px' }}>
+              <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>עוצמה</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={onVolDown} aria-label="החלש" style={awVolBtn}>−</button>
+                <button onClick={onVolUp} aria-label="הגבר" style={awVolBtn}>+</button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -99,7 +132,40 @@ function awBgStyle() {
 
 const MUSIC_VOLUME = 0.10;
 
-const BOT_NAMES = ['המחשב', 'רובי', 'חכמוני'];
+const BOT_NAMES = ['דניאל התותח', 'רינת המתוקה', 'רומי היפה'];
+
+// שורת הכסף עם אנימציה: כשהסכום משתנה — צצה בועה +X (ירוק) / −X (אדום)
+// למעלה, המספר נצבע לרגע, ורק אז מתעדכן הסכום בקופה.
+function CashLine({ cash, fontSize = 17 }) {
+  const [shown, setShown] = useState(cash);
+  const [delta, setDelta] = useState(null);
+  const prevRef = useRef(cash);
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (cash === prev) return;
+    const d = cash - prev;
+    prevRef.current = cash;
+    setDelta({ amount: d, id: Date.now() });
+    const t1 = setTimeout(() => setShown(cash), 850);
+    const t2 = setTimeout(() => setDelta(null), 1300);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [cash]);
+  const up = delta ? delta.amount > 0 : false;
+  const flash = delta ? (up ? '#1c9e3f' : '#d8402a') : null;
+  const base = shown < 200 ? '#a32d2d' : '#1c4e26';
+  return (
+    <div style={{ position: 'relative', fontWeight: 800, fontSize, color: flash || base, transition: 'color .2s' }}>
+      {shown.toLocaleString()} ₪
+      {delta && (
+        <span style={{ position: 'absolute', left: '50%', bottom: '100%', transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }}>
+          <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontWeight: 900, fontSize: fontSize - 2, color: up ? '#1c9e3f' : '#d8402a', textShadow: '0 1px 3px rgba(0,0,0,.25)', animation: 'awCashPop 1.3s ease forwards' }}>
+            {up ? '+' : '−'}{Math.abs(delta.amount).toLocaleString()} ₪
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ============================================================================
 export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId = null, autoInviteFriend = null }) {
@@ -171,6 +237,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   });
   const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length));
   const audioRef = useRef(null);
+  const [musicVol, setMusicVol] = useState(MUSIC_VOLUME);
   const nextRandomTrack = () => setTrackIdx((i) => {
     if (MUSIC_TRACKS.length <= 1) return i;
     let n = i; while (n === i) n = Math.floor(Math.random() * MUSIC_TRACKS.length);
@@ -181,6 +248,8 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     try { localStorage.setItem('beyahad_aroundworld_music', next ? 'on' : 'off'); } catch {}
     return next;
   });
+  const musicVolDown = () => setMusicVol((v) => Math.max(0.02, +(v - 0.03).toFixed(2)));
+  const musicVolUp = () => { setMusicVol((v) => Math.min(0.6, +(v + 0.03).toFixed(2))); setMusicOn(true); try { localStorage.setItem('beyahad_aroundworld_music', 'on'); } catch {} };
 
   // refs mirror state for the async engine
   const S = useRef({});
@@ -370,6 +439,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
         focus(focusWindow(c.goto));
         await sleep(900);
       }
+      if (c.land) { await landOn(uid); return; }
     }
     if (c.kind === 'chance' && c.back) {
       setPhase('walking');
@@ -482,10 +552,10 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    a.volume = MUSIC_VOLUME;
+    a.volume = musicVol;
     if (musicOn) a.play().catch(() => {});
     else a.pause();
-  }, [musicOn, trackIdx]);
+  }, [musicOn, trackIdx, musicVol]);
   useEffect(() => {
     if (!musicOn) return;
     const kick = () => { const a = audioRef.current; if (a && a.paused && musicOn) a.play().catch(() => {}); };
@@ -519,14 +589,15 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
       borderRadius: 14, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8,
       opacity: p.dead ? 0.4 : 1, cursor: 'pointer',
     }}>
-      <div style={{ width: 34, height: 34, borderRadius: '50%', background: p.color, border: `3px solid ${INK}`, flex: 'none' }} />
+      <Avatar name={p.name} size={36} photoURL={p.uid === 'me' ? (profile?.photoURL || null) : null} />
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 16, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {p.name}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, border: `2px solid ${INK}`, flex: 'none' }} />
+          <span style={{ fontWeight: 700, fontSize: 16, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {p.name}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
+          </span>
         </div>
-        <div style={{ fontWeight: 800, fontSize: 17, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
-          {p.cash.toLocaleString()} ₪
-        </div>
+        <CashLine cash={p.cash} />
       </div>
     </div>
   );
@@ -576,6 +647,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}`}</style>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -597,7 +669,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
                 onClick={rollAndWalk}
                 disabled={!isMyTurn}
                 style={{ background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.14)', border: isMyTurn ? '1px solid #d8b974' : '1px solid rgba(255,255,255,.18)', borderRadius: 16, padding: '15px 6px', fontSize: 17, fontWeight: 800, color: isMyTurn ? '#1c2433' : 'rgba(255,255,255,.6)', cursor: isMyTurn ? 'pointer' : 'default', fontFamily: 'inherit' }}>
-                🎲 הטלת קוביות
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><IcDice size={20} color={isMyTurn ? '#1c2433' : 'rgba(255,255,255,.6)'} /> הטלת קוביות</span>
               </button>
               <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,.9)' }}>
                 {isMyTurn ? 'תורך!' : (active ? 'תור ' + active.name : '')}
@@ -612,15 +684,15 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
                   }}
                   title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'} aria-label="מצלמה"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 21, lineHeight: 1, padding: 2 }}>
-                  {cameraMode === 'zoom' ? '🎥' : '🗺️'}
+                  {cameraMode === 'zoom' ? <IcCamera size={21} /> : <IcMap size={21} />}
                 </button>
                 <button
                   onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step'); }}
                   title={muted ? 'צלילים כבויים' : 'צלילים פועלים'} aria-label="צלילים"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 21, lineHeight: 1, padding: 2, opacity: muted ? 0.5 : 1 }}>
-                  {muted ? '🔇' : '🔊'}
+                  {muted ? <IcSoundOff size={21} /> : <IcSound size={21} />}
                 </button>
-                <AwMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextRandomTrack} />
+                <AwMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={nextRandomTrack} onVolDown={musicVolDown} onVolUp={musicVolUp} />
               </div>
             </div>
           </div>
@@ -641,7 +713,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
           />
           {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              🔍 לוח מלא — לחיצה כפולה לזום חזרה
+              לוח מלא — לחיצה כפולה לזום חזרה
             </div>
           )}
         </div>
@@ -654,7 +726,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
       {/* player cards modal */}
       {viewPlayer && (
-        <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} onClose={() => setViewPlayer(null)} />
+        <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} lottoCards={LOTTO_CARDS} chanceCards={CHANCE_CARDS} onClose={() => setViewPlayer(null)} />
       )}
 
       {/* lotto / chance: flip-card animation (a card rises from the deck,
@@ -672,7 +744,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
       {phase === 'gameover' && winner && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(28,28,28,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '26px 30px', textAlign: 'center', width: 'min(92vw, 400px)' }}>
-            <div style={{ fontSize: 50 }}>🏆</div>
+            <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'center' }}><IcTrophy size={50} color="#caa53e" /></div>
             <div style={{ fontWeight: 900, fontSize: 28, color: INK, margin: '8px 0' }}>{winner.name} ניצח!</div>
             <div style={{ fontWeight: 700, fontSize: 17, color: '#444', marginBottom: 18 }}>
               שווי כולל: {netWorth(winner, owners).toLocaleString()} ₪

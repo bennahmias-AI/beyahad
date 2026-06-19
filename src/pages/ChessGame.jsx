@@ -598,9 +598,9 @@ function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLo
               <IconBackRTL size={18} color="#8389A4" /> חזרה
             </button>
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו רמת קושי:</h2>
-            <DifficultyButton label="קל" emoji="🌱" color="#4F6B4A" description="מתאים להתחלה — המחשב משחק בפשטות" onClick={() => onSelectAI('easy')} />
-            <DifficultyButton label="בינוני" emoji="⚡" color="#B89048" description="המחשב חושב צעד-שניים קדימה" onClick={() => onSelectAI('medium')} />
-            <DifficultyButton label="קשה" emoji="🔥" color="#7E2C2E" description="המחשב חושב כמה צעדים קדימה" onClick={() => onSelectAI('hard')} />
+            <DifficultyButton label="קל" iconId="level-easy" color="#4F6B4A" description="מתאים להתחלה — המחשב משחק בפשטות" onClick={() => onSelectAI('easy')} />
+            <DifficultyButton label="בינוני" iconId="level-medium" color="#B89048" description="המחשב חושב צעד-שניים קדימה" onClick={() => onSelectAI('medium')} />
+            <DifficultyButton label="קשה" iconId="level-hard" color="#7E2C2E" description="המחשב חושב כמה צעדים קדימה" onClick={() => onSelectAI('hard')} />
           </>
         )}
       </div>
@@ -636,7 +636,7 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
   )
 }
 
-function DifficultyButton({ label, emoji, color, description, onClick }) {
+function DifficultyButton({ label, iconId, color, description, onClick }) {
   return (
     <button onClick={onClick} style={{
       width: '100%', textAlign: 'right', background: 'var(--surface)', border: '1px solid var(--line)',
@@ -645,8 +645,8 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
     }}>
       <div style={{
         width: 48, height: 48, borderRadius: 14, background: color, display: 'flex',
-        alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0,
-      }}>{emoji}</div>
+        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}><GameIcon id={iconId} size={30} /></div>
       <div style={{ flex: 1 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.15 }}>{label}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 2 }}>{description}</div>

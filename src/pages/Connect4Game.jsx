@@ -464,13 +464,13 @@ function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLo
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>
               בחרו רמת קושי:
             </h2>
-            <DifficultyButton label="קל" emoji="🌱" color="#4F6B4A"
+            <DifficultyButton label="קל" iconId="level-easy" color="#4F6B4A"
               description="מתאים להתחלה — המחשב משחק לאט"
               onClick={() => onSelectAI('easy')} />
-            <DifficultyButton label="בינוני" emoji="⚡" color="#B89048"
+            <DifficultyButton label="בינוני" iconId="level-medium" color="#B89048"
               description="המחשב חוסם ומנסה לנצח"
               onClick={() => onSelectAI('medium')} />
-            <DifficultyButton label="קשה" emoji="🔥" color="#7E2C2E"
+            <DifficultyButton label="קשה" iconId="level-hard" color="#7E2C2E"
               description="המחשב חושב כמה צעדים קדימה"
               onClick={() => onSelectAI('hard')} />
           </>
@@ -530,7 +530,7 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
   )
 }
 
-function DifficultyButton({ label, emoji, color, description, onClick }) {
+function DifficultyButton({ label, iconId, color, description, onClick }) {
   return (
     <button onClick={onClick} style={{
       width: '100%', textAlign: 'right',
@@ -548,8 +548,8 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
         width: 48, height: 48, borderRadius: 14,
         background: color,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24, flexShrink: 0,
-      }}>{emoji}</div>
+        flexShrink: 0,
+      }}><GameIcon id={iconId} size={30} /></div>
       <div style={{ flex: 1 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.15 }}>{label}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 2 }}>{description}</div>

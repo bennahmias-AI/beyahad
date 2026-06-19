@@ -404,6 +404,34 @@ function ArenaIcon({ size }) {
   )
 }
 
+// ── רמות קושי — איקונים מותאמים (במקום אימוג'י) ──
+// קל = נבט, בינוני = ברק, קשה = להבה. לבן, לרקעי הצבע של כפתורי הקושי.
+function LevelEasyIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      <path d="M32 52 V30" stroke={W} strokeWidth="4" strokeLinecap="round" />
+      <path d="M32 34 C41 34 47 27 47 18 C38 18 32 25 32 34 Z" fill={W} />
+      <path d="M32 38 C23 38 17 31 17 22 C26 22 32 29 32 38 Z" fill={W} />
+      <rect x="22" y="50" width="20" height="4" rx="2" fill={W} />
+    </IconWrap>
+  )
+}
+function LevelMediumIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      <path d="M37 7 L17 37 H30 L27 57 L47 27 H34 Z" fill={W} />
+    </IconWrap>
+  )
+}
+function LevelHardIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      <path d="M32 7 C36 18 47 22 47 36 C47 45 40 53 32 53 C24 53 17 45 17 36 C17 30 21 27 24 23 C26 28 28 28 30 25 C32 21 30 15 32 7 Z" fill={W} />
+      <path d="M32 31 C34 35 38 37 38 42 C38 46 35 49 32 49 C29 49 26 46 26 42 C26 39 29 36 32 31 Z" fill={DARK} fillOpacity="0.22" />
+    </IconWrap>
+  )
+}
+
 export function GameIcon({ id, size = 64 }) {
   switch (id) {
     case 'bingo':     return <BingoIcon size={size} />
@@ -418,7 +446,10 @@ export function GameIcon({ id, size = 64 }) {
     case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />
     case 'trophy':    return <TrophyIcon size={size} />
-    case 'ai-win':    return <AIWinIcon size={size} />
+    case 'ai-win':    return <AIIcon size={size} />
+    case 'level-easy':   return <LevelEasyIcon size={size} />
+    case 'level-medium': return <LevelMediumIcon size={size} />
+    case 'level-hard':   return <LevelHardIcon size={size} />
     // ── מצבי משחק של 4 בשורה ──
     case 'online-random':  return <OnlineRandomIcon size={size} />
     case 'online-friend':  return <FriendsIcon size={size} />

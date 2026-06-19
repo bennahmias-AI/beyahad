@@ -50,6 +50,14 @@ const CREAM = '#f6efdf'
 const AW_BLUE = '#2f73c9'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// ── איקוני קו נוספים (לבן על זכוכית כהה) ──
+const IcDice = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.4" fill={color} stroke="none" /><circle cx="16" cy="8" r="1.4" fill={color} stroke="none" /><circle cx="12" cy="12" r="1.4" fill={color} stroke="none" /><circle cx="8" cy="16" r="1.4" fill={color} stroke="none" /><circle cx="16" cy="16" r="1.4" fill={color} stroke="none" /></svg>)
+const IcCamera = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><rect x="2" y="6" width="14" height="12" rx="3" /><path d="M16 10l6-3.5v11L16 14z" /></svg>)
+const IcMap = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" /></svg>)
+const IcChat = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.6-.7L3 21l1.8-5.4A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 17 0Z" /></svg>)
+const IcTrophy = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" /><path d="M8 5H5.5a2 2 0 0 0 0 4H8M16 5h2.5a2 2 0 0 1 0 4H16" /><path d="M10 13.5V17h4v-3.5M8.5 20h7M10 17h4" /></svg>)
+const IcHourglass = ({ size = 20, color = '#fff' }) => (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><path d="M6 3h12M6 21h12M6 3v3c0 2 2 3 3 4l3 2 3-2c1-1 3-2 3-4V3M6 21v-3c0-2 2-3 3-4l3-2 3 2c1 1 3 2 3 4v3" /></svg>)
+
 // שחקני מחשב (בוטים) שאפשר להוסיף לחדר פרטי (שחק עם חברים)
 const AW_BOTS = [
   { uid: 'bot_1', name: 'דניאל התותח' },
@@ -80,6 +88,11 @@ const CHANCE_CARDS = [
   { text: 'נסיעה ישר להתחלה! קבל 200.', goto: 0, amount: +200 },
   { text: 'שכחת את הדרכון - חוזרים 3 צעדים.', back: 3 },
   { text: 'קח כרטיס פיס חינם!', freeLotto: true },
+  { text: 'טסת לישראל!', goto: 11, land: true },
+  { text: 'טסת לארה"ב!', goto: 7, land: true },
+  { text: 'טסת לפולין!', goto: 32, land: true },
+  { text: 'טסת ליוון!', goto: 37, land: true },
+  { text: 'טסת לגאנה!', goto: 21, land: true },
 ]
 
 // ── עזרי מצב ────────────────────────────────────────────────
@@ -1124,6 +1137,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       await push(s)
       focus(focusWindow(c.goto))
       await sleep(800)
+      if (c.land) { await landOn(s); return }
     }
     if (c.kind === 'chance' && c.back) {
       meP.pos = (meP.pos - c.back + TILE_COUNT) % TILE_COUNT
@@ -1247,9 +1261,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
               </span>
             </div>
-            <span style={{ fontWeight: 800, fontSize: 14, color: p.cash < 200 ? '#a32d2d' : '#1c4e26', flex: 'none' }}>
-              {p.cash.toLocaleString()} ₪
-            </span>
+            <span style={{ flex: 'none' }}><CashLine cash={p.cash} fontSize={14} /></span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #ddd', paddingTop: 4 }}>
             {isMe
@@ -1294,9 +1306,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               {p.name}{isMe ? ' (אתה)' : ''}{p.skip > 0 ? ' (עוצר)' : ''}{p.dead ? ' - פרש' : ''}
             </span>
           </div>
-          <div style={{ fontWeight: 800, fontSize: 13, color: p.cash < 200 ? '#a32d2d' : '#1c4e26' }}>
-            {p.cash.toLocaleString()} ₪
-          </div>
+          <CashLine cash={p.cash} fontSize={13} />
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             {isMe ? <VideoControls size={26} /> : <RemoteVideoToggles uid={p.uid} size={24} />}
           </div>
@@ -1307,6 +1317,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}`}</style>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
         <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 6, insetInlineEnd: 6, zIndex: 80, width: 30, height: 30, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(0,0,0,.38)', fontSize: 15, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}>✕</button>
@@ -1337,7 +1348,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 padding: '15px 6px', fontSize: 17, fontWeight: 700, color: isMyTurn ? '#3a2e07' : 'rgba(255,255,255,.6)',
                 cursor: isMyTurn ? 'pointer' : 'default', fontFamily: 'inherit',
               }}>
-              🎲 הטלת קוביות
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><IcDice size={20} color={isMyTurn ? '#3a2e07' : 'rgba(255,255,255,.6)'} /> הטלת קוביות</span>
             </button>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: '#fff' }}>
               {!winner && <span style={{ width: 7, height: 7, borderRadius: '50%', background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.5)', flex: 'none' }} />}
@@ -1355,7 +1366,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                 aria-label="מצלמה"
                 title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'}
                 style={{ flex: 1, background: 'none', border: 'none', borderInlineEnd: '1px solid rgba(255,255,255,.16)', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                {cameraMode === 'zoom' ? '🎥' : '🗺️'}
+                {cameraMode === 'zoom' ? <IcCamera size={19} /> : <IcMap size={19} />}
               </button>
               <button
                 onClick={() => setMusicMenuOpen(o => !o)}
@@ -1366,7 +1377,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               </button>
               <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
                 style={{ flex: 1, background: 'none', border: 'none', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                💬
+                <IcChat size={18} />
               </button>
             </div>
           </div>
@@ -1387,7 +1398,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
           />
           {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              🔍 לוח מלא — לחיצה כפולה לזום חזרה
+              לוח מלא — לחיצה כפולה לזום חזרה
             </div>
           )}
         </div>
@@ -1423,6 +1434,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       {viewPlayer && (
         <CardsModal
           player={viewPlayer}
+          lottoCards={LOTTO_CARDS}
+          chanceCards={CHANCE_CARDS}
           players={state.players}
           owners={state.owners}
           hotels={state.hotels}
@@ -1457,7 +1470,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       {winner && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(28,28,28,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '26px 30px', textAlign: 'center', width: 'min(92vw, 400px)' }}>
-            <div style={{ fontSize: 50 }}>🏆</div>
+            <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'center' }}><IcTrophy size={50} color="#caa53e" /></div>
             <div style={{ fontWeight: 900, fontSize: 26, color: INK, margin: '8px 0' }}>
               {winner.uid === me.uid ? 'ניצחת!' : `${winner.name} ניצח!`}
             </div>
@@ -1521,6 +1534,38 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 }
 
 // ── PendingLeaveModal — מוצג לשאר השחקנים כששחקן נטש זמנית (ספירת לחזרה של 60 שניות) ──
+// שורת כסף עם אנימציית +/− (זהה ל-AroundWorldGame): בועה צצה, המספר נצבע לרגע, ואז מתעדכן
+function CashLine({ cash, fontSize = 14 }) {
+  const [shown, setShown] = useState(cash)
+  const [delta, setDelta] = useState(null)
+  const prevRef = useRef(cash)
+  useEffect(() => {
+    const prev = prevRef.current
+    if (cash === prev) return
+    const d = cash - prev
+    prevRef.current = cash
+    setDelta({ amount: d, id: Date.now() })
+    const t1 = setTimeout(() => setShown(cash), 850)
+    const t2 = setTimeout(() => setDelta(null), 1300)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [cash])
+  const up = delta ? delta.amount > 0 : false
+  const flash = delta ? (up ? '#1c9e3f' : '#d8402a') : null
+  const base = shown < 200 ? '#a32d2d' : '#1c4e26'
+  return (
+    <span style={{ display: 'inline-block', position: 'relative', fontWeight: 800, fontSize, color: flash || base, transition: 'color .2s' }}>
+      {shown.toLocaleString()} ₪
+      {delta && (
+        <span style={{ position: 'absolute', left: '50%', bottom: '100%', transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 5 }}>
+          <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontWeight: 900, fontSize: fontSize - 1, color: up ? '#1c9e3f' : '#d8402a', textShadow: '0 1px 3px rgba(0,0,0,.25)', animation: 'awCashPop 1.3s ease forwards' }}>
+            {up ? '+' : '−'}{Math.abs(delta.amount).toLocaleString()} ₪
+          </span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 function PendingLeaveModal({ pendingLeave, onExpire }) {
   const [remainingSec, setRemainingSec] = useState(() =>
     Math.max(0, Math.ceil((pendingLeave.expiresMs - Date.now()) / 1000))
@@ -1544,7 +1589,7 @@ function PendingLeaveModal({ pendingLeave, onExpire }) {
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 35, background: 'rgba(28,28,28,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl', padding: 16 }}>
       <div style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, padding: '24px 26px', textAlign: 'center', maxWidth: 'min(86vw, 360px)', width: '100%', boxShadow: '0 18px 50px rgba(0,0,0,.4)' }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>⏳</div>
+        <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IcHourglass size={46} color="#caa53e" /></div>
         <div style={{ fontWeight: 900, fontSize: 22, color: INK, marginBottom: 10 }}>
           {pendingLeave.name} יצא/ה מהמשחק
         </div>

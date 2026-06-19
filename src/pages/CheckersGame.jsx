@@ -18,7 +18,7 @@
 // בנוי על אותה תשתית Firestore של gameRooms — לכן הזמנות חברים,
 // matchmaking רנדומלי, חלונית ההזמנה ו"שחק שוב" ההדדי עובדים מיד.
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { IconBackRTL, IconSpeaker, IconSpeakerOff, IconHomeLine, IconMusicNote } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
@@ -49,6 +49,9 @@ const other = (p) => (p === P1 ? P2 : P1)
 
 // מוזיקת רקע (אותם קבצים כמו במסביב לעולם)
 const CK_MUSIC_VOLUME = 0.10
+
+// יריב המחשב מוצג כדמות עם שם (אחת מ-3 דמויות) במקום "מחשב"
+const CK_BOTS = ['רינת', 'דניאל', 'רומי']
 
 // ════════════════════════════════════════════════════════
 // מנוע המשחק — פונקציות טהורות
@@ -205,6 +208,28 @@ function getAllMoves(board, player) {
   return simples
 }
 
+// כל מהלכי השחקן כולל פשוטים (אכילה לא חובה) — caps ∪ simples
+function looseMoves(board, player) {
+  const caps = [], simples = []
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+    const pc = board[r][c]
+    if (pc && pc.p === player) {
+      caps.push(...captureSequences(board, r, c, pc))
+      simples.push(...simpleMoves(board, r, c, pc))
+    }
+  }
+  return [...caps, ...simples]
+}
+// תאים של כלים שיש להם אפשרות אכילה (כדי "לשרוף" אותם אם השחקן בחר לא לאכול)
+function piecesWithCapture(board, player) {
+  const cells = []
+  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+    const pc = board[r][c]
+    if (pc && pc.p === player && captureSequences(board, r, c, pc).length) cells.push([r, c])
+  }
+  return cells
+}
+
 // מחיל מהלך נבחר ומחזיר לוח חדש (כולל הסרת נאכלים והכתרה)
 function applyMove(board, move) {
   const nb = cloneBoard(board)
@@ -214,6 +239,20 @@ function applyMove(board, move) {
   nb[fr][fc] = null
   for (const [cr, cc] of move.captures) nb[cr][cc] = null
   // הכתרה אם הכלי נגע בשורה האחורית במהלך התנועה
+  const touchedBack = move.path.some(([r], i) =>
+    i > 0 && ((piece.p === P1 && r === 0) || (piece.p === P2 && r === SIZE - 1)))
+  const np = (!piece.k && touchedBack) ? { p: piece.p, k: true } : piece
+  nb[tr][tc] = np
+  return nb
+}
+
+// כמו applyMove אך משאיר את הכלים הנאכלים על הלוח (לאנימציית היעלמות צבעונית) — מסירים אותם בשלב שני
+function applyMoveKeepCaptures(board, move) {
+  const nb = cloneBoard(board)
+  const [fr, fc] = move.path[0]
+  const [tr, tc] = move.path[move.path.length - 1]
+  const piece = nb[fr][fc]
+  nb[fr][fc] = null
   const touchedBack = move.path.some(([r], i) =>
     i > 0 && ((piece.p === P1 && r === 0) || (piece.p === P2 && r === SIZE - 1)))
   const np = (!piece.k && touchedBack) ? { p: piece.p, k: true } : piece
@@ -514,13 +553,13 @@ function ModeSelectScreen({ onBack, onHome, registerBack, onSelectAI, onSelectLo
             <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>
               בחרו רמת קושי:
             </h2>
-            <DifficultyButton label="קל" emoji="🌱" color="#4F6B4A"
+            <DifficultyButton label="קל" iconId="level-easy" color="#4F6B4A"
               description="מתאים להתחלה — המחשב משחק בפשטות"
               onClick={() => onSelectAI('easy')} />
-            <DifficultyButton label="בינוני" emoji="⚡" color="#B89048"
+            <DifficultyButton label="בינוני" iconId="level-medium" color="#B89048"
               description="המחשב מחפש אכילות טובות"
               onClick={() => onSelectAI('medium')} />
-            <DifficultyButton label="קשה" emoji="🔥" color="#7E2C2E"
+            <DifficultyButton label="קשה" iconId="level-hard" color="#7E2C2E"
               description="המחשב חושב כמה צעדים קדימה"
               onClick={() => onSelectAI('hard')} />
           </>
@@ -563,7 +602,7 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
   )
 }
 
-function DifficultyButton({ label, emoji, color, description, onClick }) {
+function DifficultyButton({ label, iconId, color, description, onClick }) {
   return (
     <button onClick={onClick} style={{
       width: '100%', textAlign: 'right',
@@ -575,8 +614,8 @@ function DifficultyButton({ label, emoji, color, description, onClick }) {
       <div style={{
         width: 48, height: 48, borderRadius: 14, background: color,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24, flexShrink: 0,
-      }}>{emoji}</div>
+        flexShrink: 0,
+      }}><GameIcon id={iconId} size={30} /></div>
       <div style={{ flex: 1 }}>
         <div className="h-display" style={{ fontSize: 17, color: 'var(--ink)', lineHeight: 1.15 }}>{label}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)', marginTop: 2 }}>{description}</div>
@@ -937,42 +976,111 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [lastMove, setLastMove] = useState(null)    // {from:[r,c], to:[r,c], caps:[[r,c]...]}
   const [noProgress, setNoProgress] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [burning, setBurning] = useState([])   // תאים של כלים שנשרפים (אנימציה ואז הסרה)
+  const [aiName] = useState(() => CK_BOTS[Math.floor(Math.random() * CK_BOTS.length)])  // שם יריב המחשב (אחד מ-3)
+  const aiActedRef = useRef(false)              // מונע מהמחשב לזוז פעמיים באותו תור (התור נשאר P2 בזמן אנימציית האכילה)
+  const moveAnimRef = useRef(0)                 // משך אנימציית המהלך האחרון (ms) — כדי שהיריב/המחשב יחכה שתסתיים
 
   const isAITurn = mode === 'ai' && turn === P2 && !winner
 
-  const legalMoves = getAllMoves(board, turn)
+  // אכילה אינה חובה — מציגים גם מהלכים פשוטים. מי שלא אוכל כשאפשר — הכלי(ם) שיכלו לאכול נשרפים.
+  const legalMoves = looseMoves(board, turn)
 
   const doMove = (move) => {
     playSound('drop')
-    const { newBoard, winner: w, noProgress: np } = nextStateAfterMove(board, move, turn, noProgress)
+    const mover = turn
+    const capCells = piecesWithCapture(board, mover)   // כלים שיכלו לאכול
+    const isCap = move.captures.length > 0
+    const newBoard = isCap ? applyMoveKeepCaptures(board, move) : applyMove(board, move)
+    // משך האנימציה — צעד לכל אכילה ברצף; חייב להתאים לחישוב ב-CheckersBoard
+    const [dKr, dKc] = move.path[move.path.length - 1]
+    const movedKing = newBoard[dKr] && newBoard[dKr][dKc] && newBoard[dKr][dKc].k
+    const animMs = !isCap ? 640 : (movedKing ? 640 : Math.max(640, (move.path.length - 1) * 520))
+    moveAnimRef.current = animMs
     setBoard(newBoard)
-    setLastMove({
-      from: move.path[0],
-      to: move.path[move.path.length - 1],
-      caps: move.captures,
-    })
-    setNoProgress(np)
+    setLastMove({ from: move.path[0], to: move.path[move.path.length - 1], caps: move.captures, path: move.path })
     setSelected(null)
-    if (w) {
+
+    const announceWin = (w) => {
       setWinner(w)
       setTimeout(() => {
         if (mode === 'ai') playSound(w === 'P1' ? 'win' : 'lose')
         else playSound('win')
       }, 300)
+    }
+
+    // היתה אפשרות לאכול והשחקן בחר לא — שורפים את הכלים שיכלו לאכול
+    if (capCells.length && !isCap) {
+      const [fr, fc] = move.path[0]
+      const [tr, tc] = move.path[move.path.length - 1]
+      const burnCells = capCells.map(([r, c]) => (r === fr && c === fc) ? [tr, tc] : [r, c])
+      setBurning(burnCells.map(([r, c]) => ({ r, c, color: 'red', ms: 2000 })))
+      setBusy(true)
+      setTimeout(() => {
+        const b2 = cloneBoard(newBoard)
+        for (const [r, c] of burnCells) b2[r][c] = null
+        setBoard(b2)
+        setBurning([])
+        setBusy(false)
+        setNoProgress(0)
+        const opp = other(mover)
+        let w = null
+        if (countPieces(b2, mover) === 0) w = (opp === P1 ? 'P1' : 'P2')
+        else if (countPieces(b2, opp) === 0) w = (mover === P1 ? 'P1' : 'P2')
+        else if (getAllMoves(b2, opp).length === 0) w = (mover === P1 ? 'P1' : 'P2')
+        if (w) announceWin(w)
+        else setTurn(opp)
+      }, 2000)
+      return
+    }
+
+    // מהלך אכילה — משאירים את הנאכלים, צובעים (ירוק=של היריב, אדום=שלי) ומעלימים, ואז מסירים
+    if (isCap) {
+      const viewer = P1   // מקומי: השחקן התחתון (אתה) הוא נקודת הייחוס
+      const capMs = animMs + 260
+      setBurning(move.captures.map(([r, c]) => ({
+        r, c,
+        color: (board[r][c] && board[r][c].p === viewer) ? 'red' : 'green',
+        ms: capMs,
+      })))
+      setBusy(true)
+      setTimeout(() => {
+        setBoard(applyMove(board, move))
+        setBurning([])
+        moveAnimRef.current = 0
+        const { winner: w, noProgress: np } = nextStateAfterMove(board, move, mover, noProgress)
+        setNoProgress(np)
+        if (w) announceWin(w)
+        else setTurn(other(mover))
+        setBusy(false)
+      }, capMs)
+      return
+    }
+
+    // מהלך רגיל — מחליפים תור מיד, אך חוסמים קלט עד שאנימציית התנועה מסתיימת
+    const { winner: w, noProgress: np } = nextStateAfterMove(board, move, mover, noProgress)
+    setNoProgress(np)
+    setBusy(true)
+    if (w) {
+      setTimeout(() => announceWin(w), animMs)
     } else {
-      setTurn(other(turn))
+      setTurn(other(mover))
+      setTimeout(() => setBusy(false), animMs)
     }
   }
 
-  // תור המחשב
+  // תור המחשב — ממתינים שאנימציית מהלך השחקן תסתיים, ואז המחשב "חושב" וזז
   useEffect(() => {
-    if (!isAITurn) return
+    if (!isAITurn) { aiActedRef.current = false; return }
+    if (aiActedRef.current) return
     setBusy(true)
+    const wait = Math.max(650, moveAnimRef.current || 0)
     const t = setTimeout(() => {
+      aiActedRef.current = true
       const m = chooseAIMove(board, P2, difficulty)
       if (m) doMove(m)
-      setBusy(false)
-    }, 500)
+      else setBusy(false)
+    }, wait)
     return () => clearTimeout(t)
     // eslint-disable-next-line
   }, [isAITurn, board])
@@ -1002,7 +1110,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
 
   const reset = () => {
     setBoard(initialBoard())
-    setTurn(P1); setWinner(null); setSelected(null); setLastMove(null); setNoProgress(0); setBusy(false)
+    setTurn(P1); setWinner(null); setSelected(null); setLastMove(null); setNoProgress(0); setBusy(false); setBurning([])
   }
 
   const destinations = selected
@@ -1013,8 +1121,8 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const statusText = (() => {
     if (winner === 'draw') return 'תיקו! 🤝'
     if (winner === 'P1') return mode === 'ai' ? 'ניצחת! 🎉' : 'שחקן 1 ניצח! 🎉'
-    if (winner === 'P2') return mode === 'ai' ? 'המחשב ניצח 🤖' : 'שחקן 2 ניצח! 🎉'
-    if (isAITurn) return 'המחשב חושב...'
+    if (winner === 'P2') return mode === 'ai' ? `${aiName} ניצח! 🎉` : 'שחקן 2 ניצח! 🎉'
+    if (isAITurn) return `${aiName} חושב...`
     return mode === 'ai' ? 'תורך — בצע מהלך' : `תור שחקן ${turn === P1 ? '1' : '2'}`
   })()
 
@@ -1023,7 +1131,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       onBack={onBack}
       onHome={onHome}
       statusText={statusText}
-      topName={mode === 'ai' ? 'מחשב' : 'שחקן 2'}
+      topName={mode === 'ai' ? aiName : 'שחקן 2'}
       topActive={turn === P2 && !winner}
       bottomName={mode === 'ai' ? 'אתה' : 'שחקן 1'}
       bottomActive={turn === P1 && !winner}
@@ -1036,9 +1144,10 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       onReset={reset}
       onChangeMode={onBack}
       isOnline={false}
+      burning={burning}
     >
       {winner && (
-        <LocalEndModal mode={mode} winner={winner} onPlayAgain={reset} onExit={onExit} />
+        <LocalEndModal mode={mode} winner={winner} aiName={aiName} onPlayAgain={reset} onExit={onExit} />
       )}
     </CheckersStage>
   )
@@ -1091,6 +1200,16 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const myNum = myColor === 'P1' ? P1 : P2
   const gs = room?.gameState || {}
   const board = flatToBoard(gs.board)
+  const burnGs = (gs.burn || []).map(i => ({ r: Math.floor(i / SIZE), c: i % SIZE, color: 'red', ms: 2000 }))
+  const capPathLen = (gs.lastMove?.path || []).length
+  const capDestKing = (() => { const t = gs.lastMove?.to; if (t === null || t === undefined) return false; const cr = Math.floor(t / SIZE), cc = t % SIZE; return !!(board[cr] && board[cr][cc] && board[cr][cc].k) })()
+  const capMsOnline = ((capDestKing ? 640 : Math.max(640, Math.max(1, capPathLen - 1) * 520)) + 260)
+  const capFade = (gs.capFade || []).map(i => {
+    const cr = Math.floor(i / SIZE), cc = i % SIZE
+    const pc = board[cr] && board[cr][cc]
+    return { r: cr, c: cc, color: (pc && pc.p === myNum) ? 'red' : 'green', ms: capMsOnline }
+  })
+  const burning = [...burnGs, ...capFade]   // כלים שנשרפים (אכילה לא חובה — סנכרון אונליין)
   const turnColor = gs.currentTurn || 'P1'
   const turnNum = turnColor === 'P1' ? P1 : P2
   const winner = gs.winner
@@ -1102,6 +1221,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
     from: [Math.floor(lm.from / SIZE), lm.from % SIZE],
     to: [Math.floor(lm.to / SIZE), lm.to % SIZE],
     caps: (lm.caps || []).map(i => [Math.floor(i / SIZE), i % SIZE]),
+    path: (lm.path || []).map(i => [Math.floor(i / SIZE), i % SIZE]),
   } : null
 
   // rematch
@@ -1135,6 +1255,8 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
           winner: null,
           lastMove: null,
           noProgress: 0,
+          burn: null,
+          capFade: null,
         },
         rematch: { P1: false, P2: false },
       })
@@ -1171,10 +1293,10 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
     )
   }
 
-  const legalMoves = isMyTurn ? getAllMoves(board, myNum) : []
+  const legalMoves = isMyTurn ? looseMoves(board, myNum) : []
 
   const handleCellTap = async (r, c) => {
-    if (!isMyTurn) return
+    if (!isMyTurn || burning.length) return
     const cell = board[r][c]
     const startsHere = legalMoves.filter(m => m.path[0][0] === r && m.path[0][1] === c)
     if (cell && cell.p === myNum && startsHere.length) { setSelected([r, c]); return }
@@ -1185,17 +1307,89 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
         opts.sort((a, b) => b.captures.length - a.captures.length)
         const move = opts[0]
         setSelected(null)
-        const { newBoard, winner: w, noProgress: np } = nextStateAfterMove(board, move, myNum, noProgress)
+        const capCells = piecesWithCapture(board, myNum)
+        const isCap = move.captures.length > 0
+        const newBoard = applyMove(board, move)
+        const lm = {
+          from: idx(move.path[0][0], move.path[0][1]),
+          to: idx(move.path[move.path.length - 1][0], move.path[move.path.length - 1][1]),
+          caps: move.captures.map(([cr, cc]) => idx(cr, cc)),
+          path: move.path.map(([pr, pc]) => idx(pr, pc)),
+        }
+
+        // אכילה אינה חובה — אם דילג על אכילה אפשרית: שלב 1 כותב את המהלך + סימון שריפה (התור נשאר אצלי),
+        // שלב 2 (אחרי 2 שניות) מסיר את הנשרפים ומעביר תור — כך שני הצדדים רואים את אנימציית השריפה
+        if (capCells.length && !isCap) {
+          const [fr, fc] = move.path[0]
+          const [tr, tc] = move.path[move.path.length - 1]
+          const burnCells = capCells.map(([pr, pc]) => (pr === fr && pc === fc) ? [tr, tc] : [pr, pc])
+          await updateGameState(roomId, {
+            board: boardToFlat(newBoard),
+            currentTurn: turnColor,
+            winner: null,
+            lastMove: lm,
+            noProgress: 0,
+            burn: burnCells.map(([pr, pc]) => idx(pr, pc)),
+          })
+          setTimeout(async () => {
+            const b2 = cloneBoard(newBoard)
+            for (const [pr, pc] of burnCells) b2[pr][pc] = null
+            let w2 = null
+            if (countPieces(b2, myNum) === 0) w2 = oppColor
+            else if (countPieces(b2, other(myNum)) === 0) w2 = myColor
+            else if (getAllMoves(b2, other(myNum)).length === 0) w2 = myColor
+            await updateGameState(roomId, {
+              board: boardToFlat(b2),
+              currentTurn: w2 ? turnColor : oppColor,
+              winner: w2,
+              lastMove: lm,
+              noProgress: 0,
+              burn: null,
+            })
+          }, 2000)
+          return
+        }
+
+        // מהלך אכילה — משאירים את הנאכלים + סימון capFade; כל לקוח צובע לפי נקודת מבטו (שלי=אדום, של היריב=ירוק); שלב 2 מסיר ומעביר תור
+        if (isCap) {
+          const keepBoard = applyMoveKeepCaptures(board, move)
+          const dk = keepBoard[move.path[move.path.length - 1][0]][move.path[move.path.length - 1][1]]
+          const capMs = ((dk && dk.k) ? 640 : Math.max(640, Math.max(1, move.path.length - 1) * 520)) + 260
+          await updateGameState(roomId, {
+            board: boardToFlat(keepBoard),
+            currentTurn: turnColor,
+            winner: null,
+            lastMove: lm,
+            noProgress: 0,
+            capFade: move.captures.map(([cr, cc]) => idx(cr, cc)),
+            burn: null,
+          })
+          setTimeout(async () => {
+            const finalBoard = applyMove(board, move)
+            const { winner: w, noProgress: np } = nextStateAfterMove(board, move, myNum, noProgress)
+            await updateGameState(roomId, {
+              board: boardToFlat(finalBoard),
+              currentTurn: w ? turnColor : oppColor,
+              winner: w,
+              lastMove: lm,
+              noProgress: np,
+              capFade: null,
+              burn: null,
+            })
+          }, capMs)
+          return
+        }
+
+        // מהלך רגיל
+        const { winner: w, noProgress: np } = nextStateAfterMove(board, move, myNum, noProgress)
         await updateGameState(roomId, {
           board: boardToFlat(newBoard),
           currentTurn: w ? turnColor : oppColor,
           winner: w,
-          lastMove: {
-            from: idx(move.path[0][0], move.path[0][1]),
-            to: idx(move.path[move.path.length - 1][0], move.path[move.path.length - 1][1]),
-            caps: move.captures.map(([cr, cc]) => idx(cr, cc)),
-          },
+          lastMove: lm,
           noProgress: np,
+          burn: null,
+          capFade: null,
         })
         return
       }
@@ -1237,7 +1431,8 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
       destinations={destinations}
       lastMove={lastMove}
       onCellTap={handleCellTap}
-      disabled={!isMyTurn || !!winner}
+      disabled={!isMyTurn || !!winner || burning.length > 0}
+      burning={burning}
       onReset={requestRematch}
       onChangeMode={handleLeave}
       isOnline={true}
@@ -1274,7 +1469,7 @@ function GameLayout({
   onBack, onHome, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
   onReset, onChangeMode, isOnline, children, chat = [], meUid, meName, roomId, flip,
-  withVideo, topUid, bottomUid, myPhoto, addFriendNode,
+  withVideo, topUid, bottomUid, myPhoto, addFriendNode, burning = [],
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const [chatOpen, setChatOpen] = useState(false)
@@ -1459,22 +1654,59 @@ function CapturedTray({ count, pieceColor, label }) {
 // ════════════════════════════════════════════════════════
 // לוח הדמקה
 // ════════════════════════════════════════════════════════
-function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, disabled, flip }) {
+function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, disabled, flip, burning = [] }) {
   const isSel = (r, c) => selected && selected[0] === r && selected[1] === c
   const isDest = (r, c) => destinations.some(([dr, dc]) => dr === r && dc === c)
   const isLastFrom = (r, c) => lastMove && lastMove.from[0] === r && lastMove.from[1] === c
   const isLastTo = (r, c) => lastMove && lastMove.to[0] === r && lastMove.to[1] === c
+
+  // אנימציה: הכלי מורם במקום → נוסע באלכסון ליעד → מונח. נעשה דרך Web Animations API (אמין יותר מ-transition על mount). ה-translate ביחידות-תא (בטוח ל-RTL/flip).
+  // anim נגזר תוך כדי render (לא ב-effect) כדי שלא יהיה render ביניים שבו הכלי כבר ביעד
+  // והאנימציה עוד לא התחילה (זה גרם להבזק "קדימה ואז אחורה", בעיקר במהלכי המחשב).
+  const overlayRef = useRef(null)
+  const animRef = useRef(null)        // { path, tr, tc, piece, key }
+  const prevKeyRef = useRef(null)
+  const [, bumpAnim] = useState(0)    // לכפיית render כשהאנימציה נגמרת
+  const moveKey = lastMove ? (lastMove.from.join(',') + '>' + lastMove.to.join(',')) : null
+  if (moveKey && prevKeyRef.current !== moveKey) {
+    prevKeyRef.current = moveKey
+    const fullPath = (lastMove.path && lastMove.path.length >= 2) ? lastMove.path : [lastMove.from, lastMove.to]
+    const [tr, tc] = fullPath[fullPath.length - 1]
+    const piece = board[tr] && board[tr][tc]
+    animRef.current = piece
+      ? { path: piece.k ? [fullPath[0], fullPath[fullPath.length - 1]] : fullPath, tr, tc, piece, key: moveKey }
+      : null
+  }
+  const anim = animRef.current
+    // מלכה ("עפה") נוסעת ישר ליעד — מסלול האכילה המעופף נראה כמו הלוך-ושוב; חייל רגיל ממשיך צעד-צעד
+  useLayoutEffect(() => {
+    if (!anim) return
+    const el = overlayRef.current
+    if (!el) return
+    const { path, tr, tc } = anim
+    // צעד-צעד לאורך מסלול האכילה; translate ביחידות-תא (ימין/מטה = +), בטוח ל-RTL/flip
+    const frames = path.map(([pr, pc]) => ({
+      transform: `translate(${(tc - pc) * 100}%, ${(pr - tr) * 100}%)`,
+      easing: 'cubic-bezier(.4,.05,.35,1)',
+    }))
+    const segs = Math.max(1, path.length - 1)
+    const dur = Math.max(640, segs * 520)   // איטי יותר — תחושת משחק אמיתי; צעד לכל אכילה
+    const a = el.animate(frames, { duration: dur, fill: 'both' })
+    let cancelled = false
+    a.onfinish = () => { if (!cancelled) { animRef.current = null; bumpAnim(n => n + 1) } }
+    return () => { cancelled = true; try { if (a.playState !== 'finished') a.cancel() } catch { /* ignore */ } }
+  }, [anim && anim.key]) // eslint-disable-line
 
   return (
     <div style={{
       background: 'linear-gradient(135deg, #5A3A22, #3E2814)',
       borderRadius: 16, padding: 10,
       boxShadow: '0 10px 28px -8px rgba(0,0,0,.6), inset 0 2px 6px rgba(255,255,255,.08)',
-      maxWidth: 460, margin: '0 auto',
+      maxWidth: 960, margin: '0 auto', width: '100%',
     }}>
       <div style={{
         display: 'grid', gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
-        borderRadius: 8, overflow: 'hidden',
+        borderRadius: 8, overflow: 'hidden', position: 'relative',
         border: '2px solid #2E1C0E',
         transform: flip ? 'rotate(180deg)' : 'none',
       }}>
@@ -1483,6 +1715,7 @@ function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, dis
             const darkSq = (r + c) % 2 === 1
             const sel = isSel(r, c)
             const dest = isDest(r, c)
+            const bv = cell ? burning.find(x => x.r === r && x.c === c) : null
             return (
               <div key={`${r}-${c}`}
                 onClick={() => !disabled && onCellTap(r, c)}
@@ -1505,18 +1738,24 @@ function CheckersBoard({ board, selected, destinations, lastMove, onCellTap, dis
                     boxShadow: '0 0 8px rgba(79,107,74,.6)',
                   }} />
                 )}
-                {/* כלי */}
-                {cell && <Piece piece={cell} selected={sel} dest={dest} flip={flip} />}
+                {/* כלי — מוסתר במשבצת היעד בזמן האנימציה (הכלי הצף מצייר אותו) */}
+                {cell && !(anim && anim.tr === r && anim.tc === c) && <Piece piece={cell} selected={sel} dest={dest} flip={flip} burnColor={bv ? bv.color : null} burnMs={bv ? bv.ms : 2000} />}
               </div>
             )
           })
         )}
+        {anim && (
+          <div ref={overlayRef} style={{ position: 'absolute', right: `${anim.tc * (100 / SIZE)}%`, top: `${anim.tr * (100 / SIZE)}%`, width: `${100 / SIZE}%`, height: `${100 / SIZE}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 6, willChange: 'transform' }}>
+            <Piece piece={anim.piece} flip={flip} />
+          </div>
+        )}
+        <style>{`@keyframes ckBurnFade{0%{opacity:1}62%{opacity:1}100%{opacity:0}}@keyframes ckBurnTint{0%{opacity:0}22%{opacity:.92}100%{opacity:.92}}`}</style>
       </div>
     </div>
   )
 }
 
-function Piece({ piece, selected, dest, flip }) {
+function Piece({ piece, selected, dest, flip, burnColor, burnMs = 2000 }) {
   const dark = piece.p === P2
   return (
     <div style={{
@@ -1529,7 +1768,8 @@ function Piece({ piece, selected, dest, flip }) {
         ? '0 0 14px rgba(232,200,121,.8), inset 0 -3px 6px rgba(0,0,0,.4)'
         : 'inset 0 -4px 7px rgba(0,0,0,.4), inset 0 3px 5px rgba(255,255,255,.25), 0 3px 5px rgba(0,0,0,.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      transition: 'all .12s',
+      transition: 'all .12s', position: 'relative',
+      animation: burnColor ? `ckBurnFade ${burnMs}ms ease-out forwards` : undefined,
     }}>
       {/* טבעת פנימית מגולפת */}
       <div style={{
@@ -1546,6 +1786,16 @@ function Piece({ piece, selected, dest, flip }) {
           }}>👑</span>
         )}
       </div>
+      {burnColor && (
+        <div style={{
+          position: 'absolute', inset: -1, borderRadius: '50%',
+          background: burnColor === 'green'
+            ? 'radial-gradient(circle at 50% 38%, #74e88a, #1f9c3a 70%)'
+            : 'radial-gradient(circle at 50% 38%, #ff6a3d, #c01d0c 70%)',
+          boxShadow: burnColor === 'green' ? '0 0 14px 3px rgba(40,200,90,.85)' : '0 0 14px 3px rgba(230,40,20,.85)',
+          animation: `ckBurnTint ${burnMs}ms ease-out forwards`, pointerEvents: 'none',
+        }} />
+      )}
     </div>
   )
 }
@@ -1553,13 +1803,13 @@ function Piece({ piece, selected, dest, flip }) {
 // ════════════════════════════════════════════════════════
 // מודלים
 // ════════════════════════════════════════════════════════
-function LocalEndModal({ mode, winner, onPlayAgain, onExit }) {
+function LocalEndModal({ mode, winner, aiName, onPlayAgain, onExit }) {
   let title, subtitle, color, icon = null, emoji = null
   if (winner === 'draw') { emoji = '🤝'; title = 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4' }
   else if (winner === 'P1') {
     icon = 'trophy'; title = mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'; subtitle = 'כל הכבוד'; color = '#4F6B4A'
   } else {
-    if (mode === 'ai') { icon = 'ai-win'; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
+    if (mode === 'ai') { icon = 'ai-win'; title = `${aiName} ניצח`; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
     else { icon = 'trophy'; title = 'שחקן 2 ניצח!'; subtitle = 'כל הכבוד'; color = '#B89048' }
   }
   return (
@@ -1787,7 +2037,7 @@ function CheckersStage({
   onBack, onHome, statusText, topName, topActive, bottomName, bottomActive,
   board, selected, destinations, lastMove, onCellTap, disabled,
   onReset, onChangeMode, isOnline, children, chat = [], meUid, meName, roomId, flip,
-  withVideo, topUid, bottomUid, myPhoto, addFriendNode,
+  withVideo, topUid, bottomUid, myPhoto, addFriendNode, burning = [],
 }) {
   const [muted, setMutedState] = useState(() => isMuted())
   const toggleMute = () => { const n = !muted; setMutedState(n); setMuted(n) }
@@ -1848,7 +2098,7 @@ function CheckersStage({
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         <div style={{ height: '100%', maxHeight: '100%', aspectRatio: '1 / 1', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '100%' }}>
-            <CheckersBoard board={board} selected={selected} destinations={destinations} lastMove={lastMove} onCellTap={onCellTap} disabled={disabled} flip={flip} />
+            <CheckersBoard board={board} selected={selected} destinations={destinations} lastMove={lastMove} onCellTap={onCellTap} disabled={disabled} flip={flip} burning={burning} />
           </div>
         </div>
       </div>
