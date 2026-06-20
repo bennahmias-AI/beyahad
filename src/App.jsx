@@ -49,6 +49,7 @@ import {
 import { initNativePush, initNativeUI, isNativeApp } from './services/nativePush.js'
 import { colors } from './design-system/index.js'
 import { applyAccessibilityFromStorage } from './utils/accessibility.js'
+import './utils/pauseMusicOnBackground.js'  // עוצר מוזיקת משחקים כשהאפליקציה ברקע (הרדיו ממשיך)
 
 export default function App() {
   useAuth()

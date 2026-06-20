@@ -13,7 +13,7 @@
 // מציג: זמן + מספר ניסיונות, ובסיום — מסך ניצחון.
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconLightbulb } from '../icons/index.jsx'
 import { MEMORY_ICONS } from '../icons/memoryIcons.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 
@@ -51,6 +51,15 @@ function fmtTime(seconds) {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// אייקונים קוויים מקומיים (בלי אמוג'י)
+function IcRefresh({ size = 16, color = 'currentColor' }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></svg>)
+}
+function IcStar({ size = 42, filled = true }) {
+  const gold = '#E8C879'
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? gold : 'none'} stroke={gold} strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3l2.6 5.7 6.2.7-4.6 4.2 1.2 6.1L12 17l-5.4 2.9 1.2-6.1L3.2 9.4l6.2-.7L12 3Z" /></svg>)
 }
 
 export default function MemoryGame({ onBack, onHome }) {
@@ -159,7 +168,7 @@ export default function MemoryGame({ onBack, onHome }) {
             cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            🔄 התחל מחדש
+            <IcRefresh size={16} color="var(--ink)" /> התחל מחדש
           </button>
         </div>
 
@@ -196,7 +205,7 @@ export default function MemoryGame({ onBack, onHome }) {
             textAlign: 'center',
           }}>
             <div style={{ fontSize: 14, color: 'var(--ink-2)', fontWeight: 600, lineHeight: 1.5 }}>
-              💡 הפכו 2 קלפים בכל פעם וחפשו זוגות תואמים
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><IconLightbulb size={18} /> הפכו 2 קלפים בכל פעם וחפשו זוגות תואמים</span>
             </div>
           </div>
         )}
@@ -335,14 +344,14 @@ function WinModal({ seconds, moves, onPlayAgain, onBack }) {
         boxShadow: 'var(--shadow-lg)',
       }}>
         {/* כוכבים */}
-        <div style={{ fontSize: 48, marginBottom: 10, letterSpacing: '0.05em' }}>
-          {'⭐'.repeat(stars)}{'☆'.repeat(3 - stars)}
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', gap: 8 }}>
+          {[0, 1, 2].map(i => <IcStar key={i} size={42} filled={i < stars} />)}
         </div>
 
         <div className="h-display" style={{
           fontSize: 26, color: 'var(--ink)', marginBottom: 6,
         }}>
-          ניצחת! 🎉
+          ניצחת!
         </div>
         <div style={{
           fontSize: 16, color: 'var(--ink-2)', marginBottom: 20,
@@ -389,7 +398,7 @@ function WinModal({ seconds, moves, onPlayAgain, onBack }) {
         <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{
           width: '100%', marginBottom: 10,
         }}>
-          🔄 שחק שוב
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><IcRefresh size={18} color="currentColor" /> שחק שוב</span>
         </button>
         <button onClick={onBack} className="big-btn big-btn--ghost" style={{
           width: '100%',

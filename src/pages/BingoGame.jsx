@@ -14,11 +14,11 @@
 // בנוי על תשתית bingoRooms ב-firebase.js (מודל רמיקוב/מלך-הזירה).
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL, IconHomeLine } from '../icons/index.jsx'
+import { IconBackRTL, IconHomeLine, IconSpeaker, IconSpeakerOff, IconClock, IconLightbulb, IconPlay, IconPause, IconGamepad, IconGroup, IconTrophy, IconMusicNote } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
-import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
+import { playSound, isMuted, setMuted, MUSIC_TRACKS } from '../utils/gameSounds.js'
 import { playTriviaSound } from '../utils/triviaSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { ChatPanel, ChatToast, ChatHeaderButton } from '../components/GameChat.jsx'
@@ -47,6 +47,10 @@ const COL_COLORS = ['#7E2C2E', '#B89048', '#4F6B4A', '#2C5566', '#6B3A4F']
 // ════════════════════════════════════════════════════════
 // רכיב ראשי — ניתוב בין מצבי המשחק
 // ════════════════════════════════════════════════════════
+function IcRefresh({ size = 18, color = 'currentColor' }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></svg>)
+}
+
 export default function BingoGame({ onBack, onHome, initialRoomId, autoInviteFriend = null, initialMode = null, registerBack }) {
   const [mode, setMode] = useState(initialRoomId ? 'online-friend' : (autoInviteFriend ? 'online-friend' : (initialMode || null)))
   const [roomId, setRoomId] = useState(initialRoomId || null)
@@ -180,7 +184,7 @@ function ModeButton({ onClick, iconId, gradient, label, description, badge }) {
         <div style={{
           position: 'absolute', top: -8, insetInlineStart: 12, background: 'var(--burgundy)',
           color: 'white', fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 999,
-        }}>✨ {badge}</div>
+        }}>{badge}</div>
       )}
       <div style={{
         width: 52, height: 52, borderRadius: 14, background: gradient,
@@ -351,7 +355,7 @@ function CalledStrip({ called }) {
 // ════════════════════════════════════════════════════════
 function BingoShell({ onBack, onHome, isOnline, chatNode, children }) {
   return (
-    <div className="scroll-area" style={{ direction: 'rtl', background: BG_DEEP, minHeight: '100%' }}>
+    <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(rgba(40,10,11,.48), rgba(40,10,11,.66)), url(/bingo.jpeg) center / cover no-repeat #3E1213', minHeight: '100%' }}>
       <div className="screen-header" style={{ background: 'transparent', position: 'static' }}>
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"
           style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)' }}>
@@ -393,6 +397,79 @@ function BingoButton({ label, onClick, variant = 'gold', disabled, style }) {
 // ════════════════════════════════════════════════════════
 // מצב לבד — מקריא אוטומטי
 // ════════════════════════════════════════════════════════
+// כפתור מוזיקה (מחליף את כפתור הרמקול) — תפריט מלא: עוצמה / שיר הבא / השתקת מוזיקה + סאונד
+function BingoMusicButton() {
+  const audioRef = useRef(null)
+  const [musicOn, setMusicOn] = useState(() => localStorage.getItem('beyahad_bingo_music') !== 'off')
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [vol, setVol] = useState(() => { const v = parseFloat(localStorage.getItem('beyahad_bingo_vol')); return isNaN(v) ? 0.10 : v })
+  const [sfxMuted, setSfxMuted] = useState(() => isMuted())
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    if (musicOn) a.play().catch(() => {})
+    else a.pause()
+  }, [musicOn, trackIdx])
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = vol }, [vol])
+  useEffect(() => {
+    if (!musicOn) return
+    const kick = () => { if (audioRef.current) audioRef.current.play().catch(() => {}) }
+    window.addEventListener('pointerdown', kick, { once: true })
+    return () => window.removeEventListener('pointerdown', kick)
+  }, [musicOn])
+
+  const toggleMusic = () => setMusicOn(v => { const n = !v; localStorage.setItem('beyahad_bingo_music', n ? 'on' : 'off'); return n })
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const changeVol = (d) => setVol(v => { const n = Math.min(1, Math.max(0, Math.round((v + d) * 100) / 100)); localStorage.setItem('beyahad_bingo_vol', String(n)); return n })
+  const toggleSfx = () => { const n = !sfxMuted; setSfxMuted(n); setMuted(n) }
+
+  const volBtn = { width: 40, height: 40, borderRadius: 12, border: '1px solid var(--line)', background: 'var(--bg-app)', fontSize: 22, fontWeight: 800, cursor: 'pointer', color: 'var(--ink)' }
+  const rowBtn = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--bg-app)', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', color: 'var(--ink)' }
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button onClick={() => setOpen(o => !o)} aria-label="מוזיקה" style={{
+        width: 42, height: 42, borderRadius: 12,
+        background: musicOn ? 'rgba(232,200,121,.22)' : 'rgba(255,255,255,.1)',
+        border: `1px solid ${musicOn ? 'rgba(232,200,121,.5)' : 'rgba(255,255,255,.18)'}`,
+        cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <IconMusicNote size={20} color={musicOn ? '#E8C879' : '#fff'} />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={{
+            position: 'absolute', top: '100%', insetInlineEnd: 0, marginTop: 8,
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16,
+            padding: 12, boxShadow: 'var(--shadow-lg)', zIndex: 50, minWidth: 220, direction: 'rtl',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={() => changeVol(-0.05)} aria-label="החלש עוצמה" style={volBtn}>−</button>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>עוצמה</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{Math.round(vol * 100)}%</div>
+              </div>
+              <button onClick={() => changeVol(0.05)} aria-label="הגבר עוצמה" style={volBtn}>+</button>
+            </div>
+            <button onClick={nextTrack} style={rowBtn}><IconMusicNote size={18} color="var(--ink)" /> השיר הבא</button>
+            <button onClick={toggleMusic} style={{ ...rowBtn, border: 'none', background: musicOn ? 'rgba(126,44,46,.10)' : 'var(--burgundy)', color: musicOn ? '#7E2C2E' : 'white' }}>
+              {musicOn ? 'השתק מוזיקה' : 'הפעל מוזיקה'}
+            </button>
+            <button onClick={toggleSfx} style={rowBtn}>
+              {sfxMuted ? <IconSpeakerOff size={18} color="var(--ink)" /> : <IconSpeaker size={18} color="var(--ink)" />} {sfxMuted ? 'הפעל סאונד' : 'השתק סאונד'}
+            </button>
+          </div>
+        </>
+      )}
+      <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} loop preload="auto" />
+    </div>
+  )
+}
+
 function SoloGameScreen({ onBack, onHome, onExit }) {
   const [card] = useState(() => createCard())
   const [drawOrder] = useState(() => createDrawOrder())
@@ -453,23 +530,19 @@ function SoloGameScreen({ onBack, onHome, onExit }) {
       {/* שורת המספר הנוכחי + לוח שנקרא + השתקה */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14,
-        background: 'rgba(0,0,0,.18)', borderRadius: 16, padding: '12px 14px',
+        background: 'rgba(0,0,0,.80)', borderRadius: 16, padding: '12px 14px',
         border: '1px solid rgba(201,162,74,.25)',
       }}>
         <CurrentBall num={currentNum} />
         <CalledStrip called={called} />
-        <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק'} style={{
-          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-          background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.18)',
-          fontSize: 20, cursor: 'pointer', color: '#fff',
-        }}>{muted ? '🔇' : '🔊'}</button>
+        <BingoMusicButton />
       </div>
 
       {missed && (
         <div style={{
           background: 'rgba(232,72,79,.92)', color: '#fff', borderRadius: 12,
           padding: '10px 14px', textAlign: 'center', fontWeight: 800, fontSize: 15, marginBottom: 12,
-        }}>עדיין אין שורה מלאה — תמשיכו לסמן! 🎯</div>
+        }}>עדיין אין שורה מלאה — תמשיכו לסמן!</div>
       )}
 
       <BingoCard
@@ -480,15 +553,15 @@ function SoloGameScreen({ onBack, onHome, onExit }) {
       {/* כפתורים — צעקת הבינגו עברה למשבצת האמצעית בכרטיס */}
       <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
         {!won && (
-          <BingoButton label={paused ? '▶ המשך' : '⏸ עצור'} variant="ghost"
+          <BingoButton label={paused ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconPlay size={16} color="currentColor" /> המשך</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconPause size={16} color="currentColor" /> עצור</span>} variant="ghost"
             onClick={() => setPaused(p => !p)} />
         )}
         {won && (
-          <BingoButton label="🔄 משחק חדש" variant="gold" onClick={restart} />
+          <BingoButton label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IcRefresh size={16} color="currentColor" /> משחק חדש</span>} variant="gold" onClick={restart} />
         )}
       </div>
 
-      {won && <WinModal title="בינגו! 🎉" subtitle="השלמת שורה — כל הכבוד!" onPlayAgain={restart} onExit={onExit} />}
+      {won && <WinModal title="בינגו!" subtitle="השלמת שורה — כל הכבוד!" onPlayAgain={restart} onExit={onExit} />}
     </BingoShell>
   )
 }
@@ -578,10 +651,10 @@ function OnlineLobby({ mode, onBack, onHome, onReady, autoInviteFriend = null })
           <GameIcon id="bingo" size={84} />
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Suez One', serif" }}>מחפש לך שולחן...</div>
-            <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8 }}>⏱ {formatTime(elapsed)}</div>
+            <div style={{ fontSize: 16, opacity: 0.85, marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><IconClock size={16} color="#fff" /> {formatTime(elapsed)}</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,.10)', borderRadius: 16, padding: '14px 18px', fontSize: 15, textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>
-            💡 כשעוד אנשים ילחצו על "בינגו"<br />תתחברו לאותו שולחן
+            <IconLightbulb size={16} /> כשעוד אנשים ילחצו על "בינגו"<br />תתחברו לאותו שולחן
           </div>
         </div>
         <button onClick={onBack} className="big-btn big-btn--danger" style={{ width: '100%' }}>✕ ביטול</button>
@@ -634,7 +707,7 @@ function FriendList({ friends, onInvite, onBack }) {
   if (!friends || friends.length === 0) {
     return (
       <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '36px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 56, marginBottom: 14 }}>👥</div>
+        <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}><IconGroup size={64} /></div>
         <div className="h-display" style={{ fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>אין לך עדיין חברים ברשימה</div>
         <div style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 20 }}>הוסיפו חברים בקפה או בפרלמנט — ואז תוכלו להזמין אותם למשחק.</div>
         <button onClick={onBack} className="big-btn big-btn--ghost" style={{ width: '100%' }}>חזרה</button>
@@ -690,7 +763,7 @@ function FriendRow({ friend, profile, online, onInvite }) {
         background: online ? 'var(--success)' : 'var(--burgundy)', color: 'white', border: 'none',
         borderRadius: 12, padding: '11px 16px', fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
         cursor: 'pointer', whiteSpace: 'nowrap',
-      }}>🎮 הזמן</button>
+      }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconGamepad size={16} color="#fff" /> הזמן</span></button>
     </div>
   )
 }
@@ -1070,16 +1143,12 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
       {/* המספר הנוכחי + מה שיצא */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12,
-        background: 'rgba(0,0,0,.18)', borderRadius: 16, padding: '12px 14px',
+        background: 'rgba(0,0,0,.80)', borderRadius: 16, padding: '12px 14px',
         border: '1px solid rgba(201,162,74,.25)',
       }}>
         <CurrentBall num={currentNum} />
         <CalledStrip called={called} />
-        <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק'} style={{
-          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-          background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.18)',
-          fontSize: 20, cursor: 'pointer', color: '#fff',
-        }}>{muted ? '🔇' : '🔊'}</button>
+        <BingoMusicButton />
       </div>
 
       {/* פס שחקנים */}
@@ -1093,7 +1162,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
         <div style={{
           background: 'rgba(232,72,79,.92)', color: '#fff', borderRadius: 12,
           padding: '10px 14px', textAlign: 'center', fontWeight: 800, fontSize: 15, marginBottom: 12,
-        }}>עדיין אין שורה מלאה — תמשיכו לסמן! 🎯</div>
+        }}>עדיין אין שורה מלאה — תמשיכו לסמן!</div>
       )}
 
       <BingoCard
@@ -1112,7 +1181,7 @@ function OnlinePlay({ room, roomId, me, profile, onBack, onHome, onExit }) {
 
       {winner && (
         <WinModal
-          title={winner.uid === me.uid ? 'בינגו! 🎉' : `${winner.name} ניצח/ה`}
+          title={winner.uid === me.uid ? 'בינגו!' : `${winner.name} ניצח/ה`}
           subtitle={winner.uid === me.uid ? 'השלמת שורה ראשון — כל הכבוד!' : 'משחק יפה — אפשר לשחק שוב'}
           onPlayAgain={null}
           onExit={onExit}
@@ -1140,11 +1209,11 @@ function WinModal({ title, subtitle, onPlayAgain, onExit, exitLabel = 'חזרה 
         padding: '32px 28px 24px', maxWidth: 360, width: '100%', textAlign: 'center',
         boxShadow: 'var(--shadow-lg)',
       }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>🎉</div>
+        <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}><IconTrophy size={56} color="#C9A24A" /></div>
         <div className="h-display" style={{ fontSize: 28, color: BURG, marginBottom: 6 }}>{title}</div>
         <div style={{ fontSize: 16, color: 'var(--ink-2)', marginBottom: 24, fontWeight: 600, lineHeight: 1.4 }}>{subtitle}</div>
         {onPlayAgain && (
-          <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}>🔄 משחק חדש</button>
+          <button onClick={onPlayAgain} className="big-btn big-btn--primary" style={{ width: '100%', marginBottom: 10 }}><span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><IcRefresh size={18} color="currentColor" /> משחק חדש</span></button>
         )}
         <button onClick={onExit} className="big-btn big-btn--ghost" style={{ width: '100%' }}>{exitLabel}</button>
       </div>

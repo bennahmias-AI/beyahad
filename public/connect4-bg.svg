@@ -1,0 +1,49 @@
+<svg viewBox="0 0 380 620" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#1B3A57"/>
+<stop offset="0.55" stop-color="#112A41"/>
+<stop offset="1" stop-color="#091625"/>
+</linearGradient>
+<radialGradient id="lamp" cx="0.5" cy="0.13" r="0.65">
+<stop offset="0" stop-color="#F4D98A" stop-opacity="0.40"/>
+<stop offset="0.45" stop-color="#E8C879" stop-opacity="0.14"/>
+<stop offset="1" stop-color="#E8C879" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="vig" cx="0.5" cy="0.45" r="0.78">
+<stop offset="0.55" stop-color="#06121E" stop-opacity="0"/>
+<stop offset="1" stop-color="#050F18" stop-opacity="0.6"/>
+</radialGradient>
+<radialGradient id="burg" cx="0.4" cy="0.34" r="0.75">
+<stop offset="0" stop-color="#A6474B"/>
+<stop offset="0.5" stop-color="#7E2C2E"/>
+<stop offset="1" stop-color="#5A1D1E"/>
+</radialGradient>
+<radialGradient id="gold" cx="0.4" cy="0.34" r="0.75">
+<stop offset="0" stop-color="#F0D082"/>
+<stop offset="0.5" stop-color="#C9A24A"/>
+<stop offset="1" stop-color="#9A7A33"/>
+</radialGradient>
+</defs>
+<rect x="0" y="0" width="380" height="620" fill="url(#sky)"/>
+<line x1="190" y1="0" x2="190" y2="36" stroke="#E8C879" stroke-opacity="0.32" stroke-width="2"/>
+<ellipse cx="190" cy="42" rx="17" ry="9" fill="#E8C879" fill-opacity="0.45"/>
+<rect x="0" y="0" width="380" height="620" fill="url(#lamp)"/>
+<circle cx="64" cy="180" r="66" fill="none" stroke="#E8C879" stroke-opacity="0.07" stroke-width="11"/>
+<circle cx="330" cy="250" r="92" fill="none" stroke="#7E2C2E" stroke-opacity="0.10" stroke-width="13"/>
+<circle cx="312" cy="540" r="80" fill="none" stroke="#E8C879" stroke-opacity="0.06" stroke-width="11"/>
+<circle cx="44" cy="500" r="60" fill="none" stroke="#7E2C2E" stroke-opacity="0.08" stroke-width="10"/>
+<circle cx="150" cy="430" r="120" fill="none" stroke="#E8C879" stroke-opacity="0.04" stroke-width="14"/>
+<circle cx="40" cy="120" r="32" fill="#E8C879" fill-opacity="0.07"/>
+<circle cx="344" cy="140" r="26" fill="#7E2C2E" fill-opacity="0.13"/>
+<circle cx="300" cy="360" r="20" fill="#C9A24A" fill-opacity="0.10"/>
+<circle cx="60" cy="330" r="16" fill="#7E2C2E" fill-opacity="0.12"/>
+<circle cx="18" cy="28" r="32" fill="url(#burg)"/>
+<ellipse cx="10" cy="17" rx="12" ry="7.5" fill="#C56468" fill-opacity="0.55"/>
+<circle cx="362" cy="60" r="26" fill="url(#gold)"/>
+<ellipse cx="355" cy="51" rx="10" ry="6.5" fill="#FBEFC8" fill-opacity="0.6"/>
+<circle cx="336" cy="588" r="30" fill="url(#gold)"/>
+<ellipse cx="329" cy="578" rx="11" ry="7" fill="#FBEFC8" fill-opacity="0.5"/>
+<circle cx="36" cy="600" r="26" fill="url(#burg)"/>
+<rect x="0" y="0" width="380" height="620" fill="url(#vig)"/>
+</svg>

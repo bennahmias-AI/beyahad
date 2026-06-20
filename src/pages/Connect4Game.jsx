@@ -16,7 +16,7 @@
 //   • קומפוננטות UI (מסכי בחירה + מסך המשחק)
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef } from 'react'
-import { IconBackRTL } from '../icons/index.jsx'
+import { IconBackRTL, IconMusicNote, IconSpeaker, IconSpeakerOff, IconTrophy, IconGroup } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 import { useUserStore } from '../stores/userStore.js'
@@ -26,7 +26,7 @@ import {
   watchFriendships, sendGameInvite, watchInvite, deleteGameInvite,
   watchUser,
 } from '../services/firebase.js'
-import { playSound, isMuted, setMuted } from '../utils/gameSounds.js'
+import { playSound, isMuted, setMuted, MUSIC_TRACKS } from '../utils/gameSounds.js'
 import Avatar from '../components/Avatar.jsx'
 import { AddFriendButton, ChatHeaderButton, ChatPanel, ChatToast } from '../components/GameChat.jsx'
 import { GameVideoProvider, PlayerVideo, VideoControls, VideoConsentGate, RemoteVideoToggles, ProfilesProvider, usePlayerProfile } from '../components/GameVideo.jsx'
@@ -1310,6 +1310,8 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
   const [winningCells, setWinningCells] = useState([])
   const [busy, setBusy] = useState(false)
   const [lastDropped, setLastDropped] = useState(null)
+  const [showWinModal, setShowWinModal] = useState(false)
+  const [aiName] = useState(() => ['דניאל', 'רינת', 'רומי'][Math.floor(Math.random() * 3)])
 
   const isAITurn = mode === 'ai' && currentPlayer === P2 && !winner
 
@@ -1335,6 +1337,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     if (win) {
       setWinner(player)
       setWinningCells(win)
+      setTimeout(() => setShowWinModal(true), 3000)   // הדגשה ירוקה 3 שניות לפני מסך הסיום
       // סאונד ניצחון/הפסד עם השהייה קלה כדי לא לדרוס את סאונד ה-drop
       setTimeout(() => {
         if (mode === 'ai' && player === P2) {
@@ -1345,6 +1348,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       }, 300)
     } else if (isBoardFull(result.board)) {
       setWinner('draw')
+      setTimeout(() => setShowWinModal(true), 700)
     } else {
       setCurrentPlayer(player === P1 ? P2 : P1)
     }
@@ -1363,13 +1367,14 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
     setWinningCells([])
     setLastDropped(null)
     setBusy(false)
+    setShowWinModal(false)
   }
 
   const statusText = (() => {
-    if (winner === 'draw') return 'תיקו! 🤝'
-    if (winner === P1) return mode === 'ai' ? 'ניצחת! 🎉' : 'שחקן 1 ניצח! 🎉'
-    if (winner === P2) return mode === 'ai' ? 'המחשב ניצח 🤖' : 'שחקן 2 ניצח! 🎉'
-    if (isAITurn) return 'המחשב חושב...'
+    if (winner === 'draw') return 'תיקו!'
+    if (winner === P1) return mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!'
+    if (winner === P2) return mode === 'ai' ? `${aiName} ניצח` : 'שחקן 2 ניצח!'
+    if (isAITurn) return `${aiName} חושב...`
     return mode === 'ai' ? 'התור שלך' : `תור שחקן ${currentPlayer}`
   })()
 
@@ -1385,7 +1390,7 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       statusText={statusText}
       statusColor={statusColor}
       p1Name={mode === 'ai' ? 'אתה' : 'שחקן 1'}
-      p2Name={mode === 'ai' ? 'מחשב' : 'שחקן 2'}
+      p2Name={mode === 'ai' ? aiName : 'שחקן 2'}
       currentPlayer={currentPlayer}
       winner={winner}
       board={board}
@@ -1397,8 +1402,8 @@ function LocalGameScreen({ mode, difficulty, onBack, onHome, onExit }) {
       onChangeMode={onBack}
       isOnline={false}
     >
-      {winner && (
-        <WinModal mode={mode} winner={winner} youArePlayer={P1}
+      {showWinModal && (
+        <WinModal mode={mode} winner={winner} youArePlayer={P1} aiName={aiName}
           onPlayAgain={resetGame} onExit={onExit} />
       )}
     </GameScreenLayout>
@@ -1414,6 +1419,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   const [error, setError] = useState('')
   const [lastDropped, setLastDropped] = useState(null)
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
+  const [showEnd, setShowEnd] = useState(false)
   // מעקב אחר מספר המהלכים האחרון — כדי להפעיל סאונד 'drop' רק כשיש מהלך חדש
   const lastMoveKeyRef = useRef(null)
   // מעקב האם כבר ניגנו סאונד סיום — כדי לא לנגן אותו פעמיים
@@ -1491,6 +1497,13 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
   // איפוס דגל סאונד הסיום כשמתחיל סיבוב חדש (winner חזר ל-null)
   useEffect(() => {
     if (!winner) finishedSoundPlayedRef.current = false
+  }, [winner])
+
+  // הדגשת הרביעייה הירוקה 3 שניות לפני מסך הסיום (כמו במצב המקומי)
+  useEffect(() => {
+    if (!winner) { setShowEnd(false); return }
+    const t = setTimeout(() => setShowEnd(true), 3000)
+    return () => clearTimeout(t)
   }, [winner])
 
   // כששני השחקנים לחצו "שחק שוב" — ה-host (P1) מאפס את הלוח לשני הצדדים
@@ -1606,10 +1619,10 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
 
   // טקסט סטטוס
   const statusText = (() => {
-    if (winner === 'draw') return 'תיקו! 🤝'
+    if (winner === 'draw') return 'תיקו!'
     if (winner) {
       const winnerIsMe = winner === myColor
-      return winnerIsMe ? 'ניצחת! 🎉' : 'הפסדת 😕'
+      return winnerIsMe ? 'ניצחת!' : 'הפסדת'
     }
     return isMyTurn ? 'התור שלך' : `${opponent?.name || 'היריב'} משחק...`
   })()
@@ -1650,7 +1663,7 @@ function OnlineGameScreen({ roomId, onBack, onHome, onExit, onFindOther }) {
       roomId={roomId} meUid={myUid} meName={me?.name} chat={room.chat || []}
       addFriendNode={opponent?.uid ? <AddFriendButton me={me} opponent={opponent} compact /> : null}
     >
-      {winner && (
+      {showEnd && (
         <OnlineEndModal
           result={winner === 'draw' ? 'draw' : (winner === myColor ? 'win' : 'lose')}
           opponentName={opponent?.name || 'היריב'}
@@ -1688,15 +1701,50 @@ function GameScreenLayout({
   // מצב השתקה (נקרא מ-localStorage בכל מונט כדי להתעדכן אם המשתמש שינה במקום אחר)
   const [muted, setMutedState] = useState(() => isMuted())
   const [chatOpen, setChatOpen] = useState(false)
+  const audioRef = useRef(null)
+  const [musicOn, setMusicOn] = useState(() => localStorage.getItem('beyahad_connect4_music') !== 'off')
+  const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(() => { const v = parseFloat(localStorage.getItem('beyahad_connect4_vol')); return isNaN(v) ? 0.10 : v })
+  const [musicMenu, setMusicMenu] = useState(false)
 
   const toggleMute = () => {
     const next = !muted
     setMutedState(next)
     setMuted(next)
   }
+  const toggleMusic = () => {
+    setMusicOn(v => {
+      const n = !v
+      localStorage.setItem('beyahad_connect4_music', n ? 'on' : 'off')
+      return n
+    })
+  }
+  const nextTrack = () => setTrackIdx(i => (i + 1) % MUSIC_TRACKS.length)
+  const changeVol = (d) => setMusicVol(v => {
+    const n = Math.min(1, Math.max(0, Math.round((v + d) * 100) / 100))
+    localStorage.setItem('beyahad_connect4_vol', String(n))
+    return n
+  })
+
+  // מוזיקת רקע — מתנגנת בלולאה כשמופעלת (נעצרת אוטומטית כשהאפליקציה ברקע)
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    if (musicOn) a.play().catch(() => {})
+    else a.pause()
+  }, [musicOn, trackIdx])
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = musicVol
+  }, [musicVol])
+  useEffect(() => {
+    if (!musicOn) return
+    const kick = () => { if (audioRef.current) audioRef.current.play().catch(() => {}) }
+    window.addEventListener('pointerdown', kick, { once: true })
+    return () => window.removeEventListener('pointerdown', kick)
+  }, [musicOn])
 
   return (
-    <div className="scroll-area" style={{ direction: 'rtl' }}>
+    <div className="scroll-area" style={{ direction: 'rtl', background: 'linear-gradient(rgba(10,16,26,.30), rgba(10,16,26,.48)), url(/arbabeshura.png) center / cover no-repeat #0E2238' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה">
           <IconBackRTL size={24} color="#1B2540" />
@@ -1728,23 +1776,7 @@ function GameScreenLayout({
             {statusText}
           </div>
           {/* כפתור השתקה — ליד הסטטוס */}
-          <button
-            onClick={toggleMute}
-            aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'}
-            title={muted ? 'הפעל סאונד' : 'השתק סאונד'}
-            style={{
-              width: 52,
-              background: muted ? 'rgba(126,44,46,.08)' : 'var(--surface)',
-              border: muted ? '2px solid rgba(126,44,46,.3)' : '1px solid var(--line)',
-              borderRadius: 14,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 22, cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontFamily: 'inherit',
-            }}
-          >
-            {muted ? '🔇' : '🔊'}
-          </button>
+
         </div>
 
         {/* שחקנים */}
@@ -1765,25 +1797,54 @@ function GameScreenLayout({
           disabled={disabled}
         />
 
-        {/* כפתורי שליטה */}
+        {/* בקרת שמע — מוזיקה + השתקה */}
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <button onClick={onReset} style={{
-            flex: 1, background: 'var(--burgundy)', color: 'white',
-            border: 'none', borderRadius: 14, padding: '14px',
-            fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
-            cursor: 'pointer',
+          <div style={{ flex: 1, position: 'relative' }}>
+            <button onClick={() => setMusicMenu(o => !o)} style={{
+              width: '100%', background: musicOn ? 'var(--burgundy)' : 'var(--surface)', color: musicOn ? 'white' : 'var(--ink)',
+              border: musicOn ? 'none' : '1px solid var(--line)', borderRadius: 14, padding: '14px',
+              fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              <IconMusicNote size={20} color={musicOn ? 'white' : 'var(--ink)'} /> מוזיקה
+            </button>
+            {musicMenu && (
+              <>
+                <div onClick={() => setMusicMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{
+                  position: 'absolute', bottom: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginBottom: 8,
+                  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16,
+                  padding: 12, boxShadow: 'var(--shadow-lg)', zIndex: 50,
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button onClick={() => changeVol(-0.05)} aria-label="החלש עוצמה" style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid var(--line)', background: 'var(--bg-app)', fontSize: 22, fontWeight: 800, cursor: 'pointer', color: 'var(--ink)' }}>−</button>
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>עוצמה</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{Math.round(musicVol * 100)}%</div>
+                    </div>
+                    <button onClick={() => changeVol(0.05)} aria-label="הגבר עוצמה" style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid var(--line)', background: 'var(--bg-app)', fontSize: 22, fontWeight: 800, cursor: 'pointer', color: 'var(--ink)' }}>+</button>
+                  </div>
+                  <button onClick={nextTrack} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--bg-app)', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', color: 'var(--ink)' }}>
+                    <IconMusicNote size={18} color="var(--ink)" /> השיר הבא
+                  </button>
+                  <button onClick={toggleMusic} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: 'none', background: musicOn ? 'rgba(126,44,46,.10)' : 'var(--burgundy)', fontSize: 15, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', color: musicOn ? '#7E2C2E' : 'white' }}>
+                    {musicOn ? 'השתק מוזיקה' : 'הפעל מוזיקה'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button onClick={toggleMute} aria-label={muted ? 'הפעל סאונד' : 'השתק סאונד'} style={{
+            flex: 1, background: muted ? 'rgba(126,44,46,.08)' : 'var(--surface)', color: 'var(--ink)',
+            border: muted ? '2px solid rgba(126,44,46,.3)' : '1px solid var(--line)', borderRadius: 14, padding: '14px',
+            fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
-            🔄 משחק חדש
-          </button>
-          <button onClick={onChangeMode} style={{
-            flex: 1, background: 'var(--surface)', color: 'var(--ink)',
-            border: '1px solid var(--line)', borderRadius: 14, padding: '14px',
-            fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-            cursor: 'pointer',
-          }}>
-            {isOnline ? '🚪 עזוב משחק' : 'החלף מצב'}
+            {muted ? <IconSpeakerOff size={20} color="var(--ink)" /> : <IconSpeaker size={20} color="var(--ink)" />} {muted ? 'מושתק' : 'סאונד'}
           </button>
         </div>
+        <audio ref={audioRef} src={MUSIC_TRACKS[trackIdx]} loop preload="auto" />
       </div>
 
       {isOnline && meUid && <ChatToast msgs={chat} meUid={meUid} suppressed={chatOpen} onOpen={() => setChatOpen(true)} />}
@@ -1898,8 +1959,9 @@ function Board({ board, winningCells, lastDropped, onColumnClick, disabled }) {
               return (
                 <div key={r} style={{
                   aspectRatio: '1',
-                  background: 'rgba(255,255,255,.08)',
+                  background: 'radial-gradient(circle at 50% 32%, #06121E 0%, #0C2236 62%, #1E4063 100%)',
                   borderRadius: '50%',
+                  boxShadow: 'inset 0 3px 7px rgba(0,0,0,.65), inset 0 -2px 4px rgba(120,170,210,.12)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   position: 'relative', overflow: 'hidden',
                 }}>
@@ -1910,9 +1972,9 @@ function Board({ board, winningCells, lastDropped, onColumnClick, disabled }) {
                         ? 'radial-gradient(circle at 30% 30%, #B83E40, #7E2C2E 60%, #5A1D1E)'
                         : 'radial-gradient(circle at 30% 30%, #E3B560, #B89048 60%, #8A6A2E)',
                       boxShadow: winning
-                        ? `0 0 0 3px #FBF7EE, 0 0 16px ${cell === P1 ? '#FF6B6B' : '#FFD93D'}`
+                        ? '0 0 0 3px #FFFFFF, 0 0 0 6px #22C55E, 0 0 20px 4px #22C55E'
                         : 'inset 0 -3px 6px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.4)',
-                      animation: dropped ? 'connect4Drop 0.4s ease-out' : 'none',
+                      animation: dropped ? 'connect4Drop 0.5s cubic-bezier(0.4, 0.1, 0.5, 1)' : 'none',
                       transition: 'box-shadow 0.3s',
                     }}/>
                   )}
@@ -1924,15 +1986,23 @@ function Board({ board, winningCells, lastDropped, onColumnClick, disabled }) {
       </div>
       <style>{`
         @keyframes connect4Drop {
-          from { transform: translateY(-400%); }
-          to { transform: translateY(0); }
+          0%   { transform: translateY(-700%); }
+          60%  { transform: translateY(0); }
+          73%  { transform: translateY(-12%); }
+          86%  { transform: translateY(0); }
+          93%  { transform: translateY(-4%); }
+          100% { transform: translateY(0); }
         }
       `}</style>
     </div>
   )
 }
 
-function WinModal({ mode, winner, youArePlayer, onPlayAgain, onExit }) {
+function IcRefresh({ size = 18, color = 'currentColor' }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></svg>)
+}
+
+function WinModal({ mode, winner, youArePlayer, aiName, onPlayAgain, onExit }) {
   let emoji, title, subtitle, color, aiRobot = false
   if (winner === 'draw') {
     emoji = '🤝'; title = 'תיקו!'; subtitle = 'משחק יפה משני הצדדים'; color = '#8389A4'
@@ -1940,7 +2010,7 @@ function WinModal({ mode, winner, youArePlayer, onPlayAgain, onExit }) {
     emoji = '🎉'; title = mode === 'online' ? 'ניצחת!' : (mode === 'ai' ? 'ניצחת!' : 'שחקן 1 ניצח!')
     subtitle = 'כל הכבוד'; color = '#7E2C2E'
   } else {
-    if (mode === 'ai') { aiRobot = true; title = 'המחשב ניצח'; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
+    if (mode === 'ai') { emoji = '😕'; title = `${aiName} ניצח`; subtitle = 'נסה שוב, אתה תצליח!'; color = '#2C5566' }
     else { emoji = mode === 'online' ? '😕' : '🎉'; title = mode === 'online' ? 'הפסדת' : 'שחקן 2 ניצח!'; subtitle = mode === 'online' ? 'משחק יפה — נסה שוב' : 'כל הכבוד'; color = '#B89048' }
   }
 
@@ -1956,15 +2026,19 @@ function WinModal({ mode, winner, youArePlayer, onPlayAgain, onExit }) {
         maxWidth: 360, width: '100%', textAlign: 'center',
         boxShadow: 'var(--shadow-lg)',
       }}>
-        {aiRobot ? (
-          <div style={{
-            width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px',
-            background: 'linear-gradient(135deg, #2C5566, #173846)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}><GameIcon id="vs-ai" size={60} /></div>
-        ) : (
-          <div style={{ fontSize: 64, marginBottom: 12 }}>{emoji}</div>
-        )}
+        {(() => {
+          const won = winner !== 'draw' && winner === youArePlayer
+          const isDraw = winner === 'draw'
+          const lost = !won && !isDraw && (mode === 'ai' || mode === 'online')
+          const badgeBg = isDraw ? 'rgba(131,137,164,.16)' : lost ? 'rgba(44,85,102,.14)' : 'rgba(201,162,74,.16)'
+          return (
+            <div style={{ width: 88, height: 88, borderRadius: '50%', margin: '0 auto 14px', background: badgeBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {isDraw ? <IconGroup size={50} color="#8389A4" />
+                : lost ? <IcRefresh size={48} color="#2C5566" />
+                : <IconTrophy size={52} color="#C9A24A" />}
+            </div>
+          )
+        })()}
         <div className="h-display" style={{ fontSize: 28, color, marginBottom: 6 }}>
           {title}
         </div>
