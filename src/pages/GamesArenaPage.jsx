@@ -90,6 +90,15 @@ const GAMES = [
     status: 'available',
   },
   {
+    id: 'domino',
+    name: 'דומינו',
+    description: 'התאימו ופרקו ראשונים',
+    emoji: '🁫',
+    players: 'AI / 2-4 שחקנים',
+    color: '#1f6a45', // ירוק לבד
+    status: 'available',
+  },
+  {
     id: 'arena',
     name: 'מלך הזירה',
     description: 'דו-קרב טריוויה',
@@ -120,11 +129,11 @@ const GAMES = [
 ]
 
 // מזהי המשחקים שאפשר לשחק עם חבר (רב-משתתפים). memory/trivia הם "לבד" ולכן לא כלולים.
-const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess', 'aroundworld']
+const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena', 'bingo', 'chess', 'aroundworld', 'domino']
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
-const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'aroundworld']
+const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'aroundworld', 'domino']
 
-export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, onGoDomino, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const { authUser, profile } = useUserStore()
@@ -177,6 +186,10 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
     }
     if (game.id === 'aroundworld' && onGoAroundWorld) {
       onGoAroundWorld()
+      return
+    }
+    if (game.id === 'domino' && onGoDomino) {
+      onGoDomino()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

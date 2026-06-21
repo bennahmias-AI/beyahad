@@ -726,7 +726,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
       {/* player cards modal */}
       {viewPlayer && (
-        <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} lottoCards={LOTTO_CARDS} chanceCards={CHANCE_CARDS} onClose={() => setViewPlayer(null)} />
+        <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} lottoCards={LOTTO_CARDS} chanceCards={CHANCE_CARDS} onClose={() => setViewPlayer(null)} rotate={isPortrait} />
       )}
 
       {/* lotto / chance: flip-card animation (a card rises from the deck,

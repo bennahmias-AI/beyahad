@@ -440,6 +440,14 @@ export async function submitGameSuggestion({ uid, name, text }) {
       status: 'open',
       createdAt: serverTimestamp(),
     })
+    // התראת מייל למנהל — best-effort (לא חוסם; נכשל בשקט בלוקאל/ללא שרת)
+    try {
+      fetch(`${EMAIL_API_BASE}/api/notify-suggestion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name || '', text: String(text).trim().slice(0, 1000) }),
+      }).catch(() => {})
+    } catch {}
     return { ok: true }
   } catch (e) {
     console.error('submitGameSuggestion error:', e)
@@ -2607,6 +2615,131 @@ export async function findOrCreateAroundWorldMatch({ player, maxPlayers = 4 }) {
     return { roomId: room.id, isHost: false }
   }
   const { roomId } = await createAroundWorldRoom({ host: player, roomType: 'random', maxPlayers })
+  return { roomId, isHost: true }
+}
+
+// ─── דומינו — חדרי משחק רב-משתתפים (2-4) ─────────────
+// מודל זהה לרמיקוב/מסביב-לעולם: חדר עם מארח, עד maxPlayers שחקנים,
+// gameStateJson מחזיק את מצב המשחק המלא מהמנוע (אבנים, יד כל שחקן,
+// הלוח/השרשרת, תור, מי פתח, מנצח). רק מי-שבתורו כותב את המצב קדימה.
+//
+//   dominoRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'playing'|'ended',
+//     gameStateJson, maxPlayers, roomType, isPrivate, inviteCode
+
+export async function createDominoRoom({ host, roomType, maxPlayers = 4 }) {
+  const inviteCode = roomType === 'private' ? generateInviteCode() : null
+  const ref = await addDoc(collection(db, 'dominoRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    gameStateJson: '',
+    maxPlayers,
+    roomType,
+    isPrivate: roomType === 'private',
+    inviteCode,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, inviteCode }
+}
+
+export async function joinDominoRoom(roomId, player) {
+  const ref = doc(db, 'dominoRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status !== 'waiting') throw new Error('המשחק כבר התחיל')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 4)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל את המשחק (מעביר ל-playing עם מצב התחלתי).
+export async function startDominoGame(roomId, gameState) {
+  await updateDoc(doc(db, 'dominoRooms', roomId), {
+    status: 'playing',
+    gameStateJson: JSON.stringify(gameState),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// מעדכן את מצב המשחק (אחרי מהלך / תור).
+export async function updateDominoState(roomId, gameState) {
+  try {
+    await updateDoc(doc(db, 'dominoRooms', roomId), {
+      gameStateJson: JSON.stringify(gameState),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateDominoState error:', e)
+  }
+}
+
+export function watchDominoRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'dominoRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchDominoRoom error:', err) })
+}
+
+export async function leaveDominoRoom(roomId) {
+  try { await deleteDoc(doc(db, 'dominoRooms', roomId)) }
+  catch (e) { console.error('leaveDominoRoom error:', e) }
+}
+
+// הסרת שחקן בודד מרשימת חדר ממתין (מוזמן שעוזב לפני שהמשחק התחיל).
+export async function removePlayerFromDominoRoom(roomId, uid) {
+  if (!roomId || !uid) return
+  try {
+    const ref = doc(db, 'dominoRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const data = snap.data()
+    if (data.status !== 'waiting') return
+    const players = (data.players || []).filter(p => p.uid !== uid)
+    await updateDoc(ref, { players, updatedAt: serverTimestamp() })
+  } catch (e) { console.error('removePlayerFromDominoRoom error:', e) }
+}
+
+// שולח הודעת צ'אט בחדר דומינו (מתווסף למערך chat).
+export async function sendDominoChat(roomId, message) {
+  try {
+    await updateDoc(doc(db, 'dominoRooms', roomId), {
+      chat: arrayUnion(message),
+    })
+  } catch (e) {
+    console.error('sendDominoChat error:', e)
+  }
+}
+
+// מתאמה רנדומלית לדומינו — מצטרף לחדר ממתין (עם אותו מספר שחקנים מבוקש)
+// או יוצר חדש. כשהחדר מתמלא בדיוק ל-maxPlayers — המשחק מתחיל אוטומטית (צד הלקוח).
+export async function findOrCreateDominoMatch({ player, maxPlayers = 4 }) {
+  const q = query(
+    collection(db, 'dominoRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    if ((data.maxPlayers || 4) !== maxPlayers) return false
+    const players = data.players || []
+    if (players.length >= (data.maxPlayers || 4)) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinDominoRoom(room.id, player)
+    return { roomId: room.id, isHost: false }
+  }
+  const { roomId } = await createDominoRoom({ host: player, roomType: 'random', maxPlayers })
   return { roomId, isHost: true }
 }
 

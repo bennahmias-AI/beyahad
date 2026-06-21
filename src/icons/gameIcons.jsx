@@ -432,6 +432,25 @@ function LevelHardIcon({ size }) {
   )
 }
 
+// ── 🅰 דומינו — אבן דומינו עם נקודות ──
+function DominoIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      <g transform="rotate(-20, 32, 32)">
+        <rect x="13" y="21" width="38" height="22" rx="4" fill={W} />
+        <line x1="32" y1="21" x2="32" y2="43" stroke={DARK} strokeWidth="1.6" strokeOpacity="0.5" />
+        {/* חצי שמאלי — 3 נקודות */}
+        <circle cx="18" cy="27" r="2" fill={DARK} />
+        <circle cx="22" cy="32" r="2" fill={DARK} />
+        <circle cx="26" cy="37" r="2" fill={DARK} />
+        {/* חצי ימני — 2 נקודות */}
+        <circle cx="38" cy="28" r="2" fill={DARK} />
+        <circle cx="45" cy="36" r="2" fill={DARK} />
+      </g>
+    </IconWrap>
+  )
+}
+
 export function GameIcon({ id, size = 64 }) {
   switch (id) {
     case 'bingo':     return <BingoIcon size={size} />
@@ -442,6 +461,7 @@ export function GameIcon({ id, size = 64 }) {
     case 'trivia':    return <TriviaIcon size={size} />
     case 'memory':    return <MemoryIcon size={size} />
     case 'rummikub':  return <RummikubIcon size={size} />
+    case 'domino':    return <DominoIcon size={size} />
     case 'aroundworld':  return <AroundWorldIcon size={size} />
     case 'arena':     return <ArenaIcon size={size} />
     case 'words':     return <WordsIcon size={size} />

@@ -10,6 +10,7 @@ import {
   sendUserNotification, adminDeleteUser, sendDirectMessage,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import GameSuggestionsPanel from '../components/GameSuggestionsPanel.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
 const ACCENT = '#2F3A56'
@@ -355,6 +356,9 @@ export default function AdminDashboard({ onExit }) {
                 </div>
               </>
             )}
+
+            {/* ===== הצעות משחק ===== */}
+            <GameSuggestionsPanel />
 
             {/* ===== פעילות (לפי טווח תאריכים) ===== */}
             <div style={sectionTitle}>פעילות</div>

@@ -34,6 +34,7 @@ import RummikubGame from './pages/RummikubGame.jsx'
 import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
 import AroundWorldGame from './pages/AroundWorldGame.jsx'
+import DominoGame from './pages/DominoGame.jsx'
 import AdminDashboard from './pages/AdminDashboardResponsive.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
@@ -80,6 +81,7 @@ export default function App() {
   const [arenaRoom, setArenaRoom] = useState(null)
   const [bingoRoom, setBingoRoom] = useState(null)
   const [aroundWorldRoom, setAroundWorldRoom] = useState(null)
+  const [dominoRoom, setDominoRoom] = useState(null)
   // מצב משחק לכניסה ישירה ממסך הבית (חבר/רשת/מחשב/לבד) — null = מסך בחירת מצב רגיל
   const [gameMode, setGameMode] = useState(null)
   // החבר שאיתו פתוחה שיחת צ'אט פרטית
@@ -194,6 +196,7 @@ export default function App() {
       case 'millionaire-game':
         return 'games'
       case 'aroundworld-game': setAroundWorldRoom(null); setPlayFriend(null); return 'games'
+      case 'domino-game': setDominoRoom(null); setPlayFriend(null); return 'games'
       case 'rummikub-game': setRummikubRoom(null); setPlayFriend(null); return 'games'
       case 'arena-game':    setArenaRoom(null);    setPlayFriend(null); return 'games'
       case 'bingo-game':    setBingoRoom(null);    setPlayFriend(null); return 'games'
@@ -272,7 +275,7 @@ export default function App() {
   function goHome() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
-    setAroundWorldRoom(null)
+    setAroundWorldRoom(null); setDominoRoom(null)
     setGameMode(null)
     setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
     setPage('hub')
@@ -322,6 +325,9 @@ export default function App() {
     } else if (gameType === 'aroundworld') {
       setAroundWorldRoom(roomId)
       setPage('aroundworld-game')
+    } else if (gameType === 'domino') {
+      setDominoRoom(roomId)
+      setPage('domino-game')
     }
   }
 
@@ -349,7 +355,7 @@ export default function App() {
   function handlePlayGame(gameType, mode) {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
-    setAroundWorldRoom(null)
+    setAroundWorldRoom(null); setDominoRoom(null)
     setPlayFriend(null)
     setGameMode(mode)
     setPage(`${gameType}-game`)
@@ -581,10 +587,12 @@ export default function App() {
           onGoArena={() => { setArenaRoom(null); setPage('arena-game') }}
           onGoBingo={() => { setBingoRoom(null); setGameMode(null); setPage('bingo-game') }}
           onGoAroundWorld={() => setPage('aroundworld-game')}
+          onGoDomino={() => { setDominoRoom(null); setGameMode(null); setPage('domino-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
       {page === 'aroundworld-game' && <AroundWorldGame initialRoomId={aroundWorldRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setAroundWorldRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
+      {page === 'domino-game' && <DominoGame initialRoomId={dominoRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setDominoRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}

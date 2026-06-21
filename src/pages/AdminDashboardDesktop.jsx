@@ -17,6 +17,7 @@ import {
   watchReports, resolveReport, deleteReport, blockUser,
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
+import GameSuggestionsPanel from '../components/GameSuggestionsPanel.jsx'
 
 const ACCENT = '#2F3A56'
 const ROLE_COLOR = { admin: '#7E2C2E', premium: '#B89048', user: '#5E7CA6' }
@@ -545,6 +546,9 @@ export default function AdminDashboardDesktop({ onExit }) {
                     </div>
                   )}
                 </div>
+
+                {/* הצעות משחק */}
+                <div><GameSuggestionsPanel /></div>
 
                 {/* דורש טיפול */}
                 <div>
