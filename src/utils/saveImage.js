@@ -90,10 +90,12 @@ export async function saveImageBlob(blob, filename = '\u05d1\u05e8\u05db\u05d4.p
 // שיתוף
 // ═══════════════════════════════════════════════════════════════
 // ב-native: כותב קובץ זמני ל-Cache ומשתף את ה-URI שלו.
-async function nativeShare(blob, filename, title) {
+async function nativeShare(blob, filename, title, onProgress) {
   const { Filesystem, Directory } = await import('@capacitor/filesystem')
   const { Share } = await import('@capacitor/share')
+  onProgress?.(62, 'מכווץ את התמונה…')
   const base64 = await blobToBase64(blob)
+  onProgress?.(80, 'שומר את הברכה…')
   const writeRes = await Filesystem.writeFile({
     path: filename,
     data: base64,
@@ -103,6 +105,7 @@ async function nativeShare(blob, filename, title) {
   const uriRes = writeRes?.uri
     ? writeRes
     : await Filesystem.getUri({ path: filename, directory: Directory.Cache })
+  onProgress?.(94, 'פותח חלון שיתוף…')
   await Share.share({
     title: title || '\u05d1\u05e8\u05db\u05d4 \u05de\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d9\u05ea \u05d1\u05d9\u05d7\u05d3',
     text: title || '',
@@ -113,8 +116,9 @@ async function nativeShare(blob, filename, title) {
 
 // בדפדפן: navigator.share עם קובץ אם אפשר; אחרת מחזיר notSupported
 // כדי שהמסך יחליט על fallback (וואטסאפ / הורדה).
-async function browserShare(blob, filename, title) {
+async function browserShare(blob, filename, title, onProgress) {
   try {
+    onProgress?.(88, 'פותח חלון שיתוף…')
     const file = new File([blob], filename, { type: blob.type || 'image/png' })
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: title || '', text: title || '' })
@@ -131,11 +135,11 @@ async function browserShare(blob, filename, title) {
   return { ok: false, notSupported: true }
 }
 
-export async function shareImageBlob(blob, filename = '\u05d1\u05e8\u05db\u05d4.png', title = '') {
+export async function shareImageBlob(blob, filename = '\u05d1\u05e8\u05db\u05d4.png', title = '', onProgress) {
   if (!blob) return { ok: false, error: 'no blob' }
   try {
-    if (isNative()) return await nativeShare(blob, filename, title)
-    return await browserShare(blob, filename, title)
+    if (isNative()) return await nativeShare(blob, filename, title, onProgress)
+    return await browserShare(blob, filename, title, onProgress)
   } catch (e) {
     if (e?.name === 'AbortError') return { ok: true, method: 'aborted' }
     console.error('shareImageBlob failed', e)

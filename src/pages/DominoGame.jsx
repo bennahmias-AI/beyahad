@@ -69,7 +69,6 @@ function DominoModeSelect({ onBack, onHome, onSelectAI, onSelectOnlineRandom, on
         <DomModeButton onClick={onSelectOnlineRandom} iconId="online-random" gradient="linear-gradient(135deg,#7E2C2E,#5A1D1E)" label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" badge="חדש" />
         <DomModeButton onClick={onSelectOnlineFriend} iconId="online-friend" gradient="linear-gradient(135deg,#4F6B4A,#354D31)" label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" badge="חדש" />
         <DomModeButton onClick={onSelectAI} iconId="vs-ai" gradient="linear-gradient(135deg,#2C5566,#173846)" label="נגד המחשב" description="שחקו לבד מול יריב מחשב" />
-        <DomModeButton iconId="local-2p" gradient="linear-gradient(135deg,#B89048,#8A6A2E)" label="כמה שחקנים" description="2-4 שחקנים על אותו מכשיר" comingSoon />
       </div>
     </div>
   );

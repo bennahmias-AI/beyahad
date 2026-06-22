@@ -824,6 +824,7 @@ function DesignStep({
 }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [prep, setPrep] = useState(null)   // { pct, label, done } — חלון "מכין את הברכה" בשיתוף
   // איזו לשונית פתוחה ב-bottom sheet (null = סגור)
   const [activeTab, setActiveTab] = useState(null)
   // צבע מותאם אישית (מבורר הצבעים המלא) + ref לפתיחתו
@@ -1235,10 +1236,14 @@ function DesignStep({
 
   const doShareWith = async (shareMsg) => {
     setBusy(true); setMsg('')
+    setPrep({ pct: 8, label: 'מתחילים…', done: false })
     try {
+      setPrep({ pct: 16, label: 'טוען גופנים…', done: false })
       await ensureFontLoaded()
+      setPrep({ pct: 32, label: 'מעצב את הברכה…', done: false })
       const blob = await renderPNG()
-      const res = await shareImageBlob(blob, 'ברכה-אישית.jpg', shareMsg)
+      setPrep({ pct: 56, label: 'כמעט מוכן…', done: false })
+      const res = await shareImageBlob(blob, 'ברכה-אישית.jpg', shareMsg, (p, l) => setPrep({ pct: p, label: l, done: false }))
       if (res.ok) {
         logGreeting('greeting_share')
       } else if (res.notSupported) {
@@ -1250,10 +1255,13 @@ function DesignStep({
         setMsg('שיתוף נכשל')
         setTimeout(() => setMsg(''), 2000)
       }
+      setPrep({ pct: 100, label: 'מוכן!', done: true })
     } catch (e) {
       if (e?.name !== 'AbortError') { console.error(e); setMsg('שיתוף נכשל') }
+    } finally {
+      setTimeout(() => setPrep(null), 500)
+      setBusy(false)
     }
-    setBusy(false)
   }
 
   // ── הלשוניות של הסרגל התחתון ─────────────────────────────
@@ -1714,6 +1722,9 @@ function DesignStep({
           onConfirm={(t) => { setShareSuggest(null); doShareWith(t) }}
         />
       )}
+
+      {/* חלון "מכין את הברכה שלך" — מוצג בזמן השיתוף */}
+      {prep && <PreparingModal pct={prep.pct} label={prep.label} done={prep.done} />}
     </div>
   )
 }
@@ -1900,6 +1911,41 @@ function HScroll({ children }) {
 // ════════════════════════════════════════════════════════════════
 // מוצג בלחיצת "שתף": מלל מומלץ לפי הקשר הברכה. למשתמש
 // שתי אפשרויות: "המשך לשיתוף" (עם המלל כמות שהוא) או "שנה מלל" (עריכה).
+function PreparingModal({ pct = 0, label = '', done = false }) {
+  const [shown, setShown] = useState(0)
+  const trickleRef = useRef(0)
+  // מד חלק ורציף: מתקדם לעבר השלב האמיתי (pct), ובינתיים זוחל לאט קדימה
+  // כדי שהמסך לעולם לא ייראה תקוע גם בשלבים הארוכים (רינדור / שיתוף).
+  useEffect(() => {
+    let raf
+    const tick = () => {
+      setShown(prev => {
+        if (!done && trickleRef.current < 90) trickleRef.current += 0.16
+        const goal = done ? 100 : Math.min(96, Math.max(pct, trickleRef.current))
+        const next = prev + (goal - prev) * 0.1
+        return (goal - next) < 0.4 ? goal : next
+      })
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [pct, done])
+  const v = Math.min(100, Math.round(shown))
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(20,15,12,.62)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, direction: 'rtl' }}>
+      <div style={{ width: '100%', maxWidth: 330, background: 'var(--surface)', borderRadius: 22, padding: '26px 24px 24px', boxShadow: '0 18px 50px rgba(0,0,0,.4)', textAlign: 'center', fontFamily: 'inherit' }}>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>💌</div>
+        <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>מכין את הברכה שלך…</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-3)', minHeight: 20, marginBottom: 16 }}>{label}</div>
+        <div style={{ position: 'relative', height: 14, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', insetInlineStart: 0, top: 0, bottom: 0, width: `${v}%`, borderRadius: 999, background: 'linear-gradient(90deg,#A23B3D,#7E2C2E)' }} />
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--burgundy)', marginTop: 12, fontVariantNumeric: 'tabular-nums' }}>{v}%</div>
+      </div>
+    </div>
+  )
+}
+
 function ShareTextModal({ initialText, onConfirm, onCancel }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(initialText || '')
@@ -2657,6 +2703,7 @@ async function composeReadyImage(url, senderLine) {
 function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← חזרה לגלריה', footerControls = null }) {
   const [showSender, setShowSender] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [prep, setPrep] = useState(null)   // { pct, label, done } — חלון "מכין את הברכה" בשיתוף
 
   const senderLine = (showSender && senderName) ? `${senderVerb}: ${senderName}` : ''
 
@@ -2698,17 +2745,21 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
 
   const doShareWith = async (shareMsg) => {
     setBusy(true)
+    setPrep({ pct: 10, label: 'מתחילים…', done: false })
     try {
+      setPrep({ pct: 34, label: 'מעצב את הברכה…', done: false })
       const blob = await buildFinalBlob()
+      setPrep({ pct: 56, label: 'כמעט מוכן…', done: false })
       if (blob) {
-        const res = await shareImageBlob(blob, 'ברכה.jpg', shareMsg)
+        const res = await shareImageBlob(blob, 'ברכה.jpg', shareMsg, (p, l) => setPrep({ pct: p, label: l, done: false }))
         if (!res.ok && res.notSupported) await shareReadyImage(url, shareMsg)
       } else {
         await shareReadyImage(url, shareMsg)
       }
       logReadyGreeting('greeting_share')
+      setPrep({ pct: 100, label: 'מוכן!', done: true })
     } catch (e) { if (e?.name !== 'AbortError') console.error(e) }
-    setBusy(false)
+    finally { setTimeout(() => setPrep(null), 500); setBusy(false) }
   }
 
   const doSave = async () => {
@@ -2775,6 +2826,9 @@ function ReadyViewer({ url, senderName, senderVerb, onBack, backLabel = '← ח�
           onConfirm={(t) => { setShareSuggest(null); doShareWith(t) }}
         />
       )}
+
+      {/* חלון "מכין את הברכה שלך" — מוצג בזמן השיתוף */}
+      {prep && <PreparingModal pct={prep.pct} label={prep.label} done={prep.done} />}
     </div>
   )
 }
