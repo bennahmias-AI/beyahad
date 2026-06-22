@@ -1112,6 +1112,119 @@ export async function leaveParliamentSession(sessionId, uid) {
   }
 }
 
+// ─── Parliament rooms — דיון קבוצתי בחדרים (חברים / רנדומלי) ─────────
+// מודל זהה לחדרי המשחקים (dominoRooms), מותאם לדיון וידאו דרך LiveKit:
+//   parliamentRooms/{roomId}:
+//     hostUid, players: [{ uid, name }], status: 'waiting'|'active'|'ended',
+//     livekitRoom (שם חדר LiveKit ייחודי), discussion (מצב הדיון, null עד התחלה),
+//     maxPlayers, roomType ('random'|'private'), isPrivate, createdAt, updatedAt
+// random → עד 5 משתתפים; private (חברים) → עד 10. המארח מתחיל ידנית כשיש 3+.
+
+function parliamentRoomName() {
+  return 'parl-' + Math.random().toString(36).slice(2, 10)
+}
+
+export async function createParliamentRoom({ host, roomType, maxPlayers = 10 }) {
+  const livekitRoom = parliamentRoomName()
+  const ref = await addDoc(collection(db, 'parliamentRooms'), {
+    hostUid: host.uid,
+    players: [{ uid: host.uid, name: host.name || 'משתמש' }],
+    status: 'waiting',
+    livekitRoom,
+    discussion: null,
+    maxPlayers,
+    roomType,
+    isPrivate: roomType === 'private',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return { roomId: ref.id, livekitRoom }
+}
+
+export async function joinParliamentRoom(roomId, player) {
+  const ref = doc(db, 'parliamentRooms', roomId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) throw new Error('החדר לא קיים')
+  const data = snap.data()
+  if (data.status === 'ended') throw new Error('הדיון הסתיים')
+  const players = data.players || []
+  if (players.some(p => p.uid === player.uid)) return  // כבר בפנים
+  if (players.length >= (data.maxPlayers || 10)) throw new Error('החדר מלא')
+  await updateDoc(ref, {
+    players: [...players, { uid: player.uid, name: player.name || 'משתמש' }],
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// המארח מתחיל — מעביר את החדר ל-active; כל המשתתפים מתחברים ל-LiveKit.
+export async function startParliamentRoom(roomId) {
+  await updateDoc(doc(db, 'parliamentRooms', roomId), {
+    status: 'active',
+    startedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export function watchParliamentRoom(roomId, cb) {
+  return onSnapshot(doc(db, 'parliamentRooms', roomId), snap => {
+    if (snap.exists()) cb({ id: snap.id, ...snap.data() })
+    else cb(null)
+  }, err => { console.error('watchParliamentRoom error:', err) })
+}
+
+// עדכון מצב הדיון (תור דיבור / טיימר / שלב) — רק המנחה כותב קדימה.
+export async function updateParliamentRoomState(roomId, discussion) {
+  try {
+    await updateDoc(doc(db, 'parliamentRooms', roomId), {
+      discussion,
+      updatedAt: serverTimestamp(),
+    })
+  } catch (e) {
+    console.error('updateParliamentRoomState error:', e)
+  }
+}
+
+// עזיבת חדר — מסיר את המשתתף; אם החדר התרוקן, מוחק אותו.
+export async function leaveParliamentRoom(roomId, uid) {
+  if (!roomId) return
+  try {
+    const ref = doc(db, 'parliamentRooms', roomId)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return
+    const players = (snap.data().players || []).filter(p => p.uid !== uid)
+    if (players.length === 0) {
+      await deleteDoc(ref)
+    } else {
+      await updateDoc(ref, { players, updatedAt: serverTimestamp() })
+    }
+  } catch (e) { console.error('leaveParliamentRoom error:', e) }
+}
+
+// מתאמה רנדומלית — מצטרף לחדר ציבורי ממתין (עד maxPlayers) או יוצר חדש.
+export async function findOrCreateParliamentMatch({ player, maxPlayers = 5 }) {
+  const q = query(
+    collection(db, 'parliamentRooms'),
+    where('status', '==', 'waiting'),
+    limit(20),
+  )
+  const snap = await getDocs(q)
+  const room = snap.docs.find(d => {
+    const data = d.data()
+    if (data.isPrivate) return false
+    if ((data.maxPlayers || 5) !== maxPlayers) return false
+    const players = data.players || []
+    if (players.length >= (data.maxPlayers || 5)) return false
+    if (players.some(p => p.uid === player.uid)) return false
+    return true
+  })
+  if (room) {
+    await joinParliamentRoom(room.id, player)
+    return { roomId: room.id, livekitRoom: room.data().livekitRoom, isHost: false }
+  }
+  const { roomId, livekitRoom } = await createParliamentRoom({ host: player, roomType: 'random', maxPlayers })
+  return { roomId, livekitRoom, isHost: true }
+}
+
 // ─── Community posts — tips & recipes (קהילה) ────────────────
 // Collection 'communityPosts'. Each doc:
 //   { kind: 'tip' | 'recipe', title, body, authorUid, authorName,

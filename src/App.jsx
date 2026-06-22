@@ -11,6 +11,7 @@ import KafePage from './pages/KafePage.jsx'
 import KafeWaitingPage from './pages/KafeWaitingPage.jsx'
 import HubPage from './pages/HubPage.jsx'
 import ParliamentScreen from './pages/ParliamentScreen.jsx'
+import ParliamentLobby from './pages/ParliamentLobby.jsx'
 import SingingScreen from './pages/SingingScreen.jsx'
 import CommunityPage from './pages/CommunityPage.jsx'
 import RecipesPage from './pages/RecipesPage.jsx'
@@ -82,6 +83,8 @@ export default function App() {
   const [bingoRoom, setBingoRoom] = useState(null)
   const [aroundWorldRoom, setAroundWorldRoom] = useState(null)
   const [dominoRoom, setDominoRoom] = useState(null)
+  // חדר פרלמנט לכניסה ישירה מהזמנה (חבר הזמין לדיון)
+  const [parliamentInviteRoom, setParliamentInviteRoom] = useState(null)
   // מצב משחק לכניסה ישירה ממסך הבית (חבר/רשת/מחשב/לבד) — null = מסך בחירת מצב רגיל
   const [gameMode, setGameMode] = useState(null)
   // החבר שאיתו פתוחה שיחת צ'אט פרטית
@@ -205,6 +208,7 @@ export default function App() {
       case 'chess-game':    setChessRoom(null);    setPlayFriend(null); return 'games'
       case 'sheshbesh-game':setSheshbeshRoom(null);setPlayFriend(null); return 'games'
       case 'games':         setPlayFriend(null);   return 'hub'
+      case 'parliament-lobby': setParliamentInviteRoom(null); return 'hub'
       case 'tips':
       case 'recipes':       setInitialPostId(null); return 'hub'
       case 'admin':
@@ -275,7 +279,7 @@ export default function App() {
   function goHome() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
-    setAroundWorldRoom(null); setDominoRoom(null)
+    setAroundWorldRoom(null); setDominoRoom(null); setParliamentInviteRoom(null)
     setGameMode(null)
     setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
     setPage('hub')
@@ -328,6 +332,9 @@ export default function App() {
     } else if (gameType === 'domino') {
       setDominoRoom(roomId)
       setPage('domino-game')
+    } else if (gameType === 'parliament') {
+      setParliamentInviteRoom(roomId)
+      setPage('parliament-lobby')
     }
   }
 
@@ -541,6 +548,7 @@ export default function App() {
     <div className={'app-shell' + (isDesktop && page === 'hub' ? ' hub-wide' : '')} style={shellHeight ? { height: shellHeight } : undefined}>
       {page === 'kafe' && <KafePage onEnd={() => setPage('hub')} />}
       {page === 'parliament' && <ParliamentScreen onExit={() => setPage('hub')} />}
+      {page === 'parliament-lobby' && <ParliamentLobby initialRoomId={parliamentInviteRoom} onBack={() => { setParliamentInviteRoom(null); setPage('hub') }} onHome={goHome} />}
       {page === 'singing' && <SingingScreen onExit={() => setPage('hub')} />}
       {page === 'tips' && <CommunityPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} kind="tip" initialPostId={initialPostId} registerBack={registerPageBack} />}
       {page === 'recipes' && <RecipesPage onBack={() => { setInitialPostId(null); setPage('hub') }} onHome={goHome} initialPostId={initialPostId} registerBack={registerPageBack} />}
@@ -679,7 +687,7 @@ export default function App() {
       {page === 'hub' && (
         <HubPage
           onGoMatch={() => setPage('waiting')}
-          onGoParliament={joinParliament}
+          onGoParliament={() => { setParliamentInviteRoom(null); setPage('parliament-lobby') }}
           onGoSinging={joinSinging}
           onGoTips={() => setPage('tips')}
           onGoRecipes={() => setPage('recipes')}

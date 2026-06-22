@@ -735,8 +735,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome }) {
           <div style={{ background: '#f6efdf', border: '3px solid #1c1c1c', borderRadius: 16, padding: 20, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 12, color: '#1c1c1c' }}>לאיזה צד להניח?</div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <button className="dol-actbtn" onClick={() => doPlay(pending, 'l')}>צד שמאל ({leftEnd})</button>
               <button className="dol-actbtn" onClick={() => doPlay(pending, 'r')}>צד ימין ({rightEnd})</button>
+              <button className="dol-actbtn" onClick={() => doPlay(pending, 'l')}>צד שמאל ({leftEnd})</button>
             </div>
           </div>
         </div>
