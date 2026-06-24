@@ -348,7 +348,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
         }
       } else {
         const rent = applyIndex(rentFor(tile, S.current.owners, S.current.hotels), S.current.priceIndex, tile);
-        setCard({ kind: 'rent', tile, uid, owner, amount: rent });
+        setCard({ kind: 'rent', tile, uid, owner, amount: rent, level: S.current.hotels[tile.id] || 0 });
         playSound('badStep');
       }
     } else if (tile.type === 'special') {
@@ -581,6 +581,19 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     const t = setTimeout(() => rollAndWalk(), 5000);
     return () => clearTimeout(t);
   }, [isMyTurn, turnIdx, phase]);
+
+  // המשך אוטומטי על חלון הקלף — שלא יישאר תקוע אם השחקן לא לוחץ.
+  // קלף חובה (יום הולדת / תשלום / שכירות וכו') ממשיך אחרי 6 שניות;
+  // קלף החלטה (קנייה / בנייה) אחרי 12 שניות עם ברירת מחדל "לא עכשיו" (כדי לא לבזבז כסף).
+  useEffect(() => {
+    if (phase !== 'card' || !card) return;
+    const p = players[turnIdx];
+    if (!p || p.isBot) return;                 // בוטים מטופלים בנפרד
+    if (card.kind === 'lotto' || card.kind === 'chance') return; // CardFlip מטפל בהם
+    const discretionary = card.kind === 'buy' || card.kind === 'hotel';
+    const t2 = setTimeout(() => resolveCard(discretionary ? 'no' : 'ok'), discretionary ? 12000 : 6000);
+    return () => clearTimeout(t2);
+  }, [phase, card, turnIdx, players]); // eslint-disable-line
 
   // ---- UI pieces ----
   const panelCard = (p, isActive) => (
@@ -1002,7 +1015,7 @@ function LandingCard({ card, players, onAction }) {
       sideSub = 'השכירות תעלה ל-' + t.rents[hl] + ' ₪';
       actions = [btn('לבנות ' + what + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)];
     } else {
-      hl = Math.max(0, t.rents.indexOf(card.amount));
+      hl = card.level != null ? card.level : Math.max(0, t.rents.indexOf(card.amount));
       sideTitle = 'המדינה של ' + (ownerP?.name || '');
       sideSub = 'תשלום שכירות';
       actions = [btn('לשלם ' + card.amount + ' ₪', 'ok', '#d8402a')];
@@ -1093,8 +1106,8 @@ function CardFlip({ card, actor, onDone }) {
 
   // bots auto-confirm; humans tap the button
   useEffect(() => {
-    if (stage !== 'reveal' || isHuman) return;
-    const t = setTimeout(() => setStage('return'), 1700);
+    if (stage !== 'reveal') return;
+    const t = setTimeout(() => setStage('return'), isHuman ? 6000 : 1700);
     return () => clearTimeout(t);
   }, [stage, isHuman]);
 

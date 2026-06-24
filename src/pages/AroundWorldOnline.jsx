@@ -962,7 +962,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     const c = state.pendingCard
     const owner = state.players.find(p => p.uid === c.uid)
     if (!owner || owner.isBot) return     // בוטים מטופלים במנגנון הנפרד
-    if (c.uid === me.uid) return           // הקלף שלי — אני מכריע ידנית, בלי timeout
+    if (c.uid === me.uid && false) return           // הקלף שלי — אני מכריע ידנית, בלי timeout
     const discretionary = c.kind === 'buy' || c.kind === 'hotel'
     const t = setTimeout(() => { resolveCard(discretionary ? 'no' : 'ok', true) }, discretionary ? 10000 : 4000)
     return () => clearTimeout(t)
@@ -1062,7 +1062,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
         else card = { kind: 'info', tileId: tile.id, uid, text: 'עיר הבירה כבר בנויה כאן - המדינה בשיאה!' }
       } else {
         const rent = applyIndex(rentFor(tile, s.owners, s.hotels), s.priceIndex, tile)
-        card = { kind: 'rent', tileId: tile.id, uid, owner, amount: rent }
+        card = { kind: 'rent', tileId: tile.id, uid, owner, amount: rent, level: s.hotels[tile.id] || 0 }
         playSound('badStep')
       }
     } else if (tile.type === 'special') {
@@ -1643,7 +1643,7 @@ function LandingCard({ card, players, myUid, onAction }) {
       sideSub = 'השכירות תעלה ל-' + t.rents[hl] + ' ₪'
       actions = [btn('לבנות ' + nextBuildLabel(card.level) + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)]
     } else {
-      hl = Math.max(0, t.rents.indexOf(card.amount))
+      hl = card.level != null ? card.level : Math.max(0, t.rents.indexOf(card.amount))
       sideTitle = 'המדינה של ' + (ownerP?.name || '')
       sideSub = 'תשלום שכירות'
       actions = [btn('לשלם ' + card.amount + ' ₪', 'ok', '#d8402a')]
