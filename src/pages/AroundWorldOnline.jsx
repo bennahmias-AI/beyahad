@@ -107,6 +107,19 @@ function focusWindow(pos) {
   return ids
 }
 
+// סדר אקראי לחפיסה — כל קלף יוצא פעם אחת לפני שחוזר
+function shuffledOrder(n) {
+  const a = Array.from({ length: n }, (_, i) => i)
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }
+  return a
+}
+// מושך קלף מהחפיסה המסתובבת (deck = מערך אינדקסים). מחזיר את הקלף + החפיסה המעודכנת (הקלף לתחתית).
+function drawCard(deck, cards) {
+  const q = (Array.isArray(deck) && deck.length === cards.length) ? deck : shuffledOrder(cards.length)
+  const idx = q[0]
+  return { card: cards[idx], deck: [...q.slice(1), idx] }
+}
+
 // מצב התחלתי למשחק אונליין — נשמר כאובייקט פשוט (JSON-safe).
 function initAroundWorldState(playerDefs) {
   const players = playerDefs.map((p, i) => ({
@@ -121,6 +134,8 @@ function initAroundWorldState(playerDefs) {
     round: 1,
     dice: [null, null],
     priceIndex: randomPriceIndex(),
+    lottoDeck: shuffledOrder(LOTTO_CARDS.length),    // חפיסת מפעל הפיס (סדר מסתובב)
+    chanceDeck: shuffledOrder(CHANCE_CARDS.length), // חפיסת הפתעה (סדר מסתובב)
     pendingCard: null,   // הקלף שממתין להכרעה (מוצג לכולם)
     phase: 'idle',       // idle | resolving | ended
     winner: null,        // uid המנצח
@@ -742,6 +757,48 @@ function IcShuffle({ size = 18 }) {
   )
 }
 
+function IcNext({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 4l10 8-10 8z" /><rect x="16" y="4" width="2.6" height="16" rx="1" /></svg>
+  )
+}
+
+const awMenuItem = { display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8 }
+const awVolBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,.3)', background: 'rgba(255,255,255,.12)', color: '#fff', fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }
+
+// כפתור מוזיקה עם תפריט: כיבוי/הפעלה + שיר הבא + עוצמה (זהה למסך נגד-המחשב)
+function AwMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative', display: 'flex' }}>
+      <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#fff', opacity: musicOn ? 1 : 0.5, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+        <IcMusic size={21} />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }} />
+          <div style={{ position: 'absolute', bottom: '130%', insetInlineEnd: 0, transform: 'translateX(-18px)', background: 'rgba(20,33,48,.96)', border: '1px solid rgba(255,255,255,.25)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'nowrap', zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+            <button onClick={onToggle} style={awMenuItem}>
+              {musicOn ? <IcMusicOff size={16} /> : <IcMusic size={16} />} {musicOn ? 'כיבוי מוזיקה' : 'הפעלת מוזיקה'}
+            </button>
+            <button onClick={onNext} style={awMenuItem}>
+              <IcNext size={16} /> שיר הבא
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 8px' }}>
+              <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>עוצמה</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={onVolDown} aria-label="החלש" style={awVolBtn}>−</button>
+                <button onClick={onVolUp} aria-label="הגבר" style={awVolBtn}>+</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function IcComputer({ size = 22, color = 'currentColor' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -757,6 +814,10 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   let state = null
   try { state = room.gameStateJson ? JSON.parse(room.gameStateJson) : null }
   catch { state = null }
+  // ref למצב העדכני ביותר + לפונקציות — לשימוש ה-watchdog שמריץ בוטים גם אם טריגר בודד פוספס
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const fnRef = useRef({})
 
   // אוריינטציה — סיבוב אוטומטי לרוחב (זהה ל-AroundWorldGame)
   const [isPortrait, setIsPortrait] = useState(
@@ -798,6 +859,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   })
   const [musicMenuOpen, setMusicMenuOpen] = useState(false)
   const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
+  const [musicVol, setMusicVol] = useState(MUSIC_VOLUME)
+  const musicVolDown = () => setMusicVol(v => Math.max(0.02, +(v - 0.03).toFixed(2)))
+  const musicVolUp = () => { setMusicVol(v => Math.min(0.6, +(v + 0.03).toFixed(2))); setMusicOn(true); try { localStorage.setItem('beyahad_aroundworld_music', 'on') } catch {} }
   const audioRef = useRef(null)
   const [videoChoice, setVideoChoice] = useState(null)  // null=טרם נשאל, true/false=הבחירה
   const [friendUids, setFriendUids] = useState(() => new Set())  // רשימת ה-uids שעל ה-uid המחובר — למי מהשחקנים שקיימת בקשת חברות
@@ -845,13 +909,13 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   useEffect(() => {
     const a = audioRef.current
     if (!a) return
-    a.volume = MUSIC_VOLUME
+    a.volume = musicVol
     if (musicOn && videoChoice !== null) {
       const p = a.play(); if (p && p.catch) p.catch(() => {})   // חסימת autoplay — יתחיל בלחיצה הבאה
     } else {
       a.pause()
     }
-  }, [musicOn, trackIdx, videoChoice])
+  }, [musicOn, trackIdx, videoChoice, musicVol])
 
   // מבטיח שהמוזיקה מתחילה: כל נגיעה במסך מנסה לנגן (עודף על חסימת autoplay בדפדפן). לא מפעיל אם המוזיקה מושתקת.
   useEffect(() => {
@@ -953,6 +1017,29 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     }
   }, [isHost, turnIdx, state?.phase, state?.seq]) // eslint-disable-line
 
+  // ── Watchdog: גיבוי שמוודא שהבוט לעולם לא נתקע ──
+  // אם טריגר בודד פוספס (busyRef שוחרר ללא רינדור מחדש, או כתיבה שנכשלה לרגע),
+  // בדיקה מחזורית כל 2.5ש' מריצה מחדש את הבוט שבתורו. busyRef מונע ריצה כפולה.
+  useEffect(() => {
+    if (!isHost) return
+    const iv = setInterval(() => {
+      const s = stateRef.current
+      if (!s || s.winner || s.pendingLeave || busyRef.current) return
+      const ti = s.turn ?? s.turnIdx ?? 0
+      const act = s.players[ti]
+      if (!act || !act.isBot) return
+      if (s.phase === 'idle') { fnRef.current.rollAndWalk && fnRef.current.rollAndWalk(true) }
+      else if (s.phase === 'card' && s.pendingCard) {
+        const card = s.pendingCard
+        let action = 'ok'
+        if (card.kind === 'buy') action = (act.cash - (card.price ?? TILES[card.tileId].price) >= 300) ? 'yes' : 'no'
+        else if (card.kind === 'hotel') action = (act.cash - buildCost(TILES[card.tileId], card.level) >= 200) ? 'yes' : 'no'
+        fnRef.current.resolveCard && fnRef.current.resolveCard(action, true)
+      }
+    }, 2500)
+    return () => clearInterval(iv)
+  }, [isHost]) // eslint-disable-line
+
   // ── המארח מאכף timeout על שחקנים אנושיים איטיים (לא בוטים, לא עצמו) ──
   // קלף רכישת מדינה / בניית מלון (לא הכרחי): 10 שניות → ברירת מחדל "לא לרכוש".
   // קלף חובה (מפעל הפיס / הפתעה / שכירות / תשלום / יום הולדת / וכו'): 4 שניות → מבוצע אוטומטית וממשיכים.
@@ -1007,6 +1094,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     if ((!isMyTurn && !botMode) || busyRef.current) return
     if (state.pendingLeave) return    // המשחק מושהה עד שהשחקן יחזור או שהזמן יפוג
     busyRef.current = true
+    try {
     const d1 = 1 + Math.floor(Math.random() * 6)
     const d2 = 1 + Math.floor(Math.random() * 6)
     setLocalDice([d1, d2])
@@ -1044,6 +1132,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     await sleep(300)
     setLocalTokens(null)     // משחררים — מכאן הלוח מצייר לפי ה-state המסונכרן
     await landOn(s)
+    } catch (e) { console.error('aroundworld rollAndWalk error:', e); busyRef.current = false }
   }
 
   async function landOn(s) {
@@ -1069,14 +1158,15 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       if (tile.amount === 'birthday') card = { kind: 'birthday', tileId: tile.id, uid }
       else { card = { kind: 'pay', tileId: tile.id, uid, amount: tile.amount }; if (tile.amount < 0) playSound('badStep') }
     } else if (tile.type === 'lotto') {
-      const c = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)]
-      card = { kind: 'lotto', tileId: tile.id, uid, ...c }
+      const r = drawCard(s.lottoDeck, LOTTO_CARDS); s.lottoDeck = r.deck
+      card = { kind: 'lotto', tileId: tile.id, uid, ...r.card }
     } else if (tile.type === 'chance') {
-      let c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)]
+      const rc = drawCard(s.chanceDeck, CHANCE_CARDS); s.chanceDeck = rc.deck
+      let c = rc.card
       // "קח כרטיס פיס חינם" — מגריל תוצאת לוטו אמיתית (כמו כרטיס שנמשך)
       if (c.freeLotto) {
-        const l = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)]
-        c = { text: 'כרטיס פיס חינם! ' + l.text, amount: l.amount }
+        const rl = drawCard(s.lottoDeck, LOTTO_CARDS); s.lottoDeck = rl.deck
+        c = { text: 'כרטיס פיס חינם! ' + rl.card.text, amount: rl.card.amount }
       }
       card = { kind: 'chance', tileId: tile.id, uid, ...c }
     } else {
@@ -1097,6 +1187,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     const c = state.pendingCard
     if (!c || (!botMode && c.uid !== me.uid)) return
     busyRef.current = true
+    try {
 
     let s = { ...state, players: state.players.map(p => ({ ...p })), owners: { ...state.owners }, hotels: { ...state.hotels } }
     const tile = TILES[c.tileId]
@@ -1107,8 +1198,11 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
       meP.cash -= (c.price ?? tile.price)
       s.owners[c.tileId] = meP.uid
     } else if (c.kind === 'hotel' && action === 'yes') {
-      meP.cash -= buildCost(tile, c.level)
-      s.hotels[c.tileId] = (s.hotels[c.tileId] || 0) + 1
+      const cost = buildCost(tile, c.level)
+      if (meP.cash >= cost) {
+        meP.cash -= cost
+        s.hotels[c.tileId] = (s.hotels[c.tileId] || 0) + 1
+      }
     } else if (c.kind === 'rent') {
       meP.cash -= c.amount
       const owner = s.players.find(p => p.uid === c.owner)
@@ -1132,6 +1226,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
     // תנועת הפתעה (goto / back)
     if (c.kind === 'chance' && typeof c.goto === 'number') {
+      // עוברים דרך ההתחלה בכיוון השעון (היעד לפני המיקום הנוכחי) → בונוס מעבר, כמו בהקפה רגילה
+      if (c.goto !== 0 && c.goto < meP.pos) meP.cash += RULES.PASS_START_BONUS
       meP.pos = c.goto
       s.phase = 'walking'
       await push(s)
@@ -1151,6 +1247,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
     await sleep(150)
     await endTurn(s, extraTurn)
+    } catch (e) { console.error('aroundworld resolveCard error:', e); busyRef.current = false }
   }
 
   async function endTurn(s, extraTurn) {
@@ -1201,6 +1298,9 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   // ── derived for the board ──
   // גלגול אוטומטי — אם השחקן הפעיל (אנושי) לא הטיל קוביות תוך 5 שניות, מטילים בשבילו כדי לא לעכב את המשחק
   // auto-roll effect moved above early-returns (Rules of Hooks)
+
+  fnRef.current.rollAndWalk = rollAndWalk
+  fnRef.current.resolveCard = resolveCard
 
   const tokens = localTokens || state.players.filter(p => !p.dead).map(p => ({ uid: p.uid, color: p.color, tileId: p.pos }))
   const tokenColors = Object.fromEntries(state.players.map(p => [p.uid, p.color]))
@@ -1354,8 +1454,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
               {!winner && <span style={{ width: 7, height: 7, borderRadius: '50%', background: isMyTurn ? '#e7cd94' : 'rgba(255,255,255,.5)', flex: 'none' }} />}
               <span>{winner ? '' : isMyTurn ? 'תורך!' : `תור ${active?.name || ''}`}</span>
             </div>
-            {/* control row (glass segmented): camera, sound, chat */}
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 999, overflow: 'hidden' }}>
+            {/* control row — זהה למסך נגד-המחשב: מצלמה, צלילים, מוזיקה (עם עוצמה), צ'אט */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center', background: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 999, padding: '8px 10px' }}>
               <button
                 onClick={() => {
                   const m = cameraMode === 'zoom' ? 'full' : 'zoom'
@@ -1363,21 +1463,20 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
                   try { localStorage.setItem('beyahad_aroundworld_camera', m) } catch {}
                   if (m === 'full') setFocusTiles(null)
                 }}
-                aria-label="מצלמה"
-                title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'}
-                style={{ flex: 1, background: 'none', border: 'none', borderInlineEnd: '1px solid rgba(255,255,255,.16)', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                {cameraMode === 'zoom' ? <IcCamera size={19} /> : <IcMap size={19} />}
+                title={cameraMode === 'zoom' ? 'מצלמה עוקבת' : 'לוח מלא'} aria-label="מצלמה"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 21, lineHeight: 1, padding: 2, display: 'inline-flex', alignItems: 'center' }}>
+                {cameraMode === 'zoom' ? <IcCamera size={21} /> : <IcMap size={21} />}
               </button>
               <button
-                onClick={() => setMusicMenuOpen(o => !o)}
-                aria-label="שמע ומוזיקה"
-                title="שמע ומוזיקה"
-                style={{ flex: 1, background: 'none', border: 'none', borderInlineEnd: '1px solid rgba(255,255,255,.16)', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', justifyContent: 'center' }}>
-                {muted ? <IcSoundOff size={19} /> : <IcSound size={19} />}
+                onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) playSound('step') }}
+                title={muted ? 'צלילים כבויים' : 'צלילים פועלים'} aria-label="צלילים"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 21, lineHeight: 1, padding: 2, opacity: muted ? 0.5 : 1, display: 'inline-flex', alignItems: 'center' }}>
+                {muted ? <IcSoundOff size={21} /> : <IcSound size={21} />}
               </button>
-              <button onClick={() => setChatOpen(true)} aria-label="צ'אט" title="צ'אט"
-                style={{ flex: 1, background: 'none', border: 'none', padding: '10px 0', fontSize: 17, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <IcChat size={18} />
+              <AwMusicButton musicOn={musicOn} onToggle={toggleMusic} onNext={changeMusic} onVolDown={musicVolDown} onVolUp={musicVolUp} />
+              <button onClick={() => setChatOpen(true)} title="צ'אט" aria-label="צ'אט"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 21, lineHeight: 1, padding: 2, display: 'inline-flex', alignItems: 'center' }}>
+                <IcChat size={21} />
               </button>
             </div>
           </div>
@@ -1639,9 +1738,15 @@ function LandingCard({ card, players, myUid, onAction }) {
     } else if (card.kind === 'hotel') {
       hl = card.level + 1
       const cost = buildCost(t, card.level)
+      const canAfford = actor && actor.cash >= cost
       sideTitle = 'המדינה שלך!'
       sideSub = 'השכירות תעלה ל-' + t.rents[hl] + ' ₪'
-      actions = [btn('לבנות ' + nextBuildLabel(card.level) + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)]
+      if (canAfford) {
+        actions = [btn('לבנות ' + nextBuildLabel(card.level) + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)]
+      } else {
+        sideSub += ' · אין לך מספיק כסף לבנות'
+        actions = [btn('המשך', 'no', '#d8402a')]
+      }
     } else {
       hl = card.level != null ? card.level : Math.max(0, t.rents.indexOf(card.amount))
       sideTitle = 'המדינה של ' + (ownerP?.name || '')

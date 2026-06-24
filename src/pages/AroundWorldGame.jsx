@@ -71,6 +71,13 @@ function focusWindow(pos) {
   return ids;
 }
 
+// סדר אקראי לחפיסה (הפתעה / מפעל הפיס) — כל קלף יוצא פעם אחת לפני שחוזר
+function shuffledOrder(n) {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
 // ── איקוני קו מקוריים (לא אימוג'י) — לבן על הזכוכית הכהה ──
 const Ic = ({ size = 20, color = '#fff', children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{children}</svg>
@@ -167,6 +174,58 @@ function CashLine({ cash, fontSize = 17 }) {
   );
 }
 
+// ── קובייה בודדת (פאה עם נקודות) + אנימציית זריקת קוביות על הלוח ──
+function DiceFace({ value, size = 46 }) {
+  const layouts = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  const on = new Set(layouts[value] || []);
+  return (
+    <div style={{ width: size, height: size, borderRadius: size * 0.2, background: 'linear-gradient(145deg,#fff,#efe7d6)', border: `2px solid ${INK}`, boxShadow: '0 8px 18px rgba(0,0,0,.4), inset 0 -3px 6px rgba(0,0,0,.12)', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: 'repeat(3,1fr)', padding: size * 0.12, boxSizing: 'border-box' }}>
+      {Array.from({ length: 9 }).map((_, i) => (
+        <span key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {on.has(i) && <span style={{ width: size * 0.17, height: size * 0.17, borderRadius: '50%', background: INK }} />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DiceToss({ d1, d2 }) {
+  const [stage, setStage] = useState('tumble');
+  const [faces, setFaces] = useState([d1, d2]);
+  // נקודת נחיתה אקראית על הטבעת הכחולה (סביב הגלובוס, מחוץ למרכז ולפני האריחים) — מחושבת פעם אחת לכל הטלה
+  const landRef = useRef(null);
+  if (!landRef.current) {
+    const ang = Math.random() * Math.PI * 2;
+    const r = 120 + Math.random() * 28;
+    landRef.current = { x: Math.round(Math.cos(ang) * r), y: Math.round(Math.sin(ang) * r) };
+  }
+  useEffect(() => {
+    const start = Date.now();
+    const TUMBLE = 650;
+    let timer;
+    const tick = () => {
+      if (Date.now() - start < TUMBLE) {
+        setFaces([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
+        timer = setTimeout(tick, 75);
+      } else {
+        setFaces([d1, d2]);
+        setStage('settle');
+      }
+    };
+    tick();
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line
+  }, []);
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+      <div style={{ display: 'flex', gap: 8, transform: `translate(${landRef.current.x}px, ${landRef.current.y}px)` }}>
+        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop1 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[0]} /></div>
+        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop2 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[1]} /></div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId = null, autoInviteFriend = null }) {
   // ---- orientation ----
@@ -230,6 +289,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   // אישור יציאה + הצצה (משחק מקומי נגד המחשב)
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [peek, setPeek] = useState(false);
+  const [diceToss, setDiceToss] = useState(null);   // אנימציית זריקת קוביות על הלוח
 
   // ---- מוזיקת רקע ----
   const [musicOn, setMusicOn] = useState(() => {
@@ -254,6 +314,16 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   // refs mirror state for the async engine
   const S = useRef({});
   S.current = { phase, players, owners, hotels, turnIdx, round, cameraMode, priceIndex };
+
+  // חפיסות קלפים מסתובבות (הפתעה / מפעל הפיס) — קלף שיצא הולך לתחתית, וחוזר רק אחרי שכל השאר יצאו
+  const lottoDeckRef = useRef(null);
+  const chanceDeckRef = useRef(null);
+  function drawCard(ref, cards) {
+    if (!ref.current || ref.current.length !== cards.length) ref.current = shuffledOrder(cards.length);
+    const idx = ref.current[0];
+    ref.current = [...ref.current.slice(1), idx];   // הקלף שיצא — לתחתית החפיסה
+    return cards[idx];
+  }
 
   const myName = profile?.name || 'אני';
 
@@ -289,6 +359,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     const d1 = 1 + Math.floor(Math.random() * 6);
     const d2 = 1 + Math.floor(Math.random() * 6);
     setDice([d1, d2]);
+    setDiceToss({ d1, d2, id: Date.now() });   // זריקת קוביות מונפשת על הלוח
     playSound('dice');
     setPhase('walking');
     setMessage(p.name + ' הטיל ' + (d1 + d2) + ' - צועדים!');
@@ -359,13 +430,13 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
         if (tile.amount < 0) playSound('badStep');
       }
     } else if (tile.type === 'lotto') {
-      const c = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)];
+      const c = drawCard(lottoDeckRef, LOTTO_CARDS);
       setCard({ kind: 'lotto', tile, uid, ...c });
     } else if (tile.type === 'chance') {
-      let c = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
+      let c = drawCard(chanceDeckRef, CHANCE_CARDS);
       // "קח כרטיס פיס חינם" — מגריל תוצאת לוטו אמיתית (כמו כרטיס שנמשך)
       if (c.freeLotto) {
-        const l = LOTTO_CARDS[Math.floor(Math.random() * LOTTO_CARDS.length)];
+        const l = drawCard(lottoDeckRef, LOTTO_CARDS);
         c = { text: 'כרטיס פיס חינם! ' + l.text, amount: l.amount };
       }
       setCard({ kind: 'chance', tile, uid, ...c });
@@ -393,8 +464,11 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     }
     if (c.kind === 'hotel' && action === 'yes') {
       const cost = buildCost(c.tile, c.level);
-      updatePlayer(uid, (p) => ({ cash: p.cash - cost }));
-      setHotels((h) => ({ ...h, [c.tile.id]: (h[c.tile.id] || 0) + 1 }));
+      const actor = S.current.players.find((x) => x.uid === uid);
+      if (actor && actor.cash >= cost) {
+        updatePlayer(uid, (p) => ({ cash: p.cash - cost }));
+        setHotels((h) => ({ ...h, [c.tile.id]: (h[c.tile.id] || 0) + 1 }));
+      }
     }
     if (c.kind === 'rent') {
       updatePlayer(uid, (p) => ({ cash: p.cash - c.amount }));
@@ -435,7 +509,9 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
       const p = S.current.players.find((x) => x.uid === uid);
       const steps = (c.goto - p.pos + TILE_COUNT) % TILE_COUNT;
       if (steps > 0) {
-        updatePlayer(uid, { pos: c.goto });
+        // עוברים דרך ההתחלה בכיוון השעון → בונוס מעבר 200 ש"ח (כמו בהקפה רגילה)
+        const passBonus = (c.goto !== 0 && c.goto < p.pos) ? RULES.PASS_START_BONUS : 0;
+        updatePlayer(uid, (pp) => ({ pos: c.goto, cash: pp.cash + passBonus }));
         focus(focusWindow(c.goto));
         await sleep(900);
       }
@@ -660,7 +736,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
-      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}`}</style>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awDiceDrop1{0%{transform:translateY(-240px) scale(1.6) rotate(-120deg);opacity:0}18%{opacity:1}70%{transform:translateY(12px) scale(.78) rotate(10deg)}85%{transform:translateY(-3px) scale(.82) rotate(2deg)}100%{transform:translateY(0) scale(.8) rotate(0)}}@keyframes awDiceDrop2{0%{transform:translateY(-275px) scale(1.7) rotate(150deg);opacity:0}20%{opacity:1}72%{transform:translateY(10px) scale(.78) rotate(-8deg)}87%{transform:translateY(-3px) scale(.82) rotate(-2deg)}100%{transform:translateY(0) scale(.8) rotate(0)}}@keyframes awDiceLand{0%{transform:scale(.84)}45%{transform:scale(.78)}100%{transform:scale(.8)}}`}</style>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -736,6 +812,9 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
           {players.filter((p) => p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
         </div>
       </div>
+
+      {/* אנימציית זריקת קוביות על הלוח */}
+      {diceToss && <DiceToss key={diceToss.id} d1={diceToss.d1} d2={diceToss.d2} />}
 
       {/* player cards modal */}
       {viewPlayer && (
@@ -1011,9 +1090,15 @@ function LandingCard({ card, players, onAction }) {
       hl = card.level + 1;
       const cost = buildCost(t, card.level);
       const what = nextBuildLabel(card.level);
+      const canAfford = actor && actor.cash >= cost;
       sideTitle = 'המדינה שלך!';
       sideSub = 'השכירות תעלה ל-' + t.rents[hl] + ' ₪';
-      actions = [btn('לבנות ' + what + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)];
+      if (canAfford) {
+        actions = [btn('לבנות ' + what + ' · ' + cost + ' ₪', 'yes', '#2f73c9'), btn('לא עכשיו', 'no', '#fff', INK)];
+      } else {
+        sideSub += ' · אין לך מספיק כסף לבנות';
+        actions = [btn('המשך', 'no', '#d8402a')];
+      }
     } else {
       hl = card.level != null ? card.level : Math.max(0, t.rents.indexOf(card.amount));
       sideTitle = 'המדינה של ' + (ownerP?.name || '');
