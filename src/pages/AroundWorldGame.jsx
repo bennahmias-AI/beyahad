@@ -193,12 +193,17 @@ function DiceToss({ d1, d2 }) {
   const [stage, setStage] = useState('tumble');
   const [faces, setFaces] = useState([d1, d2]);
   // נקודת נחיתה אקראית על הטבעת הכחולה (סביב הגלובוס, מחוץ למרכז ולפני האריחים) — מחושבת פעם אחת לכל הטלה
-  const landRef = useRef(null);
-  if (!landRef.current) {
-    const ang = Math.random() * Math.PI * 2;
-    const r = 120 + Math.random() * 28;
-    landRef.current = { x: Math.round(Math.cos(ang) * r), y: Math.round(Math.sin(ang) * r) };
+  const boxRef = useRef(null);
+  const [board, setBoard] = useState(0);
+  // זרע אקראי לנחיתה (זווית + מרחק כאחוז מגודל הלוח) פעם אחת לכל הטלה
+  const seedRef = useRef(null);
+  if (!seedRef.current) {
+    seedRef.current = { ang: Math.random() * Math.PI * 2, rf: 0.30 + Math.random() * 0.04 };
   }
+  useEffect(() => {
+    const el = boxRef.current;
+    setBoard(el ? Math.min(el.clientWidth, el.clientHeight) : 360);
+  }, []);
   useEffect(() => {
     const start = Date.now();
     const TUMBLE = 650;
@@ -216,11 +221,16 @@ function DiceToss({ d1, d2 }) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line
   }, []);
+  const B = board || 360;
+  const size = Math.max(20, Math.round(B * 0.072));
+  const r = B * seedRef.current.rf;
+  const x = Math.round(Math.cos(seedRef.current.ang) * r);
+  const y = Math.round(Math.sin(seedRef.current.ang) * r);
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-      <div style={{ display: 'flex', gap: 8, transform: `translate(${landRef.current.x}px, ${landRef.current.y}px)` }}>
-        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop1 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[0]} /></div>
-        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop2 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[1]} /></div>
+    <div ref={boxRef} style={{ position: 'absolute', inset: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+      <div style={{ display: 'flex', gap: Math.round(size * 0.18), transform: `translate(${x}px, ${y}px)` }}>
+        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop1 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[0]} size={size} /></div>
+        <div style={{ animation: stage === 'tumble' ? 'awDiceDrop2 .65s cubic-bezier(.4,.05,.55,1) forwards' : 'awDiceLand .3s ease-out forwards' }}><DiceFace value={faces[1]} size={size} /></div>
       </div>
     </div>
   );
@@ -736,7 +746,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
-      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awDiceDrop1{0%{transform:translateY(-240px) scale(1.6) rotate(-120deg);opacity:0}18%{opacity:1}70%{transform:translateY(12px) scale(.78) rotate(10deg)}85%{transform:translateY(-3px) scale(.82) rotate(2deg)}100%{transform:translateY(0) scale(.8) rotate(0)}}@keyframes awDiceDrop2{0%{transform:translateY(-275px) scale(1.7) rotate(150deg);opacity:0}20%{opacity:1}72%{transform:translateY(10px) scale(.78) rotate(-8deg)}87%{transform:translateY(-3px) scale(.82) rotate(-2deg)}100%{transform:translateY(0) scale(.8) rotate(0)}}@keyframes awDiceLand{0%{transform:scale(.84)}45%{transform:scale(.78)}100%{transform:scale(.8)}}`}</style>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awDiceDrop1{0%{transform:translateY(-240px) scale(1.7) rotate(-120deg);opacity:0}18%{opacity:1}70%{transform:translateY(10px) scale(.95) rotate(10deg)}85%{transform:translateY(-3px) scale(1.02) rotate(2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceDrop2{0%{transform:translateY(-275px) scale(1.8) rotate(150deg);opacity:0}20%{opacity:1}72%{transform:translateY(9px) scale(.95) rotate(-8deg)}87%{transform:translateY(-3px) scale(1.02) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceLand{0%{transform:scale(1.06)}45%{transform:scale(.97)}100%{transform:scale(1)}}`}</style>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -805,6 +815,8 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
               לוח מלא — לחיצה כפולה לזום חזרה
             </div>
           )}
+          {/* אנימציית זריקת קוביות — בתוך הלוח, גודל יחסי ללוח */}
+          {diceToss && <DiceToss key={diceToss.id} d1={diceToss.d1} d2={diceToss.d2} />}
         </div>
 
         {/* left panel: opponents */}
@@ -812,9 +824,6 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
           {players.filter((p) => p.isBot).map((p) => panelCard(p, active?.uid === p.uid))}
         </div>
       </div>
-
-      {/* אנימציית זריקת קוביות על הלוח */}
-      {diceToss && <DiceToss key={diceToss.id} d1={diceToss.d1} d2={diceToss.d2} />}
 
       {/* player cards modal */}
       {viewPlayer && (
