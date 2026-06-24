@@ -1706,6 +1706,8 @@ function GameScreenLayout({
   const [trackIdx, setTrackIdx] = useState(() => Math.floor(Math.random() * MUSIC_TRACKS.length))
   const [musicVol, setMusicVol] = useState(() => { const v = parseFloat(localStorage.getItem('beyahad_connect4_vol')); return isNaN(v) ? 0.10 : v })
   const [musicMenu, setMusicMenu] = useState(false)
+  // תפריט המוזיקה נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!musicMenu) return; const t = setTimeout(() => setMusicMenu(false), 3000); return () => clearTimeout(t) }, [musicMenu])
 
   const toggleMute = () => {
     const next = !muted

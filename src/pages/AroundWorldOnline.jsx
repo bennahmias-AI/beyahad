@@ -769,6 +769,8 @@ const awVolBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid rg
 // כפתור מוזיקה עם תפריט: כיבוי/הפעלה + שיר הבא + עוצמה (זהה למסך נגד-המחשב)
 function AwMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
   const [open, setOpen] = useState(false)
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t) }, [open])
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
       <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה"

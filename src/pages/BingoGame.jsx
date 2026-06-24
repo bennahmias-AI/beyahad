@@ -405,6 +405,8 @@ function BingoMusicButton() {
   const [vol, setVol] = useState(() => { const v = parseFloat(localStorage.getItem('beyahad_bingo_vol')); return isNaN(v) ? 0.10 : v })
   const [sfxMuted, setSfxMuted] = useState(() => isMuted())
   const [open, setOpen] = useState(false)
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t) }, [open])
 
   useEffect(() => {
     const a = audioRef.current
