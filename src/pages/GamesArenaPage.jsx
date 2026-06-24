@@ -30,7 +30,7 @@ const GAMES = [
     name: 'מסביב לעולם',
     description: 'מטיילים, קונים וזוכים',
     emoji: '🌍',
-    players: 'AI / 2-4 שחקנים',
+    players: '2-4 שחקנים',
     color: '#2f73c9',
     status: 'available',
   },
@@ -40,7 +40,7 @@ const GAMES = [
     name: '4 בשורה',
     description: 'חברו 4 ברצף ראשונים',
     emoji: '🔴',
-    players: 'AI / 2 שחקנים',
+    players: '2 שחקנים',
     color: '#B89048', // mustard
     status: 'available',
   },
@@ -49,7 +49,7 @@ const GAMES = [
     name: 'דמקה',
     description: 'פשוט וכייפי',
     emoji: '⚫',
-    players: 'AI / 2 שחקנים',
+    players: '2 שחקנים',
     color: '#2C5566', // teal
     status: 'available',
   },
@@ -58,7 +58,7 @@ const GAMES = [
     name: 'שש-בש',
     description: 'הקלאסי האהוב',
     emoji: '🎲',
-    players: 'AI / 2 שחקנים',
+    players: '2 שחקנים',
     color: '#6B3A4F', // wine
     status: 'available',
   },
@@ -67,7 +67,7 @@ const GAMES = [
     name: 'שחמט',
     description: 'משחק האסטרטגיה',
     emoji: '♟️',
-    players: 'AI / 2 שחקנים',
+    players: '2 שחקנים',
     color: '#5e3e22', // עץ אגוז
     status: 'available',
   },
@@ -85,7 +85,7 @@ const GAMES = [
     name: 'רמי מלבנים',
     description: 'סדרו רצפים וקבוצות',
     emoji: '🎴',
-    players: 'AI / 2-4 שחקנים',
+    players: '2-4 שחקנים',
     color: '#6B4427', // עץ אגוז
     status: 'available',
   },
@@ -94,7 +94,7 @@ const GAMES = [
     name: 'דומינו',
     description: 'התאימו ופרקו ראשונים',
     emoji: '🁫',
-    players: 'AI / 2-4 שחקנים',
+    players: '2-4 שחקנים',
     color: '#1f6a45', // ירוק לבד
     status: 'available',
   },

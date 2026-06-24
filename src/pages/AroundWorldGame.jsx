@@ -10,9 +10,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import AroundWorldBoard from './AroundWorldBoard.jsx';
-import { TILES, TILE_COUNT, RULES, TOKEN_COLORS, GROUPS, MAX_LEVEL, LEVEL_NAMES, rentFor, buildCost, nextBuildLabel, randomPriceIndex, applyIndex, regionOf, REGION_LABELS } from '../data/aroundWorldBoard';
+import { TILES, TILE_COUNT, RULES, TOKEN_COLORS, GROUPS, MAX_LEVEL, LEVEL_NAMES, rentFor, buildCost, nextBuildLabel, randomPriceIndex, applyIndex, sellValue, regionOf, REGION_LABELS } from '../data/aroundWorldBoard';
 import { flagSVG } from '../data/aroundWorldFlags';
-import { PropertyCard, CardsModal, CardFooter } from './AroundWorldCards.jsx';
+import { PropertyCard, CardsModal, CardFooter, DebtSellModal } from './AroundWorldCards.jsx';
 import { cardBack } from '../data/aroundWorldBoardArt';
 import { playSound, isMuted, setMuted } from '../utils/gameSounds';
 import { IconBackRTL } from '../icons/index.jsx';
@@ -99,6 +99,8 @@ const awVolBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid rg
 // כפתור מוזיקה עם תפריט: כיבוי/הפעלה + שיר הבא + עוצמה (−/+)
 function AwMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp }) {
   const [open, setOpen] = useState(false);
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t); }, [open]);
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
       <button onClick={() => setOpen(o => !o)} title="מוזיקה" aria-label="מוזיקה"
@@ -300,6 +302,8 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [peek, setPeek] = useState(false);
   const [diceToss, setDiceToss] = useState(null);   // אנימציית זריקת קוביות על הלוח
+  const [debtor, setDebtor] = useState(null);   // שחקן שנכנס למינוס וחייב למכור ({uid, deadline}) או null
+  const debtRef = useRef(null);   // { uid, timer, resolve } — לסיום ההמתנה כשהשחקן מתאזן
 
   // ---- מוזיקת רקע ----
   const [musicOn, setMusicOn] = useState(() => {
@@ -361,6 +365,77 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   // only the token animates between tiles
   const focus = (ids) => setFocusTiles(S.current.cameraMode === 'zoom' ? ids : null);
 
+  // ── מינוס/חוב: מכירת מדינות לקופה כדי לא להיפסל ──
+  const ownedTilesOf = (uid) => TILES.filter((t) => t.type === 'prop' && S.current.owners[t.id] === uid);
+
+  // מוכר מדינות חזרה לקופה: החזר = מחיר + מלונות; הכסף לשחקן, המדינה משוחררת
+  function sellProperties(uid, tileIds) {
+    if (!tileIds || !tileIds.length) return;
+    let refund = 0;
+    for (const id of tileIds) refund += sellValue(TILES[id], S.current.hotels[id] || 0);
+    updatePlayer(uid, (p) => ({ cash: p.cash + refund }));
+    setOwners((o) => { const c = { ...o }; for (const id of tileIds) delete c[id]; return c; });
+    setHotels((h) => { const c = { ...h }; for (const id of tileIds) delete c[id]; return c; });
+    playSound('win');
+    // יתרה חזויה אחרי המכירה (ה-state עוד לא התעדכן סינכרונית)
+    const p = S.current.players.find((x) => x.uid === uid);
+    const newCash = (p ? p.cash : 0) + refund;
+    const remaining = ownedTilesOf(uid).filter((t) => !tileIds.includes(t.id)).length;
+    if (debtRef.current && debtRef.current.uid === uid && (newCash >= 0 || remaining === 0)) {
+      clearTimeout(debtRef.current.timer);
+      const r = debtRef.current.resolve; debtRef.current = null; r(newCash >= 0 ? 'paid' : 'broke');
+    }
+  }
+
+  // המתנה שהשחקן האנושי ימכור עד יציאה מהמינוס, או עד תום הזמן (20 שניות)
+  function humanSettle(uid, deadline) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        if (debtRef.current && debtRef.current.uid === uid) { debtRef.current = null; resolve('timeout'); }
+      }, Math.max(0, deadline - Date.now()));
+      debtRef.current = { uid, timer, resolve };
+    });
+  }
+
+  // בוט: מוכר אוטומטית את היקרות ביותר עד שמתאזן (או עד שנגמרו המדינות)
+  async function botSettle(uid) {
+    await sleep(900);
+    for (let guard = 0; guard < 40; guard++) {
+      const p = S.current.players.find((x) => x.uid === uid);
+      if (!p || p.cash >= 0) break;
+      const owned = ownedTilesOf(uid);
+      if (!owned.length) break;
+      owned.sort((a, b) => sellValue(b, S.current.hotels[b.id] || 0) - sellValue(a, S.current.hotels[a.id] || 0));
+      const tile = owned[0];
+      const refund = sellValue(tile, S.current.hotels[tile.id] || 0);
+      updatePlayer(uid, (pp) => ({ cash: pp.cash + refund }));
+      setOwners((o) => { const c = { ...o }; delete c[tile.id]; return c; });
+      setHotels((h) => { const c = { ...h }; delete c[tile.id]; return c; });
+      setMessage(p.name + ' מכר את ' + tile.name + ' תמורת ' + refund + ' ₪');
+      playSound('step');
+      await sleep(850);
+    }
+  }
+
+  // מצב מינוס: כל שחקן שבמינוס אך מחזיק מדינות מקבל הזדמנות למכור לפני פסילה
+  async function settleDebts() {
+    const attempted = new Set();
+    for (let guard = 0; guard < 8; guard++) {
+      const ps = S.current.players;
+      const d = ps.find((p) => !p.dead && p.cash < 0 && !attempted.has(p.uid) && ownedTilesOf(p.uid).length > 0);
+      if (!d) break;
+      attempted.add(d.uid);
+      const deadline = Date.now() + 20000;
+      setFocusTiles(null);
+      setMessage(d.name + ' נכנס למינוס! חייב למכור מדינה כדי להישאר במשחק');
+      setDebtor({ uid: d.uid, deadline });
+      if (d.isBot) await botSettle(d.uid);
+      else await humanSettle(d.uid, deadline);
+      setDebtor(null);
+      await sleep(250);
+    }
+  }
+
   async function rollAndWalk() {
     const { players: ps, turnIdx: ti } = S.current;
     const p = ps[ti];
@@ -373,9 +448,12 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
     playSound('dice');
     setPhase('walking');
     setMessage(p.name + ' הטיל ' + (d1 + d2) + ' - צועדים!');
-    // camera travels FIRST to where the player stands, then follows each step
+    // הקוביות נזרקות תמיד למרכז הלוח שומרים מצלמה על לוח מלא בזמן הזריקה (גם במצב עוקבת)
+    setFocusTiles(null);
+    await sleep(780);
+    // רק אחרי שהקוביות נחתו נכנסת המצלמה העוקבת ועוקבת אחרי החייל
     focus(focusWindow(p.pos));
-    await sleep(S.current.cameraMode === 'zoom' ? 950 : 400);
+    await sleep(S.current.cameraMode === 'zoom' ? 620 : 150);
 
     await walkSteps(p.uid, d1 + d2);
     await sleep(350);
@@ -540,6 +618,8 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
   }
 
   async function endTurn(uid, extraTurn) {
+    // לפני פסילה — מי שבמינוס אך מחזיק מדינות מקבל הזדמנות למכור ולהישאר
+    await settleDebts();
     // bankruptcy check
     let alive = [];
     setPlayers((ps) => {
@@ -746,7 +826,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
-      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awDiceDrop1{0%{transform:translateY(-240px) scale(1.7) rotate(-120deg);opacity:0}18%{opacity:1}70%{transform:translateY(10px) scale(.95) rotate(10deg)}85%{transform:translateY(-3px) scale(1.02) rotate(2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceDrop2{0%{transform:translateY(-275px) scale(1.8) rotate(150deg);opacity:0}20%{opacity:1}72%{transform:translateY(9px) scale(.95) rotate(-8deg)}87%{transform:translateY(-3px) scale(1.02) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceLand{0%{transform:scale(1.06)}45%{transform:scale(.97)}100%{transform:scale(1)}}`}</style>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awDiceDrop1{0%{transform:translateY(-240px) scale(1.7) rotate(-120deg);opacity:0}18%{opacity:1}70%{transform:translateY(10px) scale(.95) rotate(10deg)}85%{transform:translateY(-3px) scale(1.02) rotate(2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceDrop2{0%{transform:translateY(-275px) scale(1.8) rotate(150deg);opacity:0}20%{opacity:1}72%{transform:translateY(9px) scale(.95) rotate(-8deg)}87%{transform:translateY(-3px) scale(1.02) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awDiceLand{0%{transform:scale(1.06)}45%{transform:scale(.97)}100%{transform:scale(1)}}@keyframes awBDie1{0%{transform:translateY(var(--d,-200px)) scale(1.7) rotate(-120deg);opacity:0}18%{opacity:1}72%{transform:translateY(0) scale(.95) rotate(8deg)}88%{transform:translateY(0) scale(1.03) rotate(2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awBDie2{0%{transform:translateY(var(--d,-230px)) scale(1.8) rotate(150deg);opacity:0}20%{opacity:1}74%{transform:translateY(0) scale(.95) rotate(-6deg)}88%{transform:translateY(0) scale(1.03) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awBLand{0%{transform:scale(1.06)}45%{transform:scale(.96)}100%{transform:scale(1)}}`}</style>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
 
@@ -809,6 +889,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
             hotels={hotels}
             tokenColors={tokenColors}
             priceIndex={priceIndex}
+            diceToss={diceToss}
           />
           {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -816,7 +897,7 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
             </div>
           )}
           {/* אנימציית זריקת קוביות — בתוך הלוח, גודל יחסי ללוח */}
-          {diceToss && <DiceToss key={diceToss.id} d1={diceToss.d1} d2={diceToss.d2} />}
+          {diceToss && false && null}
         </div>
 
         {/* left panel: opponents */}
@@ -829,6 +910,14 @@ export default function AroundWorldGame({ onBack, onHome, profile, initialRoomId
       {viewPlayer && (
         <CardsModal player={viewPlayer} players={players} owners={owners} hotels={hotels} lottoCards={LOTTO_CARDS} chanceCards={CHANCE_CARDS} onClose={() => setViewPlayer(null)} rotate={isPortrait} />
       )}
+
+      {/* מינוס: חלון מכירת מדינות — מוצג רק לשחקן האנושי שחייב למכור (בוט מוכר אוטומטית) */}
+      {debtor && (() => {
+        const dp = players.find((p) => p.uid === debtor.uid);
+        if (!dp || dp.isBot) return null;
+        const items = TILES.filter((t) => t.type === 'prop' && owners[t.id] === debtor.uid).map((t) => ({ tile: t, level: hotels[t.id] || 0 }));
+        return <DebtSellModal player={dp} items={items} deadline={debtor.deadline} onSell={(ids) => sellProperties(debtor.uid, ids)} rotate={isPortrait} />;
+      })()}
 
       {/* lotto / chance: flip-card animation (a card rises from the deck,
           flips to reveal, then flips back) - classic board-game feel */}

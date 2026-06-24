@@ -1963,6 +1963,8 @@ function ErrorScreen({ emoji, title, description, onBack }) {
 // ════════════════════════════════════════════
 function CkMusicButton({ musicOn, onToggle, onNext, vol, onVolDown, onVolUp, btnStyle }) {
   const [open, setOpen] = useState(false)
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t) }, [open])
   const item = { background: 'none', border: 'none', color: '#FBF7EE', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', padding: '8px 12px', textAlign: 'right', borderRadius: 8, whiteSpace: 'nowrap' }
   const vbtn = { width: 38, height: 34, borderRadius: 8, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.2)', color: '#E8C879', fontSize: 20, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
   return (

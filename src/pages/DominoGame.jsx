@@ -292,6 +292,9 @@ function DominoLocal({ onBack, onHome, profile, onExit, onGoOnline }) {
     return () => { window.removeEventListener('pointerdown', kick); window.removeEventListener('touchstart', kick); };
   }, [musicOn]);
 
+  // תפריט המוזיקה נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!musicMenu) return; const t = setTimeout(() => setMusicMenu(false), 3000); return () => clearTimeout(t); }, [musicMenu]);
+
   // ---- deal + open ----
   function startGame(diff) {
     setDifficulty(diff);

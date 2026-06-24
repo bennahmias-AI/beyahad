@@ -10,9 +10,9 @@
     CardsModal   - full-screen modal: tabs "הכרטיסיות של X" / "כל הכרטיסיות".
 */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { TILES, GROUPS, rentFor } from '../data/aroundWorldBoard';
+import { TILES, GROUPS, rentFor, sellValue } from '../data/aroundWorldBoard';
 import { flagSVG } from '../data/aroundWorldFlags';
 
 const INK = '#1c1c1c';
@@ -214,6 +214,86 @@ export function CardsModal({ player, players, owners, hotels, onClose, rotate = 
   // מסגרת ה-overlay: כשמסובב — container פנימי מסובב 90° עם מימדי מסך מוחלפים.
   return createPortal((
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(28,28,28,.6)', direction: 'rtl', overflow: 'hidden' }}>
+      {rotate ? (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}>
+          {overlayInner}
+        </div>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}>
+          {overlayInner}
+        </div>
+      )}
+    </div>
+  ), document.body);
+}
+
+/*
+  DebtSellModal — מוצג לשחקן שנכנס למינוס וחייב למכור מדינות לקופה כדי להישאר במשחק.
+  props: player {name,color,cash}, items [{tile, level}], deadline (ts), onSell(tileIds[]), rotate.
+  בחירה מרובה — לוחצים על כמה כרטיסיות ומוכרים יחד. אין סגירה — חייבים למכור או שהזמן ייגמר.
+*/
+export function DebtSellModal({ player, items = [], deadline = 0, onSell, rotate = false }) {
+  const [selected, setSelected] = useState(() => new Set());
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+  const secsLeft = Math.max(0, Math.ceil((deadline - now) / 1000));
+  const toggle = (id) => setSelected((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const selValue = items.filter((it) => selected.has(it.tile.id)).reduce((a, it) => a + sellValue(it.tile, it.level), 0);
+  const projected = player.cash + selValue;
+  const canSell = selected.size > 0;
+  const safe = projected >= 0;
+
+  const overlayInner = (
+    <div onClick={(e) => e.stopPropagation()} style={{ background: CREAM, border: `3px solid ${INK}`, borderRadius: 18, width: '100%', maxWidth: 760, maxHeight: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 18px 50px rgba(0,0,0,.4)', overflow: 'hidden', fontFamily: 'Heebo, sans-serif', direction: 'rtl' }}>
+      <div style={{ padding: '12px 16px', borderBottom: `2px solid ${INK}`, background: '#d8402a', color: '#fff', textAlign: 'center' }}>
+        <div style={{ fontWeight: 900, fontSize: 19 }}>{player.name} נכנס למינוס!</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>חובה למכור מדינות לקופה כדי להישאר במשחק</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: '#fff', borderBottom: `2px solid ${INK}`, gap: 10 }}>
+        <div style={{ fontWeight: 900, fontSize: 16, color: '#d8402a' }}>יתרה: {player.cash.toLocaleString()} ₪</div>
+        <div style={{ fontWeight: 900, fontSize: 16, color: secsLeft <= 5 ? '#d8402a' : INK }}>⏱ {secsLeft} שניות</div>
+      </div>
+      <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', minHeight: 0, flex: 1, padding: 12 }}>
+        {items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '26px 10px', fontWeight: 700, fontSize: 16, color: '#555' }}>אין מדינות למכירה</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, justifyContent: 'center', width: '100%' }}>
+            {items.map((it) => {
+              const isSel = selected.has(it.tile.id);
+              const val = sellValue(it.tile, it.level);
+              return (
+                <div key={it.tile.id} onClick={() => toggle(it.tile.id)} style={{ cursor: 'pointer', borderRadius: 14, outline: isSel ? '4px solid #2f9e3f' : '4px solid transparent', position: 'relative' }}>
+                  <PropertyCard tile={it.tile} level={it.level} width="100%" footer={
+                    <CardFooter color={isSel ? '#1c4e26' : '#a35a12'}>{isSel ? '✓ למכירה · ' : 'תקבל '}{val.toLocaleString()} ₪</CardFooter>
+                  } />
+                  {isSel && <div style={{ position: 'absolute', top: 6, insetInlineStart: 6, background: '#2f9e3f', color: '#fff', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, border: `2px solid ${INK}` }}>✓</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '10px 16px', borderTop: `2px solid ${INK}`, background: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 14, color: INK }}>נבחרו {selected.size} · תקבל {selValue.toLocaleString()} ₪</div>
+          <div style={{ fontWeight: 900, fontSize: 15, color: safe ? '#1c4e26' : '#d8402a' }}>יתרה אחרי מכירה: {projected.toLocaleString()} ₪</div>
+        </div>
+        <button onClick={() => canSell && onSell([...selected])} disabled={!canSell} style={{ padding: '12px 18px', borderRadius: 12, border: `2px solid ${INK}`, background: !canSell ? '#d3d1c7' : safe ? '#2f9e3f' : '#e8761f', color: !canSell ? '#777' : '#fff', fontSize: 16, fontWeight: 900, cursor: canSell ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+          {safe ? 'מכור והישאר' : 'מכור נבחרות'}
+        </button>
+      </div>
+    </div>
+  );
+
+  return createPortal((
+    <div style={{ position: 'fixed', inset: 0, zIndex: 4200, background: 'rgba(28,28,28,.72)', direction: 'rtl', overflow: 'hidden' }}>
       {rotate ? (
         <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100vh', height: '100vw', transform: 'translate(-50%,-50%) rotate(90deg)', transformOrigin: 'center center', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12, boxSizing: 'border-box' }}>
           {overlayInner}

@@ -1101,13 +1101,16 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
     playSound('dice')
 
     // מצב ביניים: walking — מסמנים לכולם שהקוביות יצאו
-    let s = { ...state, dice: [d1, d2], phase: 'walking' }
+    let s = { ...state, dice: [d1, d2], phase: 'walking', rollSeq: (state.rollSeq || 0) + 1 }
     await push(s)
 
     const steps = d1 + d2
     const p = { ...s.players[turnIdx] }
+    // הקוביות נזרקות תמיד למרכז הלוח — מצלמה על לוח מלא בזמן הזריקה, ורק אחריה מצלמה עוקבת
+    setFocusTiles(null)
+    await sleep(780)
     focus(focusWindow(p.pos))
-    await sleep(cameraMode === 'zoom' ? 700 : 300)
+    await sleep(cameraMode === 'zoom' ? 600 : 150)
 
     // צעידה תא-תא — דוחפים כל צעד ל-Firestore כדי שגם הצופים יראו את התנועה
     let pos = p.pos
@@ -1306,6 +1309,8 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
   const tokenColors = Object.fromEntries(state.players.map(p => [p.uid, p.color]))
   const dice = isMyTurn ? (localDice[0] ? localDice : state.dice) : state.dice
   const showFull = peek || cameraMode === 'full'
+  // זריקת קוביות מסונכרנת — כל הלקוחות מציגים את אותה זריקה במרכז הלוח (id = rollSeq, יציב לכל ההטלה)
+  const diceToss = (state.rollSeq && Array.isArray(state.dice) && state.dice[0]) ? { d1: state.dice[0], d2: state.dice[1], id: state.rollSeq } : null
 
   const handleLeave = async () => {
     handledLeaveRef.current = true   // מסמן שהטיפול ביציאה כבר נעשה — לא לקרוא ל-pause שוב ב-cleanup
@@ -1417,7 +1422,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
 
   const gameInner = (
     <div style={{ position: isPortrait ? 'absolute' : 'fixed', inset: 0, zIndex: 1000, background: awBgStyle(), direction: 'rtl', fontFamily: 'Heebo, sans-serif', overflow: 'hidden' }}>
-      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}`}</style>
+      <style>{`@keyframes awCashPop{0%{opacity:0;transform:translateY(6px) scale(.7)}18%{opacity:1;transform:translateY(0) scale(1.12)}32%{transform:translateY(0) scale(1)}72%{opacity:1;transform:translateY(-10px)}100%{opacity:0;transform:translateY(-22px)}}@keyframes awBDie1{0%{transform:translateY(var(--d,-200px)) scale(1.7) rotate(-120deg);opacity:0}18%{opacity:1}72%{transform:translateY(0) scale(.95) rotate(8deg)}88%{transform:translateY(0) scale(1.03) rotate(2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awBDie2{0%{transform:translateY(var(--d,-230px)) scale(1.8) rotate(150deg);opacity:0}20%{opacity:1}74%{transform:translateY(0) scale(.95) rotate(-6deg)}88%{transform:translateY(0) scale(1.03) rotate(-2deg)}100%{transform:translateY(0) scale(1) rotate(0)}}@keyframes awBLand{0%{transform:scale(1.06)}45%{transform:scale(.96)}100%{transform:scale(1)}}`}</style>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row', gap: 8, padding: 8 }}>
         {/* כפתור יציאה צף — תמיד גלוי בפינה, לא בתוך הטור הנגלל (אין צורך לגלול כדי לצאת) */}
         <button onClick={() => setConfirmLeave(true)} aria-label="יציאה מהמשחק" style={{ position: 'absolute', top: 6, insetInlineEnd: 6, zIndex: 80, width: 30, height: 30, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.5)', background: 'rgba(0,0,0,.38)', fontSize: 15, fontWeight: 700, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}>✕</button>
@@ -1494,6 +1499,7 @@ function OnlineGame({ room, roomId, me, onBack, onHome, onExit }) {
             hotels={state.hotels}
             tokenColors={tokenColors}
             priceIndex={state.priceIndex}
+            diceToss={diceToss}
           />
           {peek && (
             <div style={{ position: 'absolute', top: 8, insetInlineStart: '50%', transform: 'translateX(-50%)', background: 'rgba(28,28,28,.78)', color: '#fff', borderRadius: 999, padding: '5px 14px', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>

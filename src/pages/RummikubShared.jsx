@@ -66,6 +66,8 @@ const rmPopVol = { width: 34, height: 34, borderRadius: 8, border: `1px solid ${
 // כפתור מוזיקה משותף (הפעלה/כיבוי · שיר הבא · עוצמה)
 export function RummiMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp, muted, onToggleMute }) {
   const [open, setOpen] = useState(false)
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t) }, [open])
   return (
     <div style={{ position: 'relative', display: 'flex' }}>
       <button onClick={() => setOpen(o => !o)} aria-label="מוזיקה" style={{ ...rmIconCtrlBtn, opacity: musicOn ? 1 : 0.55 }}><IconMusicNote size={18} color="#e6cd90" /></button>

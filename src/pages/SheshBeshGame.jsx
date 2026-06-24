@@ -1128,6 +1128,8 @@ function SbStage({
 
 function SbMusicButton({ musicOn, onToggle, onNext, vol, onVolDown, onVolUp, btnStyle }) {
   const [open, setOpen] = useState(false)
+  // התפריט נסגר לבד אחרי 3 שניות
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3000); return () => clearTimeout(t) }, [open])
   const item = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', background: 'rgba(255,255,255,.06)', border: `1px solid ${GOLD_DEEP}`, borderRadius: 9, padding: '9px 10px', color: GOLD, fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer' }
   const vbtn = { width: 40, height: 38, borderRadius: 9, background: 'rgba(255,255,255,.06)', border: `1px solid ${GOLD_DEEP}`, color: GOLD, fontSize: 22, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
   return (

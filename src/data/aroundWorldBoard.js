@@ -185,3 +185,14 @@ export function buildCost(tile, currentLevel) {
 export function nextBuildLabel(currentLevel) {
   return currentLevel < 3 ? 'מלון' : 'עיר בירה';
 }
+
+// Cash refunded when SELLING a property back to the bank to avoid bankruptcy:
+// full printed country price + the full cost of every hotel / capital built on it.
+// level 0..4 (0 none, 1-3 hotels, 4 capital).
+export function sellValue(tile, level = 0) {
+  if (!tile || tile.type !== 'prop') return 0;
+  const lvl = Math.min(Math.max(level, 0), MAX_LEVEL);
+  let built = 0;
+  for (let k = 0; k < lvl; k++) built += buildCost(tile, k); // hotels (×tile.hotel) + capital (tile.capCost)
+  return tile.price + built;
+}
