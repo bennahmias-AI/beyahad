@@ -9,7 +9,34 @@
 // אמין; אם הוא נופל אפשר להחליף ל-de1/de2/at1 וכו'.
 // ─────────────────────────────────────────────────────────────
 
-const BASE = 'https://de1.api.radio-browser.info/json'
+// Mirror servers with automatic failover — if one is down we try the next.
+// (de1 alone was hardcoded before and it goes down occasionally, which left
+// the radio empty for everyone until it came back.)
+const SERVERS = [
+  'https://de1.api.radio-browser.info/json',
+  'https://de2.api.radio-browser.info/json',
+  'https://all.api.radio-browser.info/json',
+]
+let _serverIdx = 0
+
+// GET helper: tries the last-known-good server first, falls through the
+// mirror list on failure/timeout (8s per server), remembers what worked.
+async function apiGet(path) {
+  for (let i = 0; i < SERVERS.length; i++) {
+    const idx = (_serverIdx + i) % SERVERS.length
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      const res = await fetch(`${SERVERS[idx]}${path}`, { headers: HEADERS, signal: ctrl.signal })
+      clearTimeout(timer)
+      if (!res.ok) throw new Error('bad status ' + res.status)
+      const data = await res.json()
+      _serverIdx = idx
+      return data
+    } catch (e) { /* server down/slow — try the next mirror */ }
+  }
+  throw new Error('all radio servers failed')
+}
 
 // כותרת User-Agent נדרשת לפי נהלי ה-API (מזהה את האפליקציה)
 const HEADERS = { 'Content-Type': 'application/json' }
@@ -57,12 +84,9 @@ function clean(list) {
 // תחנות ישראליות פופולריות (לפי מספר הקלקות, הכי פופולריות קודם)
 export async function fetchIsraeliStations(limit = 60) {
   try {
-    const res = await fetch(
-      `${BASE}/stations/bycountrycodeexact/IL?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
-      { headers: HEADERS },
+    const data = await apiGet(
+      `/stations/bycountrycodeexact/IL?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
     )
-    if (!res.ok) throw new Error('radio fetch failed')
-    const data = await res.json()
     return clean(data)
   } catch (e) {
     console.error('fetchIsraeliStations error:', e)
@@ -74,12 +98,9 @@ export async function fetchIsraeliStations(limit = 60) {
 export async function searchStations(term, limit = 50) {
   if (!term || !term.trim()) return []
   try {
-    const res = await fetch(
-      `${BASE}/stations/search?name=${encodeURIComponent(term.trim())}&limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
-      { headers: HEADERS },
+    const data = await apiGet(
+      `/stations/search?name=${encodeURIComponent(term.trim())}&limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
     )
-    if (!res.ok) throw new Error('radio search failed')
-    const data = await res.json()
     return clean(data)
   } catch (e) {
     console.error('searchStations error:', e)
@@ -90,12 +111,9 @@ export async function searchStations(term, limit = 50) {
 // תחנות לפי סוגה/תגית (למשל 'pop', 'classical', 'news')
 export async function fetchStationsByTag(tag, limit = 50) {
   try {
-    const res = await fetch(
-      `${BASE}/stations/bytagexact/${encodeURIComponent(tag)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
-      { headers: HEADERS },
+    const data = await apiGet(
+      `/stations/bytagexact/${encodeURIComponent(tag)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
     )
-    if (!res.ok) throw new Error('radio tag fetch failed')
-    const data = await res.json()
     return clean(data)
   } catch (e) {
     console.error('fetchStationsByTag error:', e)
@@ -107,12 +125,9 @@ export async function fetchStationsByTag(tag, limit = 50) {
 export async function fetchStationsByCountry(countryCode, limit = 80) {
   if (!countryCode) return []
   try {
-    const res = await fetch(
-      `${BASE}/stations/bycountrycodeexact/${encodeURIComponent(countryCode)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
-      { headers: HEADERS },
+    const data = await apiGet(
+      `/stations/bycountrycodeexact/${encodeURIComponent(countryCode)}?limit=${limit}&order=clickcount&reverse=true&hidebroken=true`,
     )
-    if (!res.ok) throw new Error('radio country fetch failed')
-    const data = await res.json()
     return clean(data)
   } catch (e) {
     console.error('fetchStationsByCountry error:', e)
@@ -123,7 +138,7 @@ export async function fetchStationsByCountry(countryCode, limit = 80) {
 // מדווח ל-API על הקלקה (סטטיסטיקה קהילתית — עוזר לדירוג). לא חוסם.
 export function reportClick(stationId) {
   if (!stationId) return
-  fetch(`${BASE}/url/${stationId}`, { headers: HEADERS }).catch(() => {})
+  fetch(`${SERVERS[_serverIdx]}/url/${stationId}`, { headers: HEADERS }).catch(() => {})
 }
 
 // ─── רשימת מדינות נפוצות לרדיו ──────────────────────────────

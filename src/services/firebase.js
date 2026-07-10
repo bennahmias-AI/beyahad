@@ -3262,8 +3262,14 @@ export async function onForegroundMessage(cb) {
 // best-effort — לא חוסם את הזרימה; בלוקאל (אין endpoint) פשוט נכשל בשקט.
 export async function notifyPush({ toUid, type, title, body, url }) {
   if (!toUid || !type) return
+  // FIX: in the native app a relative path resolves to the WebView's internal
+  // localhost (no server there) — so push was never sent from the installed app.
+  // Native must use the full production URL; web keeps the relative path.
+  const endpoint = isNativePlatform()
+    ? 'https://beyahad-gamma.vercel.app/api/notify'
+    : '/api/notify'
   try {
-    await fetch('/api/notify', {
+    await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ toUid, type, title: title || '', body: body || '', url: url || '/' }),
@@ -3272,4 +3278,25 @@ export async function notifyPush({ toUid, type, title, body, url }) {
     // best-effort — מתעלמים מכשל (למשל כשאין שרת מקומי)
   }
 }
+
+// כניסה עם Google — נייטיב דרך הפלאגין (skipNativeAuth: מקבלים credential
+// ומתחברים בשכבת הווב, בדיוק כמו באימות הטלפון) ווב דרך פופאפ.
+// מחזיר את המשתמש המחובר (firebaseUser).
+export async function signInWithGoogle() {
+  const { GoogleAuthProvider, signInWithPopup, signInWithCredential } = await import('firebase/auth')
+  if (isNativePlatform()) {
+    const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication')
+    const result = await FirebaseAuthentication.signInWithGoogle()
+    const idToken = result?.credential?.idToken
+    if (!idToken) throw new Error('google-no-token')
+    const cred = GoogleAuthProvider.credential(idToken)
+    const userCred = await signInWithCredential(auth, cred)
+    return userCred.user
+  }
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+  const userCred = await signInWithPopup(auth, provider)
+  return userCred.user
+}
+
 

@@ -20,7 +20,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   sendOtp, verifyOtp, createOrUpdateUser,
   sendEmailCode, verifyEmailCode,
-  getUser, signOut,
+  getUser, signOut, signInWithGoogle,
 } from '../services/firebase.js'
 import { colors } from '../design-system/index.js'
 import AppLogo from '../components/AppLogo.jsx'
@@ -86,6 +86,7 @@ export default function AuthPage() {
   const [step, setStep]   = useState('form')    // 'form' | 'otp'
   const [channel, setChannel] = useState('sms') // 'sms' | 'email' — הערוץ הפעיל לקוד
   const [loading, setLoading] = useState(false) // לכפתור האימות
+  const [googleLoading, setGoogleLoading] = useState(false) // לכפתור Google
   const [sending, setSending] = useState(false) // שליחת הקוד רצה ברקע
   const [resendIn, setResendIn] = useState(0)   // סטופר אחורה לשליחה חוזרת
   const [elapsed, setElapsed] = useState(0)     // שניות שעברו במסך הקוד (להחלפת ערוץ)
@@ -180,24 +181,9 @@ export default function AuthPage() {
     setStep('form'); setError(''); setCode(''); setResendIn(0); setElapsed(0); setSending(false)
   }
 
-  // מאמת את פרטי הטופס (בהרשמה). מחזיר true אם תקין, אחרת מציג שגיאה.
+  // מאמת את פרטי הטופס. בהרשמה נדרש רק טלפון — שאר הפרטים נאספים אחרי האימות (מסך השלמת פרטים).
   function validateForm(forChannel) {
     setError('')
-    if (mode === 'register') {
-      if (!name.trim())     { setError('נא להזין שם פרטי'); return false }
-      if (!lastName.trim()) { setError('נא להזין שם משפחה'); return false }
-      if (!gender)          { setError('נא לבחור מגדר'); return false }
-      if (!isValidBirthYear(birthYear)) {
-        // הודעה ספציפית למי שמתחת לגיל 18 — אין הרשמה לקטינים
-        if (isUnder18Year(birthYear)) {
-          setError('האפליקציה מיועדת לגיל 18 ומעלה. אנא תקנו את שנת הלידה.')
-        } else {
-          setError('נא להזין שנת לידה תקינה (למשל 1955)')
-        }
-        return false
-      }
-      if (!city.trim())     { setError('נא להזין עיר'); return false }
-    }
     if (forChannel === 'email') {
       if (!isValidEmail(email)) { setError('נא להזין כתובת מייל תקינה'); return false }
     } else {
@@ -205,6 +191,46 @@ export default function AuthPage() {
       if (!isValidILPhone(e164)) { setError('נא להזין מספר טלפון נייד תקין (למשל 050-1234567)'); return false }
     }
     return true
+  }
+
+  // כניסה/הרשמה עם Google — לחיצה אחת, בלי קוד.
+  // משתמש קיים → נכנס ישר. משתמש חדש → נוצר לו פרופיל מיידית מפרטי Google
+  // (חייב: תוך ~3 שניות, אחרת useAuth מנתק משתמש בלי פרופיל כהגנה מ"רפאים"),
+  // ושלב התמונה (OnboardingPhoto) ממשיך כרגיל כי onboarded:false.
+  async function handleGoogle() {
+    if (googleLoading) return
+    setError('')
+    setGoogleLoading(true)
+    try {
+      const user = await signInWithGoogle()
+      const existing = await getUser(user.uid)
+      if (!existing || !existing.name) {
+        const dn = (user.displayName || '').trim()
+        const parts = dn ? dn.split(/\s+/) : []
+        const data = {
+          name: parts[0] || 'חבר חדש',
+          lastName: parts.slice(1).join(' '),
+          gender: '',
+          city: '',
+          status: 'available',
+          interests: [],
+          onboarded: false,
+        }
+        if (user.email) data.email = user.email.toLowerCase()
+        if (user.photoURL) data.photoURL = user.photoURL
+        await createOrUpdateUser(user.uid, data)
+      }
+      // מכאן useAuth טוען את הפרופיל ומכניס פנימה (לא מכבים loading — המסך מתחלף)
+    } catch (e) {
+      console.error('google sign-in error:', e)
+      const msg = String(e?.message || '')
+      const cancelled =
+        e?.code === 'auth/popup-closed-by-user' ||
+        e?.code === 'auth/cancelled-popup-request' ||
+        /cancel/i.test(msg) || /12501/.test(msg)
+      if (!cancelled) setError('הכניסה עם Google לא הצליחה — נסו שוב, או היכנסו עם טלפון או מייל')
+      setGoogleLoading(false)
+    }
   }
 
   // שלב 1 — שליחת קוד בערוץ הנבחר. עוברים מיד למסך הקוד; השליחה רצה ברקע.
@@ -238,17 +264,17 @@ export default function AuthPage() {
         uid = cred.user.uid
       }
       if (mode === 'register') {
+        // פרופיל מינימלי מייד אחרי האימות — שאר הפרטים (שם/מגדר/שנה/עיר)
+        // נאספים במסך השלמת הפרטים (Onboarding), המשותף גם לכניסת Google.
         const data = {
-          name: name.trim(),
-          lastName: lastName.trim(),
-          gender,
-          birthYear: parseInt(birthYear, 10),
-          city: city.trim(),
+          name: '',
+          lastName: '',
+          gender: '',
+          city: '',
           status: 'available',
           interests: [],
           onboarded: false,
         }
-        if (email.trim()) data.email = email.trim().toLowerCase()
         if (normalizePhone(phone)) data.phone = normalizePhone(phone)
         await createOrUpdateUser(uid, data)
       } else {
@@ -370,60 +396,17 @@ export default function AuthPage() {
       {/* ── שלב הטופס ── */}
       {step === 'form' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {mode === 'register' && (
-            <>
-              <FormField label="שם פרטי" valid={vName}>
-                <input value={name} onChange={e => setName(e.target.value)}
-                  placeholder="הזינו את שמכם" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
-              </FormField>
-              <FormField label="שם משפחה" valid={vLast}>
-                <input value={lastName} onChange={e => setLastName(e.target.value)}
-                  placeholder="הזינו שם משפחה" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
-              </FormField>
-              <FormField label="מגדר" valid={!!gender}>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {[{ id: 'female', label: 'נקבה' }, { id: 'male', label: 'זכר' }].map(g => {
-                    const active = gender === g.id
-                    return (
-                      <button key={g.id} type="button" onClick={() => setGender(g.id)} style={{
-                        flex: 1, padding: '13px 0', fontSize: 17, fontWeight: 700,
-                        borderRadius: 999, border: 'none',
-                        background: active ? colors.burgundy : colors.surface2,
-                        color: active ? 'white' : colors.ink2,
-                        fontFamily: 'inherit', cursor: 'pointer', minHeight: 'unset',
-                        boxShadow: active ? `0 4px 12px -4px ${colors.burgundy}80` : 'none',
-                        transition: 'all 0.2s',
-                      }}>{g.label}</button>
-                    )
-                  })}
-                </div>
-              </FormField>
-              <FormField label="שנת לידה" valid={vYear}>
-                <input value={birthYear} onChange={e => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="הזינו שנת לידה" inputMode="numeric" dir="ltr" maxLength={4}
-                  style={{ ...underlineInput, textAlign: 'left', letterSpacing: '0.1em' }}/>
-              </FormField>
-              {/* הודעה ישרה מתחת לשדה — מופיעה רק כששנה שלמה נמצאת מתחת לגיל 18 */}
-              {isUnder18Year(birthYear) && (
-                <div style={{
-                  background: '#fef3e2', border: '1px solid #e8a93e',
-                  borderRadius: 12, padding: '10px 14px', marginTop: -8,
-                  fontSize: 13.5, color: '#7a5410', fontWeight: 600, lineHeight: 1.45, textAlign: 'right',
-                }}>
-                  ⚠️ האפליקציה מיועדת למשתמשים <strong>מעל גיל 18</strong>.<br/>
-                  אנא תקנו את שנת הלידה לשנה שלא מאוחר מ-{CURRENT_YEAR - 18}.
-                </div>
-              )}
-              <FormField label="עיר" valid={vCity}>
-                <input value={city} onChange={e => setCity(e.target.value)}
-                  placeholder="הזינו עיר מגורים" dir="rtl" style={{ ...underlineInput, textAlign: 'right' }}/>
-              </FormField>
-              <FormField label="כתובת מייל (לא חובה)" valid={email.trim() ? vEmail : false}>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="הזינו כתובת מייל" dir="ltr" style={{ ...underlineInput, textAlign: 'left' }}/>
-              </FormField>
-            </>
-          )}
+          {/* כניסה מהירה עם Google — הדרך הקלה, בלי קודים */}
+          <GoogleButton onClick={handleGoogle} loading={googleLoading}>
+            {mode === 'register' ? 'הרשמה מהירה עם Google' : 'המשך עם Google'}
+          </GoogleButton>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: colors.line }} />
+            <span style={{ fontSize: 13.5, color: colors.ink3, fontWeight: 600 }}>
+              {mode === 'register' ? 'או הרשמה עם מספר טלפון' : 'או כניסה עם קוד אימות'}
+            </span>
+            <div style={{ flex: 1, height: 1, background: colors.line }} />
+          </div>
           {mode === 'login' && (
             <>
               <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 16, background: colors.surface2 }}>
@@ -485,9 +468,9 @@ export default function AuthPage() {
               <ChannelButton onClick={() => handleSendCode('sms')} accent={colors.burgundy}>
                 📱 שליחת קוד ב-SMS
               </ChannelButton>
-              <ChannelButton onClick={() => handleSendCode('email')} accent={colors.teal} outline>
-                ✉️ שליחת קוד במייל
-              </ChannelButton>
+              <div style={{ fontSize: 13.5, color: colors.ink3, textAlign: 'center' }}>
+                נשלח אליך קוד אימות ב-SMS, ואחריו נשלים את פרטי ההרשמה
+              </div>
             </div>
           )}
         </div>
@@ -548,7 +531,7 @@ export default function AuthPage() {
                 {channel !== 'sms' && (
                   <button onClick={() => switchChannel('sms')} style={switchBtnStyle}>📱 שלח ב-SMS</button>
                 )}
-                {channel !== 'email' && (
+                {channel !== 'email' && mode === 'login' && (
                   <button onClick={() => switchChannel('email')} style={switchBtnStyle}>✉️ שלח במייל</button>
                 )}
               </div>
@@ -622,6 +605,30 @@ function ErrorBox({ children }) {
       background: colors.burgundySoft, color: colors.burgundyDeep,
       borderRadius: 12, padding: '11px 14px', fontSize: 15, fontWeight: 600, textAlign: 'right',
     }}>{children}</div>
+  )
+}
+
+// כפתור כניסה עם Google — לבן עם לוגו צבעוני רשמי
+function GoogleButton({ onClick, loading, children }) {
+  return (
+    <button onClick={onClick} disabled={loading} style={{
+      width: '100%', padding: '14px 0', textAlign: 'center',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      border: `1.5px solid ${colors.lineStrong}`, borderRadius: 16,
+      background: 'white', color: colors.ink,
+      fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
+      cursor: loading ? 'default' : 'pointer', minHeight: 'unset',
+      boxShadow: '0 4px 12px -6px rgba(0,0,0,0.25)',
+      opacity: loading ? 0.7 : 1,
+    }}>
+      <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      {loading ? 'מתחברים…' : children}
+    </button>
   )
 }
 

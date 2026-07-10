@@ -36,7 +36,8 @@ export default function TVPage({ onBack, onHome }) {
   const [israeli, setIsraeli] = useState([])
   const [loadingIsraeli, setLoadingIsraeli] = useState(true)
   const [filterIL, setFilterIL] = useState('')
-  const [officialOnly, setOfficialOnly] = useState(true)
+  const [showList, setShowList] = useState(true)   // "כל הערוצים" — פתוח עד שבוחרים ערוץ
+  const [volPct, setVolPct] = useState(100)        // תצוגת עוצמת הקול בשלט
 
   // עולם: תת-מסכים — home (רשת) | countries | country | category
   const [view, setView] = useState('home')
@@ -100,11 +101,30 @@ export default function TVPage({ onBack, onHome }) {
     setView('home'); setCountry(null); setCountryList([]); setActiveCat(null); setCatList([])
   }
 
-  // רשימה לבנה (ערוצים רשמיים) + סינון טקסט חופשי
-  const ilBase = officialOnly ? israeli.filter(isOfficialIL) : israeli
+  // רשימה אחת מאוחדת — הערוצים הרשמיים קודם, אחריהם כל השאר; + סינון טקסט חופשי
+  const ilBase = [...israeli.filter(isOfficialIL), ...israeli.filter(c => !isOfficialIL(c))]
   const filteredIL = filterIL.trim()
     ? ilBase.filter(c => c.name.toLowerCase().includes(filterIL.trim().toLowerCase()))
     : ilBase
+
+  // שלט: זאפינג בין ערוצי ישראל (הרשימה המאוחדת) + שליטה בקול
+  const pickIL = (ch) => { onPick(ch); setShowList(false) }
+  const zapIL = (dir) => {
+    if (!ilBase.length) return
+    const idx = current ? ilBase.findIndex(c => c.url === current.url) : -1
+    const next = idx === -1 ? 0 : (idx + dir + ilBase.length) % ilBase.length
+    pickIL(ilBase[next])
+  }
+  const nudgeVolume = (d) => {
+    const v = document.querySelector('video')
+    if (!v) return
+    try {
+      v.muted = false
+      const nv = Math.min(1, Math.max(0, (typeof v.volume === 'number' ? v.volume : 1) + d))
+      v.volume = nv
+      setVolPct(Math.round(nv * 100))
+    } catch { /* חלק מהמכשירים לא מאפשרים שליטה בקול מתוך הדף */ }
+  }
 
   return (
     <div className="scroll-area rise-in" style={{ direction: 'rtl', paddingBottom: 20 }}>
@@ -167,14 +187,28 @@ export default function TVPage({ onBack, onHome }) {
           loadingIsraeli ? <Loading /> :
           israeli.length === 0 ? <Empty icon="📺" title="לא הצלחנו לטעון ערוצים" sub="בדקו את החיבור לאינטרנט ונסו שוב" /> :
           <>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, background: 'var(--surface-2)', borderRadius: 12, padding: 4 }}>
-              <Pill active={officialOnly} onClick={() => setOfficialOnly(true)}>📺 ערוצים רשמיים</Pill>
-              <Pill active={!officialOnly} onClick={() => setOfficialOnly(false)}>הכל</Pill>
-            </div>
-            <SearchBox value={filterIL} onChange={setFilterIL} placeholder="סינון ערוצים ישראליים" />
-            {filteredIL.length === 0
-              ? <Empty icon="🔎" title="לא נמצא ערוץ" sub={officialOnly ? 'לחצו על ”הכל“ כדי לראות עוד ערוצים' : 'נסו שם אחר'} />
-              : <ChannelList channels={filteredIL} current={current} onPick={onPick} isFav={isFav} onFav={toggleFav} />}
+            <TVRemote
+              current={current}
+              pos={current ? ilBase.findIndex(c => c.url === current.url) : -1}
+              total={ilBase.length}
+              onUp={() => zapIL(1)}
+              onDown={() => zapIL(-1)}
+              onVolUp={() => nudgeVolume(0.1)}
+              onVolDown={() => nudgeVolume(-0.1)}
+              volPct={volPct}
+              listOpen={showList}
+              onToggleList={() => setShowList(s => !s)}
+              isFav={current ? isFav(current) : false}
+              onFav={() => current && toggleFav(current)}
+            />
+            {showList && (
+              <>
+                <SearchBox value={filterIL} onChange={setFilterIL} placeholder="סינון ערוצים ישראליים" />
+                {filteredIL.length === 0
+                  ? <Empty icon="🔎" title="לא נמצא ערוץ" sub="נסו שם אחר" />
+                  : <ChannelList channels={filteredIL} current={current} onPick={pickIL} isFav={isFav} onFav={toggleFav} />}
+              </>
+            )}
           </>
         )}
 
@@ -391,6 +425,60 @@ function ChannelList({ channels, current, onPick, isFav, onFav }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------
+// שלט טלוויזיה קלאסי — ללשונית ישראל: ערוץ ▲▼, קול, מועדפים
+// -----------------------------------------------------------------
+function TVRemote({ current, pos, total, onUp, onDown, onVolUp, onVolDown, volPct, listOpen, onToggleList, isFav, onFav }) {
+  const keyStyle = {
+    background: '#F6F0E3', border: 'none', cursor: 'pointer',
+    fontFamily: 'inherit', color: '#4A2637', width: '100%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '10px 8px',
+  }
+  const Chev = ({ up }) => (
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      {up ? <path d="M6 15l6-6 6 6" /> : <path d="M6 9l6 6 6-6" />}
+    </svg>
+  )
+  return (
+    <div style={{ background: 'var(--burgundy, #6B3A4F)', borderRadius: 20, padding: 14, marginBottom: 16 }}>
+      {/* מסך קטן — הערוץ הנוכחי */}
+      <div style={{ background: 'rgba(0,0,0,.35)', borderRadius: 12, padding: '8px 12px', marginBottom: 12, textAlign: 'center' }}>
+        <div style={{ color: '#F6F0E3', fontSize: 17, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {current ? current.name : 'בחרו ערוץ מהרשימה או לחצו ▲'}
+        </div>
+        {current && pos >= 0 && (
+          <div style={{ color: 'rgba(246,240,227,.75)', fontSize: 12.5, fontWeight: 600, marginTop: 2 }}>
+            ערוץ {pos + 1} מתוך {total}
+          </div>
+        )}
+      </div>
+      {/* ערוץ + קול */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ background: '#F6F0E3', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <button onClick={onUp} aria-label="ערוץ הבא" style={keyStyle}><Chev up /></button>
+          <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 800, color: '#4A2637' }}>ערוץ</div>
+          <button onClick={onDown} aria-label="ערוץ קודם" style={keyStyle}><Chev /></button>
+        </div>
+        <div style={{ background: '#F6F0E3', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <button onClick={onVolUp} aria-label="הגברת קול" style={{ ...keyStyle, fontSize: 26, fontWeight: 800, lineHeight: 1 }}>+</button>
+          <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 800, color: '#4A2637' }}>קול {volPct}%</div>
+          <button onClick={onVolDown} aria-label="הנמכת קול" style={{ ...keyStyle, fontSize: 26, fontWeight: 800, lineHeight: 1 }}>−</button>
+        </div>
+      </div>
+      {/* כל הערוצים + מועדף */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+        <button onClick={onToggleList} style={{ ...keyStyle, flex: 1, borderRadius: 14, gap: 8, padding: '13px 8px', fontSize: 15, fontWeight: 800 }}>
+          {listOpen ? 'הסתרת הרשימה' : 'כל הערוצים'}
+        </button>
+        <button onClick={onFav} aria-label="הוספה למועדפים" disabled={!current} style={{ ...keyStyle, width: 58, flex: '0 0 58px', borderRadius: 14, opacity: current ? 1 : 0.5 }}>
+          <IconHeart size={22} color={isFav ? '#D85A30' : '#4A2637'} />
+        </button>
+      </div>
     </div>
   )
 }
