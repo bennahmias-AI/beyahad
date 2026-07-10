@@ -186,7 +186,7 @@ function normalizeOccId(id) {
 // בוחר מלל שיתוף רנדומלי לפי הקשר. ctx = { id?, text? } — מעדיף מזהה אירוע;
 // אחרת לפי מילות מפתח בטקסט; אם אין התאמה — מלל כללי.
 // שורת שיווק קבועה בסוף כל מלל שיתוף — הזמנה להוריד את האפליקציה מהחנות.
-const SHARE_PROMO = '\n\nליצירת ברכה אישית משלכם הורידו את ביחד\nhttps://bit.ly/4ygFEXN'
+const SHARE_PROMO = '\n\nליצירת ברכה אישית משלכם הורידו את ביחד\nhttps://play.google.com/store/apps/details?id=com.beyahad.app'
 
 function pickShareText(ctx = {}) {
   const { id, text } = ctx
