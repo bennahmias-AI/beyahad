@@ -84,6 +84,7 @@ export default function App() {
   const [bingoRoom, setBingoRoom] = useState(null)
   const [aroundWorldRoom, setAroundWorldRoom] = useState(null)
   const [dominoRoom, setDominoRoom] = useState(null)
+  const [bridgeRoom, setBridgeRoom] = useState(null)
   // חדר פרלמנט לכניסה ישירה מהזמנה (חבר הזמין לדיון)
   const [parliamentInviteRoom, setParliamentInviteRoom] = useState(null)
   // מצב משחק לכניסה ישירה ממסך הבית (חבר/רשת/מחשב/לבד) — null = מסך בחירת מצב רגיל
@@ -201,6 +202,7 @@ export default function App() {
         return 'games'
       case 'aroundworld-game': setAroundWorldRoom(null); setPlayFriend(null); return 'games'
       case 'domino-game': setDominoRoom(null); setPlayFriend(null); return 'games'
+      case 'bridge-game': setBridgeRoom(null); setPlayFriend(null); return 'games'
       case 'rummikub-game': setRummikubRoom(null); setPlayFriend(null); return 'games'
       case 'arena-game':    setArenaRoom(null);    setPlayFriend(null); return 'games'
       case 'bingo-game':    setBingoRoom(null);    setPlayFriend(null); return 'games'
@@ -281,6 +283,7 @@ export default function App() {
     setConnect4Room(null); setCheckersRoom(null); setChessRoom(null)
     setSheshbeshRoom(null); setRummikubRoom(null); setArenaRoom(null); setBingoRoom(null)
     setAroundWorldRoom(null); setDominoRoom(null); setParliamentInviteRoom(null)
+    setBridgeRoom(null)
     setGameMode(null)
     setChatFriend(null); setPlayFriend(null); setInitialPostId(null)
     setPage('hub')
@@ -333,6 +336,9 @@ export default function App() {
     } else if (gameType === 'domino') {
       setDominoRoom(roomId)
       setPage('domino-game')
+    } else if (gameType === 'bridge') {
+      setBridgeRoom(roomId)
+      setPage('bridge-game')
     } else if (gameType === 'parliament') {
       setParliamentInviteRoom(roomId)
       setPage('parliament-lobby')
@@ -597,13 +603,13 @@ export default function App() {
           onGoBingo={() => { setBingoRoom(null); setGameMode(null); setPage('bingo-game') }}
           onGoAroundWorld={() => setPage('aroundworld-game')}
           onGoDomino={() => { setDominoRoom(null); setGameMode(null); setPage('domino-game') }}
-          onGoBridge={() => setPage('bridge-game')}
+          onGoBridge={() => { setBridgeRoom(null); setGameMode(null); setPage('bridge-game') }}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
       {page === 'aroundworld-game' && <AroundWorldGame initialRoomId={aroundWorldRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setAroundWorldRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'domino-game' && <DominoGame initialRoomId={dominoRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setDominoRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
-      {page === 'bridge-game' && <BridgeGame onBack={() => setPage('games')} onHome={goHome} profile={profile} />}
+      {page === 'bridge-game' && <BridgeGame initialRoomId={bridgeRoom} autoInviteFriend={playFriend} onBack={() => { setBridgeRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}

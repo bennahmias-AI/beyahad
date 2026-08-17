@@ -11,6 +11,8 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import GameSuggestionsPanel from '../components/GameSuggestionsPanel.jsx'
+import AdminBroadcastPanel from '../components/AdminBroadcastPanel.jsx'
+import AdminAddFriendsPanel from '../components/AdminAddFriendsPanel.jsx'
 import { IconBackRTL } from '../icons/index.jsx'
 
 const ACCENT = '#2F3A56'
@@ -356,6 +358,9 @@ export default function AdminDashboard({ onExit }) {
                 </div>
               </>
             )}
+
+            {/* ===== שליחת התראה למשתמשים ===== */}
+            <AdminBroadcastPanel />
 
             {/* ===== הצעות משחק ===== */}
             <GameSuggestionsPanel />
@@ -980,6 +985,9 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onDelete, onClos
           border: '1px solid #C0392B', borderRadius: 12, padding: '12px 10px',
           background: 'var(--surface)', color: '#C0392B', opacity: busy ? 0.5 : 1, marginBottom: 14,
         }}>🗑️ מחק משתמש</button>
+
+        {/* הוספת חברים למשתמש */}
+        <AdminAddFriendsPanel user={u} />
 
         {/* יומן פעילות אישי של המשתמש */}
         <UserActivityLog uid={u.id} name={fullName(u)} />

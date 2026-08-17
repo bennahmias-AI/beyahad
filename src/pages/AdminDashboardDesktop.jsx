@@ -18,6 +18,7 @@ import {
 } from '../services/firebase.js'
 import Avatar from '../components/Avatar.jsx'
 import GameSuggestionsPanel from '../components/GameSuggestionsPanel.jsx'
+import AdminBroadcastPanel from '../components/AdminBroadcastPanel.jsx'
 
 const ACCENT = '#2F3A56'
 const ROLE_COLOR = { admin: '#7E2C2E', premium: '#B89048', user: '#5E7CA6' }
@@ -547,8 +548,11 @@ export default function AdminDashboardDesktop({ onExit }) {
                   )}
                 </div>
 
-                {/* הצעות משחק */}
-                <div><GameSuggestionsPanel /></div>
+                {/* שליחת התראה למשתמשים + הצעות משחק */}
+                <div>
+                  <AdminBroadcastPanel />
+                  <GameSuggestionsPanel />
+                </div>
 
                 {/* דורש טיפול */}
                 <div>

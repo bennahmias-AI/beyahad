@@ -135,25 +135,30 @@ export async function endBridgeRoom(roomId) {
 export async function findOrCreateBridgeMatch(player) {
   const me = asPlayer(player)
   try {
-    const q = query(
-      collection(db, ROOMS),
-      where('status', '==', 'waiting'),
-      where('isPrivate', '==', false),
-      orderBy('createdAt', 'asc'),
-      limit(10),
-    )
+    // תנאי שוויון בודד בלבד — שילוב של שני where + orderBy דורש
+    // אינדקס משולב ב-Firestore, ובלעדיו השאילתה נכשלת —
+    // ואז כל שחקן היה פותח חדר משל עצמו במקום להצטרף.
+    const q = query(collection(db, ROOMS), where('status', '==', 'waiting'), limit(20))
     const snaps = await getDocs(q)
-    for (const s of snaps.docs) {
-      const room = s.data()
-      const players = room.players || []
-      if (players.length >= 4) continue
-      if (players.some(p => p.id === me.id)) continue
-      const res = await joinBridgeRoom(s.id, me)
-      if (res.ok) return { roomId: s.id, created: false }
+    const rooms = snaps.docs
+      .map(s => ({ id: s.id, data: s.data() }))
+      .filter(r => !r.data.isPrivate)
+      .filter(r => {
+        const n = (r.data.players || []).length
+        return n > 0 && n < 4
+      })
+      .filter(r => !(r.data.players || []).some(p => p.id === me.id))
+      .sort((a, b) => {
+        const ta = a.data.createdAt && a.data.createdAt.seconds ? a.data.createdAt.seconds : 0
+        const tb = b.data.createdAt && b.data.createdAt.seconds ? b.data.createdAt.seconds : 0
+        return ta - tb   // הישן ביותר קודם — כך כולם מתכנסים לאותו שולחן
+      })
+    for (const r of rooms) {
+      const res = await joinBridgeRoom(r.id, me)
+      if (res.ok) return { roomId: r.id, created: false }
     }
   } catch (e) {
-    // אם אין אינדקס מתאים או שהשאילתה נכשלה — פשוט פותחים חדר חדש
-    console.warn('findOrCreateBridgeMatch query failed:', e)
+    console.error('findOrCreateBridgeMatch query failed:', e)
   }
   const roomId = await createBridgeRoom(me, { isPrivate: false })
   return { roomId, created: true }

@@ -20,8 +20,9 @@
 */
 
 import { useEffect, useRef, useState } from 'react';
-import { playSound, isMuted, setMuted, MUSIC_TRACKS } from '../utils/gameSounds';
-import { IconBackRTL, IconMusicNote, IconSpeaker, IconSpeakerOff } from '../icons/index.jsx';
+import { playSound } from '../utils/gameSounds';
+import { useGameMusic, GameMusicButton } from '../hooks/useGameMusic.jsx';
+import { IconBackRTL } from '../icons/index.jsx';
 import HomeButton from '../components/HomeButton.jsx';
 import { GameIcon } from '../icons/gameIcons.jsx';
 import LeaveConfirmModal from '../components/LeaveConfirmModal.jsx';
@@ -54,75 +55,7 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // ── מוזיקת רקע ─────────────────────────────────
 // זהה בהתנהגות לשאר המשחקים: דלוקה כברירת מחדל, עוצמה נשמרת,
 // מעבר אוטומטי לשיר הבא, ו"בעיטה" במגע הראשון (דפדפנים חוסמים ניגון אוטומטי).
-const MUSIC_KEY = 'beyahad-bridge-music';
-const MUSIC_VOL_KEY = 'beyahad-bridge-music-vol';
-
-function useGameMusic() {
-  const [musicOn, setMusicOn] = useState(() => {
-    try { return localStorage.getItem(MUSIC_KEY) !== '0'; } catch { return true; }
-  });
-  const [vol, setVol] = useState(() => {
-    try { return Math.min(1, Math.max(0, parseFloat(localStorage.getItem(MUSIC_VOL_KEY)) || 0.35)); } catch { return 0.35; }
-  });
-  const audioRef = useRef(null);
-  const idxRef = useRef(Math.floor(Math.random() * MUSIC_TRACKS.length));
-
-  // יצירת נגן יחיד + מעבר לשיר הבא בסיום רצועה
-  useEffect(() => {
-    const a = new Audio();
-    a.preload = 'auto';
-    audioRef.current = a;
-    const onEnded = () => {
-      idxRef.current = (idxRef.current + 1) % MUSIC_TRACKS.length;
-      a.src = MUSIC_TRACKS[idxRef.current];
-      a.play().catch(() => {});
-    };
-    a.addEventListener('ended', onEnded);
-    return () => { a.removeEventListener('ended', onEnded); try { a.pause(); } catch {} audioRef.current = null; };
-  }, []);
-
-  useEffect(() => { if (audioRef.current) audioRef.current.volume = vol; }, [vol]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (musicOn) {
-      if (!a.src) a.src = MUSIC_TRACKS[idxRef.current];
-      a.volume = vol;
-      a.play().catch(() => {});   // אם הדפדפן חוסם — ה-kick למטה יפעיל אחרי מגע
-    } else {
-      try { a.pause(); } catch {}
-    }
-    try { localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0'); } catch {}
-  }, [musicOn]);
-
-  // בעיטה: המגע הראשון במסך מפעיל את הניגון
-  const kick = () => {
-    const a = audioRef.current;
-    if (!a || !musicOn || !a.paused) return;
-    if (!a.src) a.src = MUSIC_TRACKS[idxRef.current];
-    a.volume = vol;
-    a.play().catch(() => {});
-  };
-
-  const nextTrack = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    idxRef.current = (idxRef.current + 1) % MUSIC_TRACKS.length;
-    a.src = MUSIC_TRACKS[idxRef.current];
-    if (musicOn) a.play().catch(() => {});
-  };
-
-  const changeVol = (delta) => {
-    setVol(v => {
-      const nv = Math.min(1, Math.max(0, +(v + delta).toFixed(2)));
-      try { localStorage.setItem(MUSIC_VOL_KEY, String(nv)); } catch {}
-      return nv;
-    });
-  };
-
-  return { musicOn, toggleMusic: () => setMusicOn(o => !o), nextTrack, changeVol, kick };
-}
+const MUSIC_HOOK_MOVED = true; // ההוק והכפתור עברו ל-hooks/useGameMusic.js (משותף עם האונליין)
 
 // ── חלוקה וספירת נקודות ───────────────────────────────────
 function freshDeal() {
@@ -226,33 +159,44 @@ function aiChooseTrump(declarerHand, dummyHand) {
 // ═══════════════════════════════════════════════════════════
 // עוטף ראשי - מסך בחירת מצב
 // ═══════════════════════════════════════════════════════════
-export default function BridgeGame({ onBack, onHome, profile }) {
-  const [mode, setMode] = useState(null);
+export default function BridgeGame({ onBack, onHome, profile, initialRoomId = null, autoInviteFriend = null }) {
+  const [mode, setMode] = useState(
+    initialRoomId ? 'online-random' : (autoInviteFriend ? 'online-friends' : null)
+  );
 
   if (!mode) {
     return (
       <BridgeModeSelect
         onBack={onBack} onHome={onHome}
         onSelectAI={() => setMode('ai')}
-        onSelectOnline={() => setMode('online')}
+        onSelectOnline={() => setMode('online-random')}
+        onSelectFriends={() => setMode('online-friends')}
       />
     );
   }
-  if (mode === 'online') {
-    return <BridgeOnline onBack={() => setMode(null)} onHome={onHome} />;
+  if (mode === 'online-random' || mode === 'online-friends') {
+    return (
+      <BridgeOnline
+        initialRoomId={initialRoomId}
+        friendsMode={mode === 'online-friends'}
+        autoInviteFriend={autoInviteFriend}
+        onBack={autoInviteFriend || initialRoomId ? onBack : () => setMode(null)}
+        onHome={onHome}
+      />
+    );
   }
   return <BridgeLocal onBack={() => setMode(null)} onHome={onHome} profile={profile} />;
 }
 
 // ── מסך בחירת מצב ─────────────────────────────────────────
-function BridgeModeSelect({ onBack, onHome, onSelectAI, onSelectOnline }) {
+function BridgeModeSelect({ onBack, onHome, onSelectAI, onSelectOnline, onSelectFriends }) {
   const [howOpen, setHowOpen] = useState(false);
   return (
     <div className="scroll-area" style={{ direction: 'rtl' }}>
       <div className="screen-header">
         <button className="screen-header__back" onClick={onBack} aria-label="חזרה"><IconBackRTL size={24} color="#1B2540" /></button>
         <HomeButton onClick={onHome} />
-        <div className="screen-header__title">ברידג'</div>
+        <div className="screen-header__title">הברידג' של קלרה</div>
       </div>
       <div style={{ padding: '8px 20px 32px' }}>
         <div style={{ background: 'linear-gradient(135deg,#2E6B45,#1d4a2e)', borderRadius: 20, padding: '20px 18px', color: '#FBF7EE', marginBottom: 22, boxShadow: '0 8px 20px -6px rgba(29,74,46,.5)', textAlign: 'center' }}>
@@ -262,7 +206,7 @@ function BridgeModeSelect({ onBack, onHome, onSelectAI, onSelectOnline }) {
             <span style={{ color: '#E8884F' }}>♦</span>
             <span style={{ color: '#FBF7EE' }}>♣</span>
           </div>
-          <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>ברידג'</div>
+          <div className="h-display" style={{ fontSize: 24, lineHeight: 1.1, marginBottom: 6 }}>הברידג' של קלרה</div>
           <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, color: 'rgba(255,255,255,.92)' }}>
             משחק הקלפים הקלאסי - אתם והשותף מול שני יריבים
           </div>
@@ -270,7 +214,9 @@ function BridgeModeSelect({ onBack, onHome, onSelectAI, onSelectOnline }) {
 
         <h2 className="h-display" style={{ fontSize: 18, margin: '0 0 12px', color: 'var(--ink)' }}>בחרו איך לשחק:</h2>
         <BrModeButton onClick={onSelectOnline} iconId="online-random" gradient="linear-gradient(135deg,#7E2C2E,#5A1D1E)"
-          label="שולחן אונליין" description="שחקו עם אנשים אמיתיים, עם וידאו" />
+          label="שחקן רנדומלי" description="שחקו עם אנשים אחרים באפליקציה" />
+        <BrModeButton onClick={onSelectFriends} iconId="online-friend" gradient="linear-gradient(135deg,#4F6B4A,#354D31)"
+          label="שחק עם חברים" description="הזמינו חברים מהרשימה שלכם" />
         <BrModeButton onClick={onSelectAI} iconId="vs-ai" gradient="linear-gradient(135deg,#2C5566,#173846)"
           label="נגד המחשב" description="אתם והשותף מול שני יריבים" />
         <BrModeButton onClick={() => setHowOpen(true)} iconId="level-easy" gradient="linear-gradient(135deg,#96742E,#6b5220)"
@@ -347,8 +293,7 @@ function BridgeLocal({ onBack, onHome, profile }) {
 
   const [game, setGame] = useState(() => startDeal());
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [muted, setMutedState] = useState(() => { try { return isMuted(); } catch { return false; } });
-  const music = useGameMusic();
+  const music = useGameMusic('beyahad-bridge-music');
   const busyRef = useRef(false);
 
   // ── יצירת חלוקה חדשה ────────────────────────────────────
@@ -494,11 +439,7 @@ function BridgeLocal({ onBack, onHome, profile }) {
               </>
             )}
         </div>
-        <BridgeMusicButton
-          musicOn={music.musicOn} onToggle={music.toggleMusic} onNext={music.nextTrack}
-          onVolDown={() => music.changeVol(-0.1)} onVolUp={() => music.changeVol(0.1)}
-          muted={muted} onToggleMute={() => { const n = !muted; try { setMuted(n); } catch {} setMutedState(n); }}
-        />
+        <GameMusicButton {...music} />
       </div>
 
       {/* ── השולחן ─────────────────────────────────── */}
@@ -598,59 +539,6 @@ function Chip({ children, bg, fg }) {
       background: bg, color: fg, fontSize: 11.5, fontWeight: 700,
       padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap',
     }}>{children}</span>
-  );
-}
-
-// כפתור מוזיקה וצלילים (הפעלה/כיבוי · שיר הבא · עוצמה)
-function BridgeMusicButton({ musicOn, onToggle, onNext, onVolDown, onVolUp, muted, onToggleMute }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 3500); return () => clearTimeout(t); }, [open]);
-
-  const item = {
-    display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'right',
-    background: 'none', border: 'none', color: '#EAF3DE', fontSize: 14, fontWeight: 700,
-    fontFamily: 'inherit', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', minHeight: 'unset',
-  };
-  const volBtn = {
-    width: 34, height: 34, borderRadius: 8, border: '1px solid #6ba883',
-    background: '#2E6B45', color: '#EAF3DE', fontSize: 18, fontWeight: 800,
-    cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1, padding: 0, minHeight: 'unset',
-  };
-
-  return (
-    <div style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
-      <button onClick={() => setOpen(o => !o)} aria-label="מוזיקה" style={{
-        width: 36, height: 36, borderRadius: '50%', border: 'none', padding: 0, minHeight: 'unset',
-        background: 'rgba(255,255,255,.14)', color: '#F6F0E3', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: musicOn ? 1 : 0.55,
-      }}><IconMusicNote size={18} color="#F6F0E3" /></button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55 }} />
-          <div style={{
-            position: 'absolute', top: '120%', insetInlineEnd: 0, background: '#1d4a2e',
-            border: '1px solid #6ba883', borderRadius: 12, padding: 8, display: 'flex',
-            flexDirection: 'column', gap: 4, zIndex: 60, minWidth: 168, boxShadow: '0 8px 24px rgba(0,0,0,.5)',
-          }}>
-            <button onClick={onToggle} style={item}>
-              <IconMusicNote size={16} color="#EAF3DE" /> {musicOn ? 'כבה מוזיקה' : 'הפעל מוזיקה'}
-            </button>
-            <button onClick={onToggleMute} style={item}>
-              {muted ? <IconSpeakerOff size={16} color="#EAF3DE" /> : <IconSpeaker size={16} color="#EAF3DE" />}
-              {muted ? 'הפעל צלילים' : 'השתק צלילים'}
-            </button>
-            <button onClick={onNext} style={item}>♪ שיר הבא</button>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 6px' }}>
-              <span style={{ color: '#EAF3DE', fontSize: 14, fontWeight: 700 }}>עוצמה</span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={onVolDown} style={volBtn} aria-label="החלש">−</button>
-                <button onClick={onVolUp} style={volBtn} aria-label="הגבר">+</button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -779,8 +667,11 @@ function SeatSide({ name, isDummy, isDeclarer, active, count, exposed, hand }) {
           })}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          {Array.from({ length: Math.min(count, 6) }).map((_, i) => <CardBack key={i} />)}
+        <div style={{ display: 'flex', justifyContent: 'center', paddingInline: 2 }}>
+          {/* ערימה חופפת — נשארת צרה ולא נוגעת במרכז השולחן */}
+          {Array.from({ length: Math.min(count, 5) }).map((_, i) => (
+            <div key={i} style={{ marginInlineStart: i === 0 ? 0 : -15 }}><CardBack /></div>
+          ))}
         </div>
       )}
     </div>

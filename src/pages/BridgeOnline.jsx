@@ -15,7 +15,9 @@
 // ─────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from 'react'
 import { useUserStore } from '../stores/userStore.js'
+import { watchFriendships, sendGameInvite, watchUser } from '../services/firebase.js'
 import { playSound } from '../utils/gameSounds'
+import { useGameMusic, GameMusicButton } from '../hooks/useGameMusic.jsx'
 import { IconBackRTL, IconChatLine } from '../icons/index.jsx'
 import HomeButton from '../components/HomeButton.jsx'
 import Avatar from '../components/Avatar.jsx'
@@ -128,7 +130,16 @@ function initDeal(seats) {
   const hcp = hands.map(handHcp)
   const ns = hcp[0] + hcp[2], ew = hcp[1] + hcp[3]
   const side = ns >= ew ? [0, 2] : [1, 3]
-  const declarer = hcp[side[0]] >= hcp[side[1]] ? side[0] : side[1]
+  // כברירת מחדל הכרוז הוא בעל הנקודות הרבות בצד המוביל (כמו בברידג' אמיתי),
+  // אבל אם אחד מהשניים הוא בוט — מעדיפים את האדם, כדי שלא ישב כדומם
+  // ויצפה במחשב משחק לבד את כל החלוקה.
+  const [a, b] = side
+  let declarer
+  if (seats[a].bot !== seats[b].bot) {
+    declarer = seats[a].bot ? b : a          // האנושי מקבל את הכרוז
+  } else {
+    declarer = hcp[a] >= hcp[b] ? a : b      // שניהם אנושיים (או שניהם בוטים) — החוק הרגיל
+  }
   return {
     seats,
     hands, hcp,
@@ -196,7 +207,7 @@ function applyCloseTrick(state) {
 // ════════════════════════════════════════════════════════
 // הרכיב הראשי
 // ════════════════════════════════════════════════════════
-export default function BridgeOnline({ initialRoomId = null, onBack, onHome }) {
+export default function BridgeOnline({ initialRoomId = null, friendsMode = false, autoInviteFriend = null, onBack, onHome }) {
   const { authUser, profile } = useUserStore()
   const myUid = authUser?.uid
   const me = { id: myUid, name: profile?.name || 'שחקן', photoURL: profile?.photoURL || null }
@@ -205,34 +216,50 @@ export default function BridgeOnline({ initialRoomId = null, onBack, onHome }) {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
   const [useVideo, setUseVideo] = useState(null)   // null = טרם הוחלט
+  const music = useGameMusic('beyahad-bridge-music')
   const joinedRef = useRef(false)
 
-  // ── כניסה לחדר (שידוך אקראי או חדר נתון) ──
+  // ── כניסה לחדר (שידוך אקראי / חדר נתון / שולחן חברים) ──
+  // הגנה מפני ריצה כפולה נעשית ב-joinedRef בלבד.
+  // חשוב: אסור לבטל את עדכון ה-state ב-cleanup — במצב פיתוח React
+  // מרכיב ומפרק את הרכיב פעמיים, ואז מזהה החדר לא נשמר והמסך נתקע.
   useEffect(() => {
     if (!myUid || joinedRef.current) return
     joinedRef.current = true
-    let cancelled = false
     ;(async () => {
       try {
         if (initialRoomId) {
           const res = await joinBridgeRoom(initialRoomId, me)
           if (!res.ok && res.reason !== 'already-in') {
             const msgs = { full: 'השולחן מלא', started: 'המשחק כבר התחיל', 'not-found': 'החדר לא נמצא', ended: 'המשחק הסתיים' }
-            if (!cancelled) setError(msgs[res.reason] || 'לא הצלחנו להצטרף')
+            setError(msgs[res.reason] || 'לא הצלחנו להצטרף')
             return
           }
-          if (!cancelled) setRoomId(initialRoomId)
+          setRoomId(initialRoomId)
+        } else if (friendsMode) {
+          // שולחן פרטי — לא משודך אקראית; מזמינים אליו חברים מהרשימה
+          const rid = await createBridgeRoom(me, { isPrivate: true })
+          setRoomId(rid)
+          // הגענו מ"שחק עם" של חבר/ה ספציפי/ת — שולחים הזמנה מיד
+          if (autoInviteFriend && autoInviteFriend.otherUid) {
+            try {
+              await sendGameInvite({
+                from: { uid: me.id, name: me.name, photoURL: me.photoURL || '' },
+                to: { uid: autoInviteFriend.otherUid, name: autoInviteFriend.otherName },
+                gameType: 'bridge', roomId: rid,
+              })
+            } catch (e) { console.error('bridge invite error:', e) }
+          }
         } else {
           const { roomId: rid } = await findOrCreateBridgeMatch(me)
-          if (!cancelled) setRoomId(rid)
+          setRoomId(rid)
         }
       } catch (e) {
         console.error('bridge join error:', e)
-        if (!cancelled) setError('לא הצלחנו להתחבר לשולחן')
+        setError('לא הצלחנו להתחבר לשולחן')
       }
     })()
-    return () => { cancelled = true }
-  }, [myUid, initialRoomId])
+  }, [myUid, initialRoomId, friendsMode])
 
   // ── מעקב אחרי החדר ──
   useEffect(() => {
@@ -253,7 +280,7 @@ export default function BridgeOnline({ initialRoomId = null, onBack, onHome }) {
       </CenterMsg>
     )
   }
-  if (!roomId || !room) return <CenterMsg title="מחפשים שולחן פנוי..." onBack={onBack} />
+  if (!roomId || !room) return <CenterMsg title={friendsMode ? 'פותחים שולחן...' : 'מחפשים שולחן פנוי...'} onBack={onBack} />
 
   // מסך אישור הווידאו — פעם אחת, לפני הכל
   if (useVideo === null) {
@@ -265,9 +292,13 @@ export default function BridgeOnline({ initialRoomId = null, onBack, onHome }) {
   return (
     <ProfilesProvider uids={uids} myUid={myUid}>
       <GameVideoProvider roomId={`bridge-${roomId}`} me={{ uid: myUid, name: me.name }} enabled={useVideo} startWithCam={useVideo}>
-        {room.status === 'playing' && room.state
-          ? <OnlineTable roomId={roomId} room={room} me={me} onLeave={leave} onHome={onHome} />
-          : <WaitingRoom roomId={roomId} room={room} me={me} onLeave={leave} onHome={onHome} />}
+        <div onPointerDown={music.kick} style={{ height: '100%' }}>
+          {room.status === 'playing' && room.state
+            ? <OnlineTable roomId={roomId} room={room} me={me} music={music} onLeave={leave} onHome={onHome} />
+            : <WaitingRoom roomId={roomId} room={room} me={me} music={music}
+                autoOpenInvite={friendsMode && !autoInviteFriend}
+                onLeave={leave} onHome={onHome} />}
+        </div>
       </GameVideoProvider>
     </ProfilesProvider>
   )
@@ -301,10 +332,12 @@ const roundBtn = {
 // ════════════════════════════════════════════════════════
 // חדר המתנה
 // ════════════════════════════════════════════════════════
-function WaitingRoom({ roomId, room, me, onLeave, onHome }) {
+function WaitingRoom({ roomId, room, me, music, autoOpenInvite = false, onLeave, onHome }) {
   const players = room.players || []
   const isHost = room.hostUid === me.id
   const [starting, setStarting] = useState(false)
+  // במצב "שחק עם חברים" פותחים מיד את רשימת החברים — כמו בשאר המשחקים
+  const [inviteOpen, setInviteOpen] = useState(autoOpenInvite)
 
   const start = async () => {
     if (starting) return
@@ -330,7 +363,8 @@ function WaitingRoom({ roomId, room, me, onLeave, onHome }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
         <button onClick={onLeave} aria-label="יציאה" style={roundBtn}><IconBackRTL size={20} color="#F6F0E3" /></button>
         <HomeButton onClick={onHome} />
-        <div style={{ flex: 1, color: '#F6F0E3', fontSize: 17, fontWeight: 800 }}>שולחן ברידג'</div>
+        <div style={{ flex: 1, color: '#F6F0E3', fontSize: 17, fontWeight: 800 }}>השולחן של קלרה</div>
+        {music && <GameMusicButton {...music} />}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 18px 24px' }}>
@@ -377,6 +411,137 @@ function WaitingRoom({ roomId, room, me, onLeave, onHome }) {
         )}
 
         <VideoControls style={{ justifyContent: 'center', marginTop: 18 }} size={44} />
+
+        {players.length < 4 && (
+          <button onClick={() => setInviteOpen(true)} style={{
+            width: '100%', marginTop: 16, background: 'rgba(255,255,255,.12)', color: '#EAF3DE',
+            border: '1px solid rgba(255,255,255,.24)', borderRadius: 16, padding: '14px 0',
+            fontSize: 16.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer',
+          }}>הזמנת חברים לשולחן</button>
+        )}
+      </div>
+
+      {inviteOpen && (
+        <BridgeInvitePicker roomId={roomId} me={me} players={players} onClose={() => setInviteOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+// ── בוחר חברים להזמנה ─────────────────────────
+// אותו דפוס כמו בשאר המשחקים: רשימת החברים שלי,
+// לחיצה על "הזמן" שולחת הזמנה שקופצת אצל החבר/ה באפליקציה.
+function BridgeInvitePicker({ roomId, me, players, onClose }) {
+  const [friends, setFriends] = useState([])
+  const [invited, setInvited] = useState({})
+  const [profileMap, setProfileMap] = useState({})
+
+  useEffect(() => {
+    if (!me.id) return
+    const unsub = watchFriendships(me.id, ({ friends }) => setFriends(friends || []))
+    return () => unsub && unsub()
+  }, [me.id])
+
+  useEffect(() => {
+    if (!friends || !friends.length) return
+    const unsubs = friends.map(f => {
+      if (!f.otherUid) return null
+      return watchUser(f.otherUid, (u) => {
+        const fullName = [u && u.name, u && u.lastName].filter(Boolean).join(' ')
+        setProfileMap(prev => ({ ...prev, [f.otherUid]: { name: fullName, photoURL: (u && u.photoURL) || null } }))
+      })
+    })
+    return () => unsubs.forEach(u => u && u())
+  }, [friends])
+
+  const inRoom = new Set(players.map(p => p.id))
+  const available = friends.filter(f => f.otherUid && !inRoom.has(f.otherUid))
+
+  const invite = async (f) => {
+    setInvited(prev => ({ ...prev, [f.otherUid]: true }))
+    try {
+      await sendGameInvite({
+        from: { uid: me.id, name: me.name, photoURL: me.photoURL || '' },
+        to: { uid: f.otherUid, name: f.otherName },
+        gameType: 'bridge', roomId,
+      })
+    } catch (e) { console.error('bridge invite error:', e) }
+  }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 2600, background: 'rgba(10,15,10,.72)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center', direction: 'rtl',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--surface)', borderRadius: '24px 24px 0 0', width: '100%',
+        maxWidth: 480, maxHeight: '72vh', overflowY: 'auto', padding: '20px 18px 28px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div className="h-display" style={{ fontSize: 20, color: 'var(--ink)' }}>הזמנת חבר/ה לשולחן</div>
+          <button onClick={onClose} style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--line)', color: 'var(--ink)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+        </div>
+        {available.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--ink-2)', padding: '26px 0', fontSize: 15 }}>אין חברים נוספים זמינים להזמנה</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {available.map(f => {
+              const prof = profileMap[f.otherUid]
+              const dispName = (prof && prof.name) || f.otherName
+              return (
+                <div key={f.docId || f.otherUid} style={{ border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={dispName} size={46} photoURL={prof && prof.photoURL} />
+                  <div className="h-display" style={{ flex: 1, minWidth: 0, fontSize: 16, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispName}</div>
+                  <button disabled={!!invited[f.otherUid]} onClick={() => invite(f)} style={{
+                    background: invited[f.otherUid] ? 'var(--success, #4F6B4A)' : '#2E6B45', color: 'white',
+                    border: 'none', borderRadius: 12, padding: '10px 16px', fontSize: 15, fontWeight: 800,
+                    fontFamily: 'inherit', cursor: invited[f.otherUid] ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                  }}>{invited[f.otherUid] ? 'נשלח ✓' : 'הזמן'}</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// קוד השולחן — שמור לעתיד (אינו בשימוש — ההזמנה נעשית דרך רשימת החברים)
+// eslint-disable-next-line no-unused-vars
+function TableCode({ roomId }) {
+  const [copied, setCopied] = useState(false)
+  const code = String(roomId || '').replace(/^br-/, '')
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { setCopied(false) }
+  }
+
+  const share = async () => {
+    const text = `בואו לשחק איתי בהברידג' של קלרה באפליקציית ביחד!\nקוד השולחן: ${code}`
+    try {
+      if (navigator.share) await navigator.share({ text })
+      else await copy()
+    } catch { /* המשתמש ביטל */ }
+  }
+
+  return (
+    <div style={{ marginTop: 18, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, padding: '14px 14px' }}>
+      <div style={{ color: '#EAF3DE', fontSize: 14.5, fontWeight: 800, marginBottom: 4 }}>להזמין חבר/ה לשולחן</div>
+      <div style={{ color: '#9ec7a8', fontSize: 13, fontWeight: 600, marginBottom: 10, lineHeight: 1.45 }}>
+        שלחו את הקוד הזה, והם יזינו אותו בכפתור "הצטרפות עם קוד" במסך המשחק.
+      </div>
+      <div style={{ background: '#FFFDF8', color: '#1B1B1E', borderRadius: 10, padding: '10px 12px', fontSize: 19, fontWeight: 800, textAlign: 'center', letterSpacing: '.06em', marginBottom: 10, direction: 'ltr', userSelect: 'all' }}>{code}</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={share} className="big-btn big-btn--primary" style={{ flex: 1 }}>שלחו הזמנה</button>
+        <button onClick={copy} style={{
+          flex: 1, background: 'rgba(255,255,255,.12)', color: '#EAF3DE', border: '1px solid rgba(255,255,255,.2)',
+          borderRadius: 14, fontSize: 15.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', padding: '13px 0',
+        }}>{copied ? 'הועתק! ✓' : 'העתקת קוד'}</button>
       </div>
     </div>
   )
@@ -385,7 +550,7 @@ function WaitingRoom({ roomId, room, me, onLeave, onHome }) {
 // ════════════════════════════════════════════════════════
 // שולחן המשחק המסונכרן
 // ════════════════════════════════════════════════════════
-function OnlineTable({ roomId, room, me, onLeave, onHome }) {
+function OnlineTable({ roomId, room, me, music, onLeave, onHome }) {
   const st = room.state
   const seats = st.seats || []
   const mySeat = Math.max(0, seats.findIndex(s => s.id === me.id))
@@ -493,6 +658,7 @@ function OnlineTable({ roomId, room, me, onLeave, onHome }) {
             )}
         </div>
         <button onClick={() => setChatOpen(o => !o)} aria-label="צ'אט" style={roundBtn}><IconChatLine size={19} color="#F6F0E3" /></button>
+        {music && <GameMusicButton {...music} />}
       </div>
 
       {/* השולחן */}
@@ -644,8 +810,11 @@ function SideBox({ seat, st, label, uid, exposed }) {
           })}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          {Array.from({ length: Math.min(hand.length, 6) }).map((_, i) => <CardBack key={i} />)}
+        <div style={{ display: 'flex', justifyContent: 'center', paddingInline: 2 }}>
+          {/* ערימה חופפת — נשארת צרה ולא נוגעת במרכז השולחן */}
+          {Array.from({ length: Math.min(hand.length, 5) }).map((_, i) => (
+            <div key={i} style={{ marginInlineStart: i === 0 ? 0 : -15 }}><CardBack /></div>
+          ))}
         </div>
       )}
     </div>

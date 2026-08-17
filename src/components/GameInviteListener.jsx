@@ -17,6 +17,7 @@ import {
   watchIncomingInvites, acceptGameInvite, declineGameInvite,
   joinRummikubRoom, joinArenaRoom, joinBingoRoom, joinAroundWorldRoom, joinParliamentRoom, deleteGameInvite,
 } from '../services/firebase.js'
+import { joinBridgeRoom } from '../services/bridgeRooms.js'
 import Avatar from './Avatar.jsx'
 import { GameIcon } from '../icons/gameIcons.jsx'
 
@@ -30,6 +31,8 @@ const GAME_NAMES = {
   arena: 'מלך הזירה',
   bingo: 'הבינגו של אמי',
   aroundworld: 'מסביב לעולם',
+  domino: 'דומינו',
+  bridge: 'הברידג\' של קלרה',
   parliament: 'הפרלמנט',
   memory: 'זיכרון',
   trivia: 'טריוויה',
@@ -46,6 +49,8 @@ const GAME_COLORS = {
   arena: 'linear-gradient(135deg, #6B3A4F, #482638)',
   bingo: 'linear-gradient(135deg, #2C5566, #173846)',
   aroundworld: 'linear-gradient(135deg, #2f73c9, #1d557f)',
+  domino: 'linear-gradient(135deg, #218a59, #136441)',
+  bridge: 'linear-gradient(135deg, #2E6B45, #1d4a2e)',
   parliament: 'linear-gradient(135deg, #2B3A66, #141E36)',
   memory: 'linear-gradient(135deg, #4F6B4A, #354D31)',
   trivia: 'linear-gradient(135deg, #7E2C2E, #5A1D1E)',
@@ -103,6 +108,11 @@ export default function GameInviteListener({ onAccept }) {
       } else if (invite.gameType === 'parliament') {
         // פרלמנט — דיון וידאו קבוצתי (parliamentRooms)
         await joinParliamentRoom(invite.roomId, player)
+        await deleteGameInvite(invite.id)
+        roomId = invite.roomId
+      } else if (invite.gameType === 'bridge') {
+        // ברידג' — תשתית נפרדת (bridgeRooms)
+        await joinBridgeRoom(invite.roomId, { id: player.uid, name: player.name, photoURL: profile?.photoURL || null })
         await deleteGameInvite(invite.id)
         roomId = invite.roomId
       } else {
