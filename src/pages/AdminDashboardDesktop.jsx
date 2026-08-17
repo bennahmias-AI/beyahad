@@ -19,6 +19,7 @@ import {
 import Avatar from '../components/Avatar.jsx'
 import GameSuggestionsPanel from '../components/GameSuggestionsPanel.jsx'
 import AdminBroadcastPanel from '../components/AdminBroadcastPanel.jsx'
+import AdminAddFriendsPanel from '../components/AdminAddFriendsPanel.jsx'
 
 const ACCENT = '#2F3A56'
 const ROLE_COLOR = { admin: '#7E2C2E', premium: '#B89048', user: '#5E7CA6' }
@@ -1025,6 +1026,9 @@ function UserDetailModal({ u, busy, onRole, onBlock, onMessage, onSetPhone, onSe
         </div>
 
         <button onClick={() => onDelete(u)} disabled={busy} style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, cursor: 'pointer', border: '1px solid #C0392B', borderRadius: 12, padding: '12px 10px', background: 'var(--surface)', color: '#C0392B', opacity: busy ? 0.5 : 1, marginBottom: 16 }}>🗑️ מחק משתמש</button>
+
+        {/* הוספת חברים למשתמש */}
+        <AdminAddFriendsPanel user={u} />
 
         {/* יומן פעילות אישי */}
         <UserActivityLog uid={u.id} name={fullName(u)} />

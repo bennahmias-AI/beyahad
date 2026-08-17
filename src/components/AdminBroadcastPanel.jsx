@@ -10,7 +10,8 @@
 // מכבדים את העדפת המשתמש: מי שכיבה התראות (notificationsEnabled === false)
 // לא יקבל push — השרת כבר מסנן אותו, וגם אנחנו מדלגים עליו בספירה.
 import { useState, useEffect, useMemo } from 'react'
-import { watchAllUsers, sendUserNotification } from '../services/firebase.js'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { watchAllUsers, db } from '../services/firebase.js'
 import Avatar from './Avatar.jsx'
 
 const ACCENT = '#2F3A56'
@@ -19,6 +20,15 @@ const NOTIFY_URL = 'https://beyahad-gamma.vercel.app/api/notify'
 function fullName(u) {
   const n = [u.name, u.lastName].filter(Boolean).join(' ').trim()
   return n || 'ללא שם'
+}
+
+// כתיבת ההתראה לפעמון — בדיוק במבנה שהאפליקציה מצפה לו:
+//   notifications/{id} = { toUid, title, body, type: 'admin', createdAt }
+// הכללים מרשים יצירה למנהל בלבד.
+async function bellTo(uid, title, body) {
+  await addDoc(collection(db, 'notifications'), {
+    toUid: uid, title, body, type: 'admin', createdAt: serverTimestamp(),
+  })
 }
 
 // שליחת push למשתמש בודד. best-effort — לא מפילים את כל המשלוח בגלל אחד.
@@ -87,7 +97,7 @@ export default function AdminBroadcastPanel() {
       // התראה בפעמון — תמיד (גם למי שכיבה push)
       let bellOk = false
       try {
-        await sendUserNotification({ toUid: u.id, title: t, body: b, type: 'admin' })
+        await bellTo(u.id, t, b)
         bellOk = true
       } catch (e) { console.warn('bell failed for', u.id, e) }
 
