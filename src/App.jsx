@@ -302,6 +302,10 @@ export default function App() {
       // לייק על תוכן שלי — פותחים את הפוסט הספציפי בדף הרלוונטי
       setInitialPostId(it.postId)
       setPage(it.kind === 'recipe' ? 'recipes' : 'tips')
+    } else if (it.goto) {
+      // התראת ניהול עם יעד — קופצים ישר למסך שנבחר בפאנל הניהול
+      if (it.goto === 'bridge-game') { setBridgeRoom(null); setGameMode(null) }
+      setPage(it.goto)
     }
     // invite — המודל הקופץ של GameInviteListener מטפל; אין צורך בניווט
   }

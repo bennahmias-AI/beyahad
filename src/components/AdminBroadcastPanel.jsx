@@ -22,13 +22,31 @@ function fullName(u) {
   return n || 'ללא שם'
 }
 
+// יעדי ניווט אפשריים להתראה — המפתח נשמר בשדה goto ומתורגם ב-App.jsx
+export const NOTIF_TARGETS = [
+  { key: '', label: 'בלי יעד — רק פתיחת האפליקציה' },
+  { key: 'greeting', label: 'ברכות — יצירת ברכה' },
+  { key: 'games', label: 'זירת המשחקים' },
+  { key: 'bridge-game', label: 'הברידג\' של קלרה' },
+  { key: 'waiting', label: 'קפה בסלון — שיחת וידאו' },
+  { key: 'parliament-lobby', label: 'הפרלמנט' },
+  { key: 'radio', label: 'רדיו' },
+  { key: 'tv', label: 'טלוויזיה' },
+  { key: 'recipes', label: 'מתכונים' },
+  { key: 'tips', label: 'עצות וקהילה' },
+  { key: 'friends', label: 'החברים שלי' },
+  { key: 'friend-search', label: 'חיפוש חברים חדשים' },
+  { key: 'profile', label: 'הפרופיל שלי' },
+  { key: 'settings', label: 'הגדרות' },
+]
+
 // כתיבת ההתראה לפעמון — בדיוק במבנה שהאפליקציה מצפה לו:
-//   notifications/{id} = { toUid, title, body, type: 'admin', createdAt }
+//   notifications/{id} = { toUid, title, body, type: 'admin', createdAt, goto? }
 // הכללים מרשים יצירה למנהל בלבד.
-async function bellTo(uid, title, body) {
-  await addDoc(collection(db, 'notifications'), {
-    toUid: uid, title, body, type: 'admin', createdAt: serverTimestamp(),
-  })
+async function bellTo(uid, title, body, goto) {
+  const data = { toUid: uid, title, body, type: 'admin', createdAt: serverTimestamp() }
+  if (goto) data.goto = goto
+  await addDoc(collection(db, 'notifications'), data)
 }
 
 // שליחת push למשתמש בודד. best-effort — לא מפילים את כל המשלוח בגלל אחד.
@@ -52,6 +70,7 @@ export default function AdminBroadcastPanel() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [target, setTarget] = useState('all')     // 'all' | 'some'
+  const [goto, setGoto] = useState('')            // לאיזה מסך להוביל בלחיצה
   const [pickedUids, setPickedUids] = useState([]) // בחירה מרובה
   const [search, setSearch] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -97,7 +116,7 @@ export default function AdminBroadcastPanel() {
       // התראה בפעמון — תמיד (גם למי שכיבה push)
       let bellOk = false
       try {
-        await bellTo(u.id, t, b)
+        await bellTo(u.id, t, b, goto)
         bellOk = true
       } catch (e) { console.warn('bell failed for', u.id, e) }
 
@@ -149,6 +168,16 @@ export default function AdminBroadcastPanel() {
             placeholder="למשל: הוספנו את הברידג' של קלרה — בואו לשחק!" style={{ ...box, resize: 'none' }} />
           <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 3 }}>{body.length}/180</div>
         </div>
+      </div>
+
+      {/* לאן להוביל בלחיצה */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-2)', display: 'block', marginBottom: 4 }}>
+          לאן להוביל כשלוחצים על ההתראה
+        </label>
+        <select value={goto} onChange={e => setGoto(e.target.value)} style={{ ...box, cursor: 'pointer' }}>
+          {NOTIF_TARGETS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
       </div>
 
       {/* בחירת נמענים */}

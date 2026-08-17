@@ -158,6 +158,7 @@ export function useNotifications(myUid) {
       title: n.title || 'הודעה',
       body: n.body || '',
       ts: toMillis(n.createdAt),
+      goto: n.goto || null,   // מסך לקפוץ אליו בלחיצה (נקבע בפאנל הניהול)
     })
   }
 
