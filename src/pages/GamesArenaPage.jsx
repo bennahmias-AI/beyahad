@@ -99,6 +99,15 @@ const GAMES = [
     status: 'available',
   },
   {
+    id: 'bridge',
+    name: 'ברידג\'',
+    description: 'אתם והשותף מול שני יריבים',
+    emoji: '♠',
+    players: '4 שחקנים',
+    color: '#2E6B45', // לבד ירוק קלאסי
+    status: 'available',
+  },
+  {
     id: 'arena',
     name: 'מלך הזירה',
     description: 'דו-קרב טריוויה',
@@ -133,7 +142,7 @@ const FRIEND_PLAYABLE = ['connect4', 'checkers', 'sheshbesh', 'rummikub', 'arena
 // משחקים שתומכים ביותר מ-2 שחקנים (אפשר להוסיף עוד חבר)
 const MULTI_PLAYER = ['rummikub', 'arena', 'bingo', 'aroundworld', 'domino']
 
-export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, onGoDomino, inviteFriend = null }) {
+export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect4, onGoCheckers, onGoSheshbesh, onGoTrivia, onGoRummikub, onGoArena, onGoBingo, onGoChess, onGoAroundWorld, onGoDomino, onGoBridge, inviteFriend = null }) {
   const [comingSoon, setComingSoon] = useState(null)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const { authUser, profile } = useUserStore()
@@ -190,6 +199,10 @@ export default function GamesArenaPage({ onBack, onHome, onGoMemory, onGoConnect
     }
     if (game.id === 'domino' && onGoDomino) {
       onGoDomino()
+      return
+    }
+    if (game.id === 'bridge' && onGoBridge) {
+      onGoBridge()
       return
     }
     // משחקים שעדיין לא בנויים — מודל "בקרוב"

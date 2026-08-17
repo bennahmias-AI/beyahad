@@ -36,6 +36,7 @@ import ArenaGame from './pages/ArenaGame.jsx'
 import BingoGame from './pages/BingoGame.jsx'
 import AroundWorldGame from './pages/AroundWorldGame.jsx'
 import DominoGame from './pages/DominoGame.jsx'
+import BridgeGame from './pages/BridgeGame.jsx'
 import AdminDashboard from './pages/AdminDashboardResponsive.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
 import GameInviteListener from './components/GameInviteListener.jsx'
@@ -596,11 +597,13 @@ export default function App() {
           onGoBingo={() => { setBingoRoom(null); setGameMode(null); setPage('bingo-game') }}
           onGoAroundWorld={() => setPage('aroundworld-game')}
           onGoDomino={() => { setDominoRoom(null); setGameMode(null); setPage('domino-game') }}
+          onGoBridge={() => setPage('bridge-game')}
         />
       )}
       {page === 'memory-game' && <MemoryGame onBack={() => setPage('games')} onHome={goHome} />}
       {page === 'aroundworld-game' && <AroundWorldGame initialRoomId={aroundWorldRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setAroundWorldRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
       {page === 'domino-game' && <DominoGame initialRoomId={dominoRoom} initialMode={gameMode} autoInviteFriend={playFriend} onBack={() => { setDominoRoom(null); setPlayFriend(null); setPage('games') }} onHome={goHome} profile={profile} />}
+      {page === 'bridge-game' && <BridgeGame onBack={() => setPage('games')} onHome={goHome} profile={profile} />}
       {page === 'millionaire-game' && (
         <MillionaireGame
           onBack={() => setPage('games')}

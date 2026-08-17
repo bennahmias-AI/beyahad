@@ -12,7 +12,20 @@
           "package_name": "com.beyahad.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "705995824315-f28dlm0e13j37o2huntukaju7pk3n0qs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.beyahad.app",
+            "certificate_hash": "65211e63aa01a5c35f388ba852990d5ad25592ef"
+          }
+        },
+        {
+          "client_id": "705995824315-5rk6ldtgpbgm52196n5jqhdh854tvo0f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA_F8MkRzJNfGOfHxHDGeMJtEYr8hDBBIQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "705995824315-5rk6ldtgpbgm52196n5jqhdh854tvo0f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

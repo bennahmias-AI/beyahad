@@ -451,9 +451,31 @@ function DominoIcon({ size }) {
   )
 }
 
+// ── 🃏 ברידג' — שני קלפים פרושים עם ארבעת הסוגים ──
+function BridgeIcon({ size }) {
+  return (
+    <IconWrap size={size}>
+      {/* קלף אחורי מוטה שמאלה */}
+      <g transform="rotate(-14 32 34)">
+        <rect x="14" y="14" width="26" height="38" rx="4" fill={W} stroke="#C9A24A" strokeWidth="1.5" />
+        <text x="27" y="40" textAnchor="middle" fontFamily="Georgia, serif" fontSize="20" fill="#1B2540">♠</text>
+      </g>
+      {/* קלף קדמי מוטה ימינה */}
+      <g transform="rotate(12 32 34)">
+        <rect x="26" y="14" width="26" height="38" rx="4" fill={W} stroke="#C9A24A" strokeWidth="1.5" />
+        <text x="39" y="40" textAnchor="middle" fontFamily="Georgia, serif" fontSize="20" fill="#C41E1E">♥</text>
+      </g>
+      {/* שני הסוגים הנוספים כסמלים קטנים למטה */}
+      <text x="16" y="59" textAnchor="middle" fontFamily="Georgia, serif" fontSize="13" fill="#E8884F">♦</text>
+      <text x="50" y="59" textAnchor="middle" fontFamily="Georgia, serif" fontSize="13" fill={W}>♣</text>
+    </IconWrap>
+  )
+}
+
 export function GameIcon({ id, size = 64 }) {
   switch (id) {
     case 'bingo':     return <BingoIcon size={size} />
+    case 'bridge':    return <BridgeIcon size={size} />
     case 'sheshbesh': return <SheshbeshIcon size={size} />
     case 'chess':     return <ChessIcon size={size} />
     case 'checkers':  return <CheckersIcon size={size} />
